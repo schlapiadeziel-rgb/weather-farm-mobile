@@ -49,6 +49,8 @@ cd android
 
 也可在 GitHub Actions 运行 **Build Android APK**；成功后下载 `田野来信-Android` 构建产物中的 APK。仓库内含自动构建工作流。
 
+发布试玩版时，为成功构建的提交创建版本标签，再运行 **Publish Android Release**，填写标签和该构建的 run ID。工作流核对源码提交一致后，将 APK、源码 ZIP 与校验和上传到 Releases。
+
 ## 数据与模型的边界
 
 - 天气 API 是区域气象模型/实况产品，**不是农田传感器实测**。来源：[Open-Meteo](https://open-meteo.com/)（[API 文档](https://open-meteo.com/en/docs)、[数据许可](https://open-meteo.com/en/terms)）。气象数据按 CC BY 4.0 使用并署名；免费 API 的用途及限额遵循服务条款，商业上线前需检查适用方案。
