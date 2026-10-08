@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">田野来信</string>
+    <string name="title_activity_main">田野来信</string>
+    <string name="package_name">com.fieldletter.farm</string>
+    <string name="custom_url_scheme">com.fieldletter.farm</string>
+</resources>
