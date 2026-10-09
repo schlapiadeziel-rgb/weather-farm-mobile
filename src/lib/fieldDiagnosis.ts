@@ -76,7 +76,7 @@ export type CaseStorage = Pick<Storage, 'getItem' | 'setItem'>;
 export const EDUCATION_ENTRIES: readonly EducationEntry[] = [
   {
     id: 'monitor', title: '先记录与监测，再决定处理',
-    body: '记录发生时间、受影响与未受影响区域、数量和近期管理变化，比较同批健康个体。不要仅凭单张照片确诊或自行用药；快速扩大的异常应联系当地农技或兽医。',
+    body: '记录发生时间、受影响与未受影响区域、数量和近期管理变化，比较同批健康个体。不要仅凭单张照片确诊或自行用药；快速扩大的异常应联系对应领域的当地专业人员。',
     sourceName: 'FAO · Integrated Pest Management', sourceUrl: 'https://www.fao.org/pest-and-pesticide-management/ipm/en/',
   },
   {
