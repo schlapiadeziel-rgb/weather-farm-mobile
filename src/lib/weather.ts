@@ -28,6 +28,10 @@ export type WeatherBundle = {
   forecast: WeatherDay[];
   fetchedAt: string;
   timezone: string;
+  /** Actual model time, with the API's UTC offset, distinct from fetch time. */
+  dataTime?: string;
+  /** Original local model timestamp for display with timezone. */
+  currentTime?: string;
 };
 
 export const PRESET_LOCATIONS: Location[] = [
@@ -72,6 +76,21 @@ function values(value: unknown, expected: number, name: string): unknown[] {
   return value;
 }
 
+function validCalendarDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const timestamp = Date.parse(`${value}T00:00:00Z`);
+  // Date parsing can normalize February 30 or fail altogether. Check both
+  // before formatting so malformed service data cannot throw a RangeError.
+  return Number.isFinite(timestamp) && new Date(timestamp).toISOString().slice(0, 10) === value;
+}
+
+function validLocalTime(value: string): boolean {
+  const match = /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(value);
+  return !!match && validCalendarDate(match[1])
+    && Number(match[2]) <= 23 && Number(match[3]) <= 59
+    && (match[4] === undefined || Number(match[4]) <= 59);
+}
+
 async function requestJson(url: string, service: string): Promise<unknown> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 12_000);
@@ -95,13 +114,24 @@ function parseWeather(payload: unknown, location: Location): WeatherBundle {
   const daily = record(data.daily);
   const hourly = record(data.hourly);
   const current = record(data.current);
+  if (data.current_units !== undefined) {
+    const units = record(data.current_units);
+    for (const [field, expected] of Object.entries({ temperature_2m: '°C', relative_humidity_2m: '%', wind_speed_10m: 'km/h', precipitation: 'mm' })) {
+      if (units[field] !== expected) throw new Error('天气服务返回的单位与请求不一致，请重新获取。');
+    }
+  }
   const dates = values(daily.time, 7, '日期').map((date) => {
     const result = textValue(date, '日期');
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(result)) throw new Error('天气服务返回了无效日期。');
+    if (!validCalendarDate(result)) throw new Error('天气服务返回了无效日期。');
     return result;
   });
   if (new Set(dates).size !== dates.length) throw new Error('天气服务返回了重复日期。');
-  const times = values(hourly.time, 168, '逐小时日期').map((time) => textValue(time, '逐小时日期'));
+  if (!Array.isArray(hourly.time) || hourly.time.length < 167 || hourly.time.length > 169) throw new Error('天气服务的逐小时日期数据不完整。');
+  const times = hourly.time.map((time) => {
+    const result = textValue(time, '逐小时日期');
+    if (!validLocalTime(result)) throw new Error('天气服务返回了无效逐小时时间。');
+    return result;
+  });
   const hourlyHumidity = values(hourly.relative_humidity_2m, times.length, '逐小时湿度');
   // Keep hourly precipitation probability in the request and validate it rather
   // than inventing a zero when a model cannot supply this field.
@@ -115,7 +145,7 @@ function parseWeather(payload: unknown, location: Location): WeatherBundle {
   const fields = Object.fromEntries(dailyFields.map((field) => [field, values(daily[field], dates.length, field)]));
   const forecast = dates.map((date, index): WeatherDay => {
     const humidity = times.flatMap((time, hour) => time.startsWith(`${date}T`) ? [numeric(hourlyHumidity[hour], '空气湿度', 0, 100)] : []);
-    if (humidity.length !== 24) throw new Error('天气服务缺少完整的每日湿度数据，请稍后重试。');
+    if (humidity.length < 23 || humidity.length > 25) throw new Error('天气服务缺少完整的每日湿度数据，请稍后重试。');
     const minTemp = numeric(fields.temperature_2m_min[index], '最低气温', -100, 70);
     const maxTemp = numeric(fields.temperature_2m_max[index], '最高气温', -100, 70);
     if (minTemp > maxTemp) throw new Error('天气服务返回的气温范围无效。');
@@ -132,6 +162,15 @@ function parseWeather(payload: unknown, location: Location): WeatherBundle {
     };
   });
   const currentTime = textValue(current.time, '当前时间');
+  if (!validLocalTime(currentTime)) throw new Error('天气服务返回的当前时间无效。');
+  let dataTime: string | undefined;
+  if (data.utc_offset_seconds !== undefined) {
+    const offset = numeric(data.utc_offset_seconds, '时区偏移', -64800, 64800);
+    if (!Number.isInteger(offset) || offset % 60 !== 0) throw new Error('天气服务返回的时区偏移无效。');
+    const absolute = Math.abs(offset / 60);
+    dataTime = `${currentTime}${offset < 0 ? '-' : '+'}${String(Math.floor(absolute / 60)).padStart(2, '0')}:${String(absolute % 60).padStart(2, '0')}`;
+    if (!Number.isFinite(Date.parse(dataTime))) throw new Error('天气服务返回的当前时间无效。');
+  }
   const today = forecast.find((day) => day.date === currentTime.slice(0, 10));
   if (!today) throw new Error('当前天气与预报日期不一致，请重新获取。');
   // This 15-minute precipitation amount is not today's total and is never fed
@@ -149,6 +188,7 @@ function parseWeather(payload: unknown, location: Location): WeatherBundle {
     forecast,
     fetchedAt: new Date().toISOString(),
     timezone: textValue(data.timezone, '时区'),
+    currentTime, dataTime,
   };
 }
 

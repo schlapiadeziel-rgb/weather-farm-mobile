@@ -1,0 +1,95 @@
+.fv-visual {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  max-width: 100%;
+  aspect-ratio: 120 / 112;
+  vertical-align: middle;
+  line-height: 0;
+  pointer-events: none;
+  user-select: none;
+  contain: layout style;
+}
+.fv-visual svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.fv-crop { width: clamp(38px, 6.5vw, 78px); }
+.fv-animal { width: clamp(60px, 10vw, 122px); }
+.fv-wind {
+  transform-box: view-box;
+  transform-origin: 60px 96px;
+  animation: fv-sway 6.6s ease-in-out infinite;
+}
+.fv-crop[data-crop="wheat"] .fv-wind { animation-duration: 5.8s; }
+.fv-crop[data-crop="strawberry"] .fv-wind { animation-delay: -2.3s; }
+.fv-crop[data-crop="tomato"] .fv-wind { animation-delay: -4.1s; }
+.fv-crop[data-stage="seedling"] .fv-wind { animation-duration: 7.6s; }
+.fv-plant-art { transition: opacity .2s ease; }
+.fv-crop[data-condition="dry"] .fv-plant-art { opacity: .85; }
+.fv-crop[data-condition="stressed"] .fv-plant-art { opacity: .67; }
+.fv-crop[data-condition="stressed"] .fv-wind,
+.fv-crop[data-condition="dry"] .fv-wind { animation-name: fv-tired-sway; }
+.fv-crop[data-condition="withered"] .fv-plant-art { opacity: .8; }
+.fv-sparkle { opacity: .75; animation: fv-glint 3.8s ease-in-out infinite; }
+.fv-sparkle-late { animation-delay: -1.9s; }
+.fv-water-cue { animation: fv-water-cue 4s ease-in-out infinite; }
+.fv-animal-body {
+  transform-box: view-box;
+  transform-origin: 60px 99px;
+  animation: fv-breathe 6s ease-in-out infinite;
+}
+.fv-animal[data-animal="cow"] .fv-animal-body { animation-delay: -2.5s; animation-duration: 7.4s; }
+.fv-animal[data-animal="sheep"] .fv-animal-body { animation-delay: -4s; }
+.fv-animal[data-condition="resting"] .fv-livestock-art { opacity: .66; }
+.fv-animal[data-condition="resting"] .fv-animal-body { animation: none; }
+
+/* The parent owns touch targets. Art never creates a floating interaction layer. */
+.crop-avatar .fv-crop { width: 100%; max-height: 100%; padding: 2px; }
+.seed-card .fv-crop { width: 36px; }
+.animal-option .fv-animal { width: 44px; }
+.animal-option > span:has(.fv-animal) { line-height: 0; }
+.plot .fv-crop { max-width: 80%; }
+.animal-pen .fv-animal { max-width: 85%; }
+.plot:nth-child(2n) .fv-wind { animation-delay: -1.5s; }
+.plot:nth-child(3n) .fv-wind { animation-delay: -3.8s; }
+
+@keyframes fv-sway {
+  0%, 100% { transform: rotate(-.9deg); }
+  50% { transform: rotate(1.2deg); }
+}
+@keyframes fv-tired-sway {
+  0%, 100% { transform: rotate(2deg); }
+  50% { transform: rotate(2.5deg); }
+}
+@keyframes fv-glint {
+  0%, 100% { opacity: .3; }
+  45%, 60% { opacity: .95; }
+}
+@keyframes fv-water-cue {
+  0%, 100% { opacity: .8; }
+  50% { opacity: 1; }
+}
+@keyframes fv-breathe {
+  0%, 100% { transform: scaleY(1); }
+  50% { transform: scaleY(1.015); }
+}
+@media (max-height: 550px) {
+  .plot .fv-crop { width: clamp(32px, 5.2vw, 58px); }
+  .animal-pen .fv-animal { width: clamp(56px, 8vw, 90px); }
+  .seed-card .fv-crop { width: 28px; }
+  .animal-option .fv-animal { width: 35px; }
+}
+@media (max-height: 400px) {
+  .plot .fv-crop { width: clamp(30px, 4.4vw, 46px); }
+  .animal-pen .fv-animal { width: clamp(48px, 7vw, 74px); }
+}
+@media (orientation: portrait) and (max-width: 700px) {
+  .fv-crop { width: clamp(38px, 12vw, 66px); }
+  .fv-animal { width: clamp(64px, 20vw, 100px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fv-visual *, .fv-visual *::before, .fv-visual *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+  .fv-sparkle { opacity: .7; }
+}

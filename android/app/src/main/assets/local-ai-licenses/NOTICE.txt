@@ -1,0 +1,5 @@
+Local AI engine: NeoLocalAI-Android / llama.cpp, fixed commit cc1ffc71c6d02c26d144fd79cb5fa77cfddb17b8.
+Source: https://github.com/schlapiadeziel-rgb/NeoLocalAI-Android/tree/cc1ffc71c6d02c26d144fd79cb5fa77cfddb17b8
+Engine and JNI adaptation: MIT; component licenses are preserved in this directory.
+Downloaded Qwen3.5 models are separately licensed Apache-2.0, not MIT and not bundled in the APK.
+No disease-diagnosis accuracy or clinical/agronomic validation is claimed.

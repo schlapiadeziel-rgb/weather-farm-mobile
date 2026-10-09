@@ -10,3 +10,4 @@ android/app/src/main/assets/public/
 *.tsbuildinfo
 .DS_Store
 artifacts/
+android/**/.cxx/

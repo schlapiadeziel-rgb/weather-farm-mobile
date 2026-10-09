@@ -1,0 +1,10 @@
+root ::= "{" ws "\"observations\"" ws ":" ws string-list "," ws "\"possibleCauses\"" ws ":" ws causes "," ws "\"missingInformation\"" ws ":" ws optional-list "," ws "\"lowRiskActions\"" ws ":" ws string-list "," ws "\"escalation\"" ws ":" ws string-list "," ws "\"risk\"" ws ":" ws risk "," ws "\"limitations\"" ws ":" ws string-list "}" ws
+causes ::= "[" ws (cause ("," ws cause){0,2})? "]" ws
+cause ::= "{" ws "\"name\"" ws ":" ws name "," ws "\"evidence\"" ws ":" ws string-list "," ws "\"uncertainty\"" ws ":" ws string "}" ws
+string-list ::= "[" ws string ("," ws string){0,3} "]" ws
+optional-list ::= "[" ws (string ("," ws string){0,3})? "]" ws
+name ::= "\"" character{1,120} "\"" ws
+string ::= "\"" character{1,320} "\"" ws
+character ::= [^"\\\x7F\x00-\x1F] | "\\" (["\\/bfnrt] | "u" [0-9a-fA-F]{4})
+risk ::= ("\"low\"" | "\"medium\"" | "\"high\"" | "\"urgent\"") ws
+ws ::= | " " | "\n" [ \t]{0,20}
