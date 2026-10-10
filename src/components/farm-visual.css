@@ -22,6 +22,9 @@
 .fv-crop[data-crop="wheat"] .fv-wind { animation-duration: 5.8s; }
 .fv-crop[data-crop="strawberry"] .fv-wind { animation-delay: -2.3s; }
 .fv-crop[data-crop="tomato"] .fv-wind { animation-delay: -4.1s; }
+.fv-crop[data-crop="corn"] .fv-wind, .fv-crop[data-crop="sugarcane"] .fv-wind { animation-duration: 7.4s; }
+.fv-crop[data-crop="pumpkin"] .fv-wind, .fv-crop[data-crop="potato"] .fv-wind { animation-duration: 9s; }
+.fv-crop[data-crop="cotton"] .fv-wind, .fv-crop[data-crop="indigo"] .fv-wind { animation-delay: -3.2s; }
 .fv-crop[data-stage="seedling"] .fv-wind { animation-duration: 7.6s; }
 .fv-plant-art { transition: opacity .2s ease; }
 .fv-crop[data-condition="dry"] .fv-plant-art { opacity: .85; }
@@ -39,6 +42,8 @@
 }
 .fv-animal[data-animal="cow"] .fv-animal-body { animation-delay: -2.5s; animation-duration: 7.4s; }
 .fv-animal[data-animal="sheep"] .fv-animal-body { animation-delay: -4s; }
+.fv-animal[data-animal="pig"] .fv-animal-body { animation-delay: -1.8s; animation-duration: 7.8s; }
+.fv-animal[data-animal="goat"] .fv-animal-body { animation-delay: -3.1s; animation-duration: 6.8s; }
 .fv-animal[data-condition="resting"] .fv-livestock-art { opacity: .66; }
 .fv-animal[data-condition="resting"] .fv-animal-body { animation: none; }
 
@@ -48,6 +53,18 @@
 .animal-option .fv-animal { width: 44px; }
 .animal-option > span:has(.fv-animal) { line-height: 0; }
 .plot .fv-crop { max-width: 80%; }
+.farm-scene .plot.planted .fv-crop .fv-plant-art {
+  transform-box: view-box;
+  transform-origin: 60px 96px;
+  transform: translateY(-3px) scale(1.16);
+  filter: drop-shadow(0 1px 0 #334c384d);
+}
+.farm-scene .plot.planted .fv-crop[data-stage="seedling"] .fv-plant-art {
+  transform: translateY(-2px) scale(1.5);
+}
+.farm-scene .plot.planted .fv-crop[data-stage="sprout"] .fv-plant-art {
+  transform: translateY(-2px) scale(1.25);
+}
 .animal-pen .fv-animal { max-width: 85%; }
 .plot:nth-child(2n) .fv-wind { animation-delay: -1.5s; }
 .plot:nth-child(3n) .fv-wind { animation-delay: -3.8s; }

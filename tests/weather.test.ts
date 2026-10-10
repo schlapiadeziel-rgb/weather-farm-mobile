@@ -67,10 +67,10 @@ test('HTTP failure is shown in Chinese and does not create fake weather', async 
   await assert.rejects(fetchWeather(PRESET_LOCATIONS[0]), /请求过于频繁/);
 });
 
-test('preset city names and pinyin resolve without a geocoding network request', async () => {
-  globalThis.fetch = (async () => { throw new Error('unexpected network request'); }) as typeof fetch;
-  assert.equal((await searchLocations('杭州市'))[0].name, '杭州');
-  assert.equal((await searchLocations('Chengdu'))[0].name, '成都');
+test('preset city names and pinyin remain available when geocoding is offline', async () => {
+  globalThis.fetch = (async () => { throw new TypeError('offline'); }) as typeof fetch;
+  assert.equal((await searchLocations('杭州市'))[0].name, '杭州 · 浙江 · 中国');
+  assert.equal((await searchLocations('Chengdu'))[0].name, '成都 · 四川 · 中国');
   assert.deepEqual(await searchLocations('  '), []);
 });
 
@@ -81,7 +81,7 @@ test('other cities use live Chinese geocoding and preserve disambiguating region
     assert.equal(url.searchParams.get('count'), '5');
     return new Response(JSON.stringify({ results: [{ name: '南京', admin1: '江苏', country: '中国', latitude: 32.06, longitude: 118.79 }] }));
   }) as typeof fetch;
-  assert.deepEqual(await searchLocations('南京'), [{ name: '南京 · 江苏 · 中国', latitude: 32.06, longitude: 118.79 }]);
+  assert.deepEqual(await searchLocations('南京'), [{ name: '南京 · 江苏 · 中国', latitude: 32.06, longitude: 118.79, source: 'search' }]);
 });
 
 test('unknown geocoding query returns an empty result', async () => {

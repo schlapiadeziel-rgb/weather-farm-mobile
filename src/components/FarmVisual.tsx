@@ -1,6 +1,6 @@
 import { memo, useId } from 'react';
-import { CROPS } from '../lib/game';
-import type { AnimalId, CropId } from '../lib/game';
+import { CROPS } from '../lib/farmContent';
+import type { AnimalId, CropId } from '../lib/farmTypes';
 import './farm-visual.css';
 
 /** Original decorative game scenery; separate from photo assessment inputs. */
@@ -30,6 +30,9 @@ function Paint({ id }: { id: string }) {
     <linearGradient id={`${id}-cream`} x1="0" y1="0" x2=".6" y2="1"><stop stopColor="#fffdf1" /><stop offset=".58" stopColor="#f1e9cc" /><stop offset="1" stopColor="#c8be9d" /></linearGradient>
     <linearGradient id={`${id}-ivory`} x1="0" y1="0" x2="1" y2="1"><stop stopColor="#fffef6" /><stop offset="1" stopColor="#dbdfca" /></linearGradient>
     <linearGradient id={`${id}-soil`} x1="0" y1="0" x2="0" y2="1"><stop stopColor="#ab7752" /><stop offset="1" stopColor="#735039" /></linearGradient>
+    <linearGradient id={`${id}-orange`} x1="0" y1="0" x2="1" y2="1"><stop stopColor="#ffc66d" /><stop offset=".5" stopColor="#ed9243" /><stop offset="1" stopColor="#bb602e" /></linearGradient>
+    <linearGradient id={`${id}-blue`} x1="0" y1="0" x2="1" y2="1"><stop stopColor="#b3bcf0" /><stop offset="1" stopColor="#667aaa" /></linearGradient>
+    <linearGradient id={`${id}-pink`} x1="0" y1="0" x2="1" y2="1"><stop stopColor="#ffe0c9" /><stop offset=".6" stopColor="#eeb3a5" /><stop offset="1" stopColor="#c98982" /></linearGradient>
   </defs>;
 }
 
@@ -97,16 +100,16 @@ function Tomato({ id, fruiting }: { id: string; fruiting: boolean }) {
 function WheatHead({ id, x, y, tilt = 0 }: { id: string; x: number; y: number; tilt?: number }) {
   return <g transform={`translate(${x} ${y}) rotate(${tilt})`}>
     <path d="M0 27V-7" stroke="#b68e47" strokeWidth="1.5" />
-    {[0, 7, 14, 21].map((n) => <g key={n} transform={`translate(0 ${n})`}><path d="M0 5C-9 3-11-3-8-6C-3-5 0-1 0 5ZM0 5C9 3 11-3 8-6C3-5 0-1 0 5Z" fill={`url(#${id}-gold)`} stroke="#ba944e" strokeWidth=".5" /></g>)}
-    <path d="M0-5C-5-9-3-15 0-17C4-13 4-9 0-5Z" fill={`url(#${id}-gold)`} />
+    {[0, 7, 14, 21].map((n) => <g key={n} transform={`translate(0 ${n})`}><path d="M0 5C-9 3-11-3-8-6C-3-5 0-1 0 5ZM0 5C9 3 11-3 8-6C3-5 0-1 0 5Z" fill={`url(#${id}-gold)`} stroke="#9d6d30" strokeWidth="1.1" /></g>)}
+    <path d="M0-5C-5-9-3-15 0-17C4-13 4-9 0-5Z" fill={`url(#${id}-gold)`} stroke="#a37839" strokeWidth=".8" />
     <path d="m-8-5-4-9m20 9 4-9m-20 16-5-6m21 6 5-6" stroke="#d0ae60" strokeWidth=".8" />
   </g>;
 }
 
 function WheatPlant({ id, fruiting }: { id: string; fruiting: boolean }) {
   return <g className="fv-wind">
-    <path d="M58 96Q52 70 38 45m23 52V31m2 65Q72 66 84 47m-29 46L45 68m18 27L73 76" stroke={fruiting ? '#b6a35d' : '#709955'} strokeWidth="2.8" fill="none" />
-    <path d="M56 86C36 82 31 70 29 60C44 66 53 77 56 86ZM64 86C81 82 89 72 92 61C77 66 68 77 64 86ZM59 73C51 62 48 53 50 43C58 51 62 64 59 73Z" fill={`url(#${id}-${fruiting ? 'gold' : 'leaf'})`} opacity=".9" />
+    <path d="M58 96Q52 70 38 45m23 52V31m2 65Q72 66 84 47m-29 46L45 68m18 27L73 76" stroke={fruiting ? '#edc770' : '#709955'} strokeWidth="3" fill="none" />
+    <path d="M56 86C36 82 31 70 29 60C44 66 53 77 56 86ZM64 86C81 82 89 72 92 61C77 66 68 77 64 86ZM59 73C51 62 48 53 50 43C58 51 62 64 59 73Z" fill={`url(#${id}-${fruiting ? 'gold' : 'leaf'})`} />
     {fruiting ? <><WheatHead id={id} x={38} y={42} tilt={-23} /><WheatHead id={id} x={61} y={29} /><WheatHead id={id} x={84} y={44} tilt={23} /></> : <>
       <path d="M38 54C26 47 28 37 27 29C39 34 43 44 38 54ZM61 40C51 33 55 21 61 16C67 23 69 33 61 40ZM83 55C79 44 85 36 95 31C94 43 91 50 83 55Z" fill={`url(#${id}-leaf-light)`} />
     </>}
@@ -143,6 +146,19 @@ function Sparkles() {
   return <g className="fv-sparkles" fill="#fff4ad"><path className="fv-sparkle" d="m22 38 2-6 2 6 6 2-6 2-2 6-2-6-6-2Z" /><path className="fv-sparkle fv-sparkle-late" d="m99 62 1.5-4 1.5 4 4 1.5-4 1.5-1.5 4-1.5-4-4-1.5Z" /></g>;
 }
 
+/** Readable mature silhouettes for the expanded fictional crop catalogue. */
+function ExpandedCrop({ crop, id, fruiting }: { crop: CropId; id: string; fruiting: boolean }) {
+  const leaf = `url(#${id}-leaf)`, light = `url(#${id}-leaf-light)`, gold = `url(#${id}-gold)`, orange = `url(#${id}-orange)`;
+  if (crop === 'corn') return <g className="fv-wind"><path d="M58 97V26m0 27-7-16m7 1 7-15" stroke="#619154" strokeWidth="3.4" fill="none" /><path d="M57 78C35 77 29 59 22 48C42 50 53 59 57 78ZM60 64C81 53 84 37 98 33C91 57 78 67 60 64ZM57 52C44 46 37 32 30 27C49 28 55 40 57 52ZM59 88C74 85 86 75 96 73C84 92 73 95 59 88Z" fill={leaf} />{fruiting && <><path d="M58 68C61 52 73 39 80 42C87 47 81 67 64 80Z" fill={gold} stroke="#c89e47" strokeWidth=".8" /><path d="m65 59 10 5m-13 1 10 5m-12 1 8 5m2-28-9 25m14-23-9 25" stroke="#e8c66c" strokeWidth="1.5" /><path d="M62 79C56 64 62 57 65 54C62 67 65 74 62 79ZM64 81C80 79 86 70 88 61C78 70 71 74 64 81Z" fill={light} /></>}<path d="m56 25-8-8m10 7 1-13m1 14 9-8" stroke="#e1c978" strokeWidth="1.6" fill="none" /></g>;
+  if (crop === 'carrot') return <g className="fv-wind">{fruiting && <><path d="M44 67C48 57 68 55 75 65C77 77 66 93 58 103C55 94 43 81 44 67Z" fill={orange} stroke="#c97b36" strokeWidth=".8" /><path d="m49 72 10 3m-5 8 10 2m-7 7 5 1" stroke="#b87538" strokeWidth="1.4" /><path d="M49 65q-2 7 1 12" stroke="#ffdeb0" strokeWidth="3" fill="none" opacity=".7" /></>}<path d="M59 66 56 24m3 39L34 34m27 31 22-36" stroke="#61914e" strokeWidth="2.3" fill="none" /><g fill={leaf}><path d="m54 46-12-6 8-4-11-8 11 2-6-10 11 8 2-15 5 10 7-8-2 15 9-5-5 12 9-1-9 8-2 9-9 12Z" /><path d="m38 41-14-3 7-5-9-5 15 1-2-10 10 15 7 17Zm34 9 11-15-1-13 8 6 5-7-2 13 10-2-9 9 2 6-16 6Z" /></g><path d="M60 61 57 30m-5 25L35 33m32 26 19-24" stroke="#d3eba2" strokeWidth="1" fill="none" /></g>;
+  if (crop === 'soybean') return <g className="fv-wind"><path d="M60 96V45m0 21L39 47m21 28 21-20m-20 3 14-26" stroke="#669450" strokeWidth="3" fill="none" /><g fill={leaf}><ellipse cx="37" cy="45" rx="13" ry="8" transform="rotate(25 37 45)" /><ellipse cx="59" cy="39" rx="8" ry="13" /><ellipse cx="78" cy="36" rx="12" ry="8" transform="rotate(-35 78 36)" /><ellipse cx="87" cy="55" rx="14" ry="9" transform="rotate(-20 87 55)" /><ellipse cx="39" cy="72" rx="14" ry="9" transform="rotate(15 39 72)" /></g>{fruiting && <g fill="#b5cc72" stroke="#799c51" strokeWidth="1"><path d="M48 57C34 63 36 85 43 89C53 84 56 66 48 57Z" /><path d="M69 64C60 70 61 90 68 94C77 87 81 71 69 64Z" /><path d="M81 68C76 74 81 90 87 91C94 81 92 71 81 68Z" /><path d="m43 66-1 3m1 5-1 3m2 4 1 3m25-11-1 4m0 5-1 4m17-10 1 4m0 4 1 3" stroke="#dbea95" strokeWidth="3" strokeLinecap="round" /></g>}<path d="M28 42 43 48m39-10-12 3m12 17 13-4" stroke="#cce399" strokeWidth="1.1" fill="none" /></g>;
+  if (crop === 'sugarcane') return <g className="fv-wind"><path d="M44 96 40 35m20 62 2-69m14 66 8-57" stroke="#9ab77d" strokeWidth="6" /><path d="M43 95 40 36m21 61 2-68m15 64 7-56" stroke="#ccb17c" strokeWidth="2" /><path d="m36 48 9-1m-8 15h9m-8 15h9m-7 14h9m8-51h11m-11 15h10m-10 15h10m-10 16h10m11-37 10 2m-13 13 10 2m-12 11 10 2m-13 11 10 2" stroke="#71936a" strokeWidth="1.8" /><path d="M41 41C27 36 23 22 12 18C30 17 40 25 41 41ZM42 36C41 20 47 10 53 9C52 23 47 27 42 36ZM62 32C47 23 51 10 48 5C65 11 66 21 62 32ZM63 32C70 13 81 10 93 9C86 22 72 23 63 32ZM84 40C83 23 93 16 105 15C100 27 93 32 84 40Z" fill={leaf} /><path d="M60 32C78 31 92 39 99 51C82 47 69 44 60 32Z" fill={light} /></g>;
+  if (crop === 'indigo') return <g className="fv-wind"><path d="M59 97 58 40m1 24L38 48m21 30 23-21m-23-1 17-19" stroke="#638956" strokeWidth="3" fill="none" /><g fill={leaf}><ellipse cx="38" cy="51" rx="13" ry="6" transform="rotate(25 38 51)" /><ellipse cx="49" cy="65" rx="12" ry="6" transform="rotate(20 49 65)" /><ellipse cx="74" cy="68" rx="13" ry="6" transform="rotate(-25 74 68)" /><ellipse cx="76" cy="43" rx="12" ry="6" transform="rotate(-25 76 43)" /><ellipse cx="59" cy="43" rx="6" ry="11" /><ellipse cx="44" cy="81" rx="12" ry="6" transform="rotate(20 44 81)" /></g>{fruiting && <g fill={`url(#${id}-blue)`}><circle cx="34" cy="37" r="4" /><circle cx="41" cy="32" r="4" /><circle cx="38" cy="43" r="4" /><circle cx="80" cy="29" r="4" /><circle cx="86" cy="35" r="4" /><circle cx="78" cy="39" r="4" /><circle cx="82" cy="56" r="4" /><circle cx="89" cy="52" r="4" /><circle cx="89" cy="62" r="4" /></g>}<path d="m36 49 11 6m27 16 11-6m-46 19 11 0" stroke="#c2d79b" strokeWidth="1" /></g>;
+  if (crop === 'pumpkin') return <g className="fv-wind"><path d="M40 92C50 73 74 83 89 94m-28-7L43 62m20 26 21-25" stroke="#699754" strokeWidth="3" fill="none" /><path d="m26 63 13-8 5-12 8 10 14 1-5 12 4 13-14-3-13 6-3-12Z" fill={leaf} /><path d="m71 60 8-10 10-2 3 9 12 6-7 7-2 12-12-5-11 1 3-9Z" fill={light} />{fruiting && <><path d="M44 74C49 64 57 67 60 68C72 61 83 69 85 81C92 98 75 104 60 103C39 106 30 92 37 80C39 75 40 74 44 74Z" fill={orange} stroke="#b97537" strokeWidth="1" /><path d="M52 72C39 83 44 99 56 103M64 71c-7 14-8 24-3 32m12-29c8 10 7 22-6 29" stroke="#c77835" strokeWidth="1.6" fill="none" /><path d="M60 70q-1-9 6-13" stroke="#6b8b4b" strokeWidth="4" fill="none" /><path d="M44 81q-4 8 0 13" stroke="#ffd394" strokeWidth="2.5" opacity=".65" fill="none" /></>}</g>;
+  if (crop === 'cotton') return <g className="fv-wind"><path d="M61 98 60 39m0 26L37 48m24 32 21-20m-22-6 17-25" stroke="#8d8354" strokeWidth="3" fill="none" /><path d="M56 68 42 58l-13 1 8 11-2 10 14-2Zm11 10 9-14 16-2-4 14 7 8-18-2Zm-10-26-9-11 4-12 9 7 8-3-2 16Z" fill={leaf} />{fruiting && <g fill={`url(#${id}-ivory)`} stroke="#cbc7b1" strokeWidth=".8"><path d="M25 43c-6-10 4-19 12-14 8-10 19-1 16 8 9 7 0 18-9 15-11 7-22 0-19-9Z" /><path d="M69 28c-4-9 6-15 12-10 6-7 16-1 13 7 6 7 0 15-8 13-10 7-19-2-17-10Z" /><path d="M74 56c-4-10 6-18 14-12 7-8 18-2 16 8 8 7 0 16-10 14-10 6-21-1-20-10Z" /><path d="m35 47 2 5 7-3m36-17 4 6 5-4m-4 28 5 6 6-6" stroke="#8f9b69" strokeWidth="2" fill="none" /></g>}</g>;
+  return <g className="fv-wind"><path d="M60 97 57 46m2 22L36 52m24 27 22-17" stroke="#6e9558" strokeWidth="3" fill="none" /><g fill={leaf}><ellipse cx="36" cy="52" rx="15" ry="9" transform="rotate(22 36 52)" /><ellipse cx="59" cy="41" rx="9" ry="14" /><ellipse cx="83" cy="61" rx="15" ry="10" transform="rotate(-20 83 61)" /><ellipse cx="44" cy="76" rx="14" ry="9" transform="rotate(18 44 76)" /></g>{fruiting && <><g fill="#f2d49b" stroke="#aa8960" strokeWidth="1"><ellipse cx="43" cy="96" rx="15" ry="10" transform="rotate(-12 43 96)" /><ellipse cx="72" cy="95" rx="17" ry="12" transform="rotate(10 72 95)" /><ellipse cx="59" cy="86" rx="10" ry="7" /></g><g fill="#ad8d64"><circle cx="38" cy="94" r="1.2" /><circle cx="47" cy="100" r="1.1" /><circle cx="66" cy="91" r="1.2" /><circle cx="79" cy="98" r="1.2" /><circle cx="74" cy="90" r="1" /></g><g fill="#fff2cf"><circle cx="79" cy="44" r="3.2" /><circle cx="86" cy="42" r="3.2" /><circle cx="87" cy="49" r="3.2" /><circle cx="81" cy="50" r="3.2" /></g><circle cx="83" cy="47" r="2" fill="#e7bf57" /></>}<path d="m27 50 18 6m33 10 16-7" stroke="#c5dfa1" strokeWidth="1" /></g>;
+}
+
 /** Decorative SVG. The surrounding control supplies the accessible state label. */
 export const CropVisual = memo(function CropVisual({ crop, growth, health, moisture, className = '' }: CropVisualProps) {
   const id = `fv-c-${useId().replace(/:/g, '')}`;
@@ -156,7 +172,7 @@ export const CropVisual = memo(function CropVisual({ crop, growth, health, moist
     <svg viewBox="0 0 120 112" focusable="false" strokeLinecap="round" strokeLinejoin="round">
       <Paint id={id} /><Soil id={id} dry={dry} empty={!crop} />
       <g className="fv-plant-art">
-        {crop && (!alive ? <WiltedPlant /> : progress < 32 ? <YoungPlant id={id} seedling={progress < 12} /> : crop === 'radish' ? <Radish id={id} fruiting={progress >= 68} /> : crop === 'tomato' ? <Tomato id={id} fruiting={progress >= 68} /> : crop === 'wheat' ? <WheatPlant id={id} fruiting={progress >= 68} /> : <Strawberry id={id} fruiting={progress >= 68} />)}
+        {crop && (!alive ? <WiltedPlant /> : progress < 32 ? <YoungPlant id={id} seedling={progress < 12} /> : crop === 'radish' ? <Radish id={id} fruiting={progress >= 68} /> : crop === 'tomato' ? <Tomato id={id} fruiting={progress >= 68} /> : crop === 'wheat' ? <WheatPlant id={id} fruiting={progress >= 68} /> : crop === 'strawberry' ? <Strawberry id={id} fruiting={progress >= 68} /> : <ExpandedCrop crop={crop} id={id} fruiting={progress >= 68} />)}
       </g>
       {ripe && !dry && <Sparkles />}
       {dry && <g className="fv-water-cue" transform="translate(101 24)"><circle r="10" fill="#fff3d5" stroke="#d3aa66" strokeWidth="1" /><path d="M0-6C-2-2-5 1-5 3A5 5 0 0 0 5 3C5 1 2-2 0-6Z" fill="#a7c8cf" /><path d="M-2 2q-1 3 2 3" stroke="#fff9e9" strokeWidth="1.3" fill="none" /></g>}
@@ -210,6 +226,33 @@ function Sheep({ id, healthy }: { id: string; healthy: boolean }) {
   </g>;
 }
 
+function Pig({ id, healthy }: { id: string; healthy: boolean }) {
+  return <g className="fv-animal-body">
+    <path d="M32 78v19h9l2-19m29 0v19h9l2-23" fill="#dda494" stroke="#bd827c" strokeWidth="1" /><path d="M32 93h9v5h-9M72 93h9v5h-9" fill="#99726c" />
+    <path d="M24 59c-14-8-18 7-10 8 8 2 9-9 4-12" fill="none" stroke="#dca18e" strokeWidth="3" strokeLinecap="round" />
+    <path d="M26 52c16-17 48-17 62 2 13 17 2 37-22 39-25 3-44-7-44-25 0-7 1-12 4-16Z" fill={`url(#${id}-pink)`} stroke="#c79285" strokeWidth="1" />
+    <path d="M75 49 70 29c10-3 18 7 19 16m3 1 10-15c8 4 7 13 0 21" fill="#e6ac9c" stroke="#c88e82" strokeWidth="1" /><path d="m77 32 6 11m16-7-3 9" stroke="#c98980" strokeWidth="2" />
+    <path d="M78 45c18-7 31 7 27 22-3 17-27 22-35 8-8-12-4-23 8-30Z" fill={`url(#${id}-pink)`} stroke="#c79285" strokeWidth="1" />
+    <ellipse cx="95" cy="67" rx="13" ry="9" fill="#e69d95" stroke="#c1847d" strokeWidth="1" /><ellipse cx="90" cy="67" rx="1.8" ry="2.5" fill="#9d6765" /><ellipse cx="99" cy="67" rx="1.8" ry="2.5" fill="#9d6765" />
+    {healthy ? <><circle cx="85" cy="54" r="2" fill="#5c5350" /><circle cx="85.6" cy="53.4" r=".6" fill="#fff5e3" /></> : <path d="m82 56 5-1" stroke="#735a53" strokeWidth="1.6" />}
+    <path d="M30 53q11-9 25-8" stroke="#ffe8d5" strokeWidth="3" opacity=".8" fill="none" /><path d="m84 75 9 2" stroke="#be8178" strokeWidth="1.3" fill="none" />
+  </g>;
+}
+
+function Goat({ id, healthy }: { id: string; healthy: boolean }) {
+  return <g className="fv-animal-body">
+    <path d="m31 76-3 22h8l7-22m29-4-2 26h8l5-24" fill="#b4ab8c" stroke="#968e73" strokeWidth="1" /><path d="m28 93 8 1v5h-8m42-5h8v5h-8" fill="#5e6558" />
+    <path d="M28 56 17 45l-5 9 13 12" fill="#cec6a5" stroke="#a5a386" strokeWidth="1" />
+    <path d="M28 53c13-12 37-9 49 1l8 14c-3 16-19 23-39 19-17-4-26-16-18-34Z" fill={`url(#${id}-cream)`} stroke="#aca98b" strokeWidth="1" />
+    <path d="M43 49c9-5 18-2 22 3l-4 29-13-3Z" fill="#c3b38b" opacity=".75" /><path d="m73 51 9-21 12 8 7 26-14 17-15-14Z" fill={`url(#${id}-ivory)`} stroke="#a2a18a" strokeWidth="1" />
+    <path d="M80 37c-5-15-1-27 5-30-2 15 0 20 2 25m7 4c-1-16 3-25 9-27-5 13-5 20-3 28" fill="#b0a18b" stroke="#958975" strokeWidth="1" />
+    <path d="M79 40c-13-7-20-2-11 6l13 2m16-6c13-2 16 6 4 8l-6-4" fill="#d3d0b1" stroke="#a5a58b" strokeWidth="1" />
+    <path d="M81 35c4-4 11-2 16 3l-5 15-10-1Z" fill="#998b6c" /><path d="m89 74-3 13 8-3 2-13Z" fill="#d0c6a2" stroke="#aaa083" strokeWidth=".8" />
+    {healthy ? <><circle cx="84" cy="54" r="1.7" fill="#3e4d3b" /><circle cx="96" cy="53" r="1.7" fill="#3e4d3b" /></> : <path d="m82 56 4-1m9 0 4-1" stroke="#58614c" strokeWidth="1.5" />}
+    <path d="m87 63 8 0-3 3Zm5 3v4m0 0-4 1m4-1 4-1" fill="#65725a" stroke="#65725a" strokeWidth=".9" /><path d="M31 55q-4 10 2 17" stroke="#fffbee" strokeWidth="2.6" opacity=".7" fill="none" />
+  </g>;
+}
+
 function EmptyPen({ id }: { id: string }) {
   return <g>
     <path d="M26 80h70m-70 10h70m-64-15v23m22-25v25m23-25v25m16-23v23" stroke="#b5a075" strokeWidth="3" fill="none" />
@@ -226,7 +269,7 @@ export const AnimalVisual = memo(function AnimalVisual({ animal, healthy, classN
     <svg viewBox="0 0 120 112" focusable="false" strokeLinecap="round" strokeLinejoin="round">
       <Paint id={id} /><ellipse cx="61" cy="101" rx="40" ry="6" fill="#657247" opacity=".17" />
       <path d="m23 99-2-5m5 5 2-4m62 4 1-5m3 5 3-3" stroke="#9aaa69" strokeWidth="1.3" />
-      <g className="fv-livestock-art">{animal === 'chicken' ? <Chicken id={id} healthy={healthy} /> : animal === 'cow' ? <Cow id={id} healthy={healthy} /> : animal === 'sheep' ? <Sheep id={id} healthy={healthy} /> : <EmptyPen id={id} />}</g>
+      <g className="fv-livestock-art">{animal === 'chicken' ? <Chicken id={id} healthy={healthy} /> : animal === 'cow' ? <Cow id={id} healthy={healthy} /> : animal === 'sheep' ? <Sheep id={id} healthy={healthy} /> : animal === 'pig' ? <Pig id={id} healthy={healthy} /> : animal === 'goat' ? <Goat id={id} healthy={healthy} /> : <EmptyPen id={id} />}</g>
     </svg>
   </span>;
 });

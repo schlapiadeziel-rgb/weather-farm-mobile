@@ -19,7 +19,20 @@ export type WeatherDay = {
   code: number;
 };
 
-export type Location = { name: string; latitude: number; longitude: number };
+export type Location = {
+  name: string;
+  /** WGS84 coordinates used by device geolocation and Open-Meteo. */
+  latitude: number;
+  longitude: number;
+  /** Legacy 'gps' means selected from the phone, not necessarily satellites. */
+  source?: 'gps' | 'manual' | 'search' | 'preset';
+  /** Actual positioning provider, when reported by the device or browser. */
+  provider?: 'gps' | 'network' | 'browser';
+  /** Device-reported horizontal accuracy in metres, not weather grid size. */
+  accuracy?: number;
+  /** Time the device observed this position; distinct from weather fetch time. */
+  locatedAt?: string;
+};
 export type WeatherBundle = {
   location: Location;
   /** Current temperature, humidity, wind and code; other fields cover today. */
@@ -35,15 +48,20 @@ export type WeatherBundle = {
 };
 
 export const PRESET_LOCATIONS: Location[] = [
-  { name: '杭州', latitude: 30.2741, longitude: 120.1551 },
-  { name: '北京', latitude: 39.9042, longitude: 116.4074 },
-  { name: '上海', latitude: 31.2304, longitude: 121.4737 },
-  { name: '广州', latitude: 23.1291, longitude: 113.2644 },
-  { name: '成都', latitude: 30.5728, longitude: 104.0668 },
-  { name: '昆明', latitude: 25.0389, longitude: 102.7183 },
-  { name: '武汉', latitude: 30.5928, longitude: 114.3055 },
-  { name: '西安', latitude: 34.3416, longitude: 108.9398 },
+  { name: '杭州', latitude: 30.2741, longitude: 120.1551, source: 'preset' },
+  { name: '北京', latitude: 39.9042, longitude: 116.4074, source: 'preset' },
+  { name: '上海', latitude: 31.2304, longitude: 121.4737, source: 'preset' },
+  { name: '广州', latitude: 23.1291, longitude: 113.2644, source: 'preset' },
+  { name: '成都', latitude: 30.5728, longitude: 104.0668, source: 'preset' },
+  { name: '昆明', latitude: 25.0389, longitude: 102.7183, source: 'preset' },
+  { name: '武汉', latitude: 30.5928, longitude: 114.3055, source: 'preset' },
+  { name: '西安', latitude: 34.3416, longitude: 108.9398, source: 'preset' },
 ];
+
+const presetRegions: Record<string, string> = {
+  杭州: '浙江', 北京: '北京', 上海: '上海', 广州: '广东',
+  成都: '四川', 昆明: '云南', 武汉: '湖北', 西安: '陕西',
+};
 
 const aliases: Record<string, string> = {
   hangzhou: '杭州', beijing: '北京', shanghai: '上海', guangzhou: '广州',
@@ -212,25 +230,39 @@ export async function searchLocations(query: string): Promise<Location[]> {
   if (!cleaned) return [];
   const normalized = cleaned.toLowerCase().replace(/市$/, '');
   const targetName = aliases[normalized] || normalized;
-  const presets = PRESET_LOCATIONS.filter((place) => place.name.includes(targetName));
-  // Chinese city presets also work offline; they are real coordinates, not
-  // fallback weather. Other locations use live geocoding.
-  if (presets.length) return presets.map((place) => ({ ...place }));
-  const params = new URLSearchParams({ name: cleaned, count: '5', language: 'zh', format: 'json' });
-  const payload = record(await requestJson(`https://geocoding-api.open-meteo.com/v1/search?${params}`, '地点搜索服务'));
-  if (payload.results === undefined) return [];
-  if (!Array.isArray(payload.results)) throw new Error('地点搜索服务返回的数据格式不完整。');
-  return payload.results.slice(0, 5).map((item: unknown) => {
-    const place = record(item);
-    const name = textValue(place.name, '地名');
-    const admin = typeof place.admin1 === 'string' && place.admin1 !== name ? place.admin1 : '';
-    const country = typeof place.country === 'string' ? place.country : '';
-    return {
-      name: [name, admin, country].filter(Boolean).join(' · '),
-      latitude: numeric(place.latitude, '纬度', -90, 90),
-      longitude: numeric(place.longitude, '经度', -180, 180),
-    };
-  });
+  // A two-character city can have namesakes. Always look up live results first;
+  // an exact known preset is only an explicitly labelled offline alternative.
+  // Qualifiers such as “杭州, 四川” never silently fall back to Zhejiang.
+  const preset = PRESET_LOCATIONS.find((place) => place.name === targetName);
+  const fallback = (): Location[] => preset ? [{
+    ...preset,
+    name: [...new Set([preset.name, presetRegions[preset.name], '中国'])].join(' · '),
+    source: 'preset',
+  }] : [];
+  const params = new URLSearchParams({ name: preset ? targetName : cleaned, count: '5', language: 'zh', format: 'json' });
+  try {
+    const payload = record(await requestJson(`https://geocoding-api.open-meteo.com/v1/search?${params}`, '地点搜索服务'));
+    if (payload.results === undefined) return fallback();
+    if (!Array.isArray(payload.results)) throw new Error('地点搜索服务返回的数据格式不完整。');
+    if (!payload.results.length) return fallback();
+    return payload.results.slice(0, 5).map((item: unknown): Location => {
+      const place = record(item);
+      const name = textValue(place.name, '地名');
+      const admin1 = typeof place.admin1 === 'string' ? place.admin1 : '';
+      const admin2 = typeof place.admin2 === 'string' ? place.admin2 : '';
+      const country = typeof place.country === 'string' ? place.country
+        : typeof place.country_code === 'string' ? place.country_code : '国家未标明';
+      return {
+        name: [...new Set([name, admin1, admin2, country].filter(Boolean))].join(' · '),
+        latitude: numeric(place.latitude, '纬度', -90, 90),
+        longitude: numeric(place.longitude, '经度', -180, 180),
+        source: 'search',
+      };
+    });
+  } catch (error) {
+    if (preset) return fallback();
+    throw error;
+  }
 }
 
 export function weatherLabel(code: number): string {
