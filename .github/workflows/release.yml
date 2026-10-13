@@ -59,7 +59,11 @@ jobs:
             [[ "$SIGNED_APK_REF" =~ ^[0-9a-f]{40}$ ]]
             gh api -H 'Accept: application/vnd.github.raw+json' "repos/$GITHUB_REPOSITORY/contents/source-commit.txt?ref=$SIGNED_APK_REF" > release/source-commit.txt
             test "$(cat release/source-commit.txt)" = "$(git rev-parse HEAD)"
-            gh api -H 'Accept: application/vnd.github.raw+json' "repos/$GITHUB_REPOSITORY/contents/field-letter.apk?ref=$SIGNED_APK_REF" > release/field-letter.apk
+            curl --fail --silent --show-error --location --retry 3 --max-time 120 \
+              --header "Authorization: Bearer $GH_TOKEN" \
+              --header 'Accept: application/vnd.github.raw+json' \
+              "https://api.github.com/repos/$GITHUB_REPOSITORY/contents/field-letter.apk?ref=$SIGNED_APK_REF" \
+              --output release/field-letter.apk
           else
             cp release/田野来信.apk release/field-letter.apk
           fi
