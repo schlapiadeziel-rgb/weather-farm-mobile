@@ -2,13 +2,14 @@
 
 中文横屏农场经营游戏。参考 Hay Day 的播种、喂养、库存、加工排队、交订单和路边摊循环，代码与场景美术独立原创。打开先进入斜角俯视的原创农场地图，田地、牧场、工坊、河塘与小镇相连；小镇建筑保留真实天气、本机图文 AI、官方资讯和实际农场记录。
 
-[下载 Android v0.3.0 试玩版](https://github.com/schlapiadeziel-rgb/weather-farm-mobile/releases/tag/v0.3.0) · [版本与安装包](https://github.com/schlapiadeziel-rgb/weather-farm-mobile/releases)
+[下载 Android v0.4.0 试玩版](https://github.com/schlapiadeziel-rgb/weather-farm-mobile/releases/tag/v0.4.0) · [版本与安装包](https://github.com/schlapiadeziel-rgb/weather-farm-mobile/releases)
 
 ![横屏农田](docs/planting.png)
 ![横屏牧场](docs/livestock.png)
 ![生产工坊](docs/production.png)
 ![订单板](docs/orders.png)
 ![农场小镇](docs/town.png)
+![游戏内版本与更新](docs/game-update.png)
 
 截图为开发预览；天气与资讯以各自来源、地区和时间为准。游戏产量和收益不代表现实生产。
 
@@ -16,11 +17,13 @@
 
 - **播种与留种**：12 种作物，每次播种用库存 1 份，成熟收获 2 份和经验；收成进入筒仓，金币来自销售与订单。按倒计时成熟，离线时间继续计算，作物不因天气或未浇水枯萎。
 - **动物与饲料**：鸡、奶牛、猪、绵羊、山羊；加工对应饲料，投喂后等待鸡蛋、牛奶、培根、羊毛或羊奶。产物进谷仓，再喂下一轮；可以扩建畜舍。
-- **加工与队列**：22 类生产建筑、57 个配方；入队时扣原料，机器串行加工，成品等待收取。可以用游戏钻石加速，界面显示所需数量。
+- **加工与队列**：22 类生产建筑、57 个配方；入队时扣原料，机器串行加工，成品等待收取。可以用游戏钻石加速，扩充至 9 个生产位；未开始的任务消耗 1 钻石取消并退回原料。所有钻石动作先显示确认，缺料可直接前往来源。
 - **订单与销售**：卡车与船订单核对库存后交货，获得金币和经验；路边摊由明确标注的本机 NPC 模拟购买，倒计时结束后收款一次。没有实际支付或真钱收益。
 - **仓库与扩建**：谷仓、筒仓分开计容量；满仓阻止收取，成品保留。升级仓库、开放更多田地和畜舍，按等级解锁内容；补给小铺提供基础种子和饲料，经营奖励掉落工具材料。
 - **探索**：果园成熟、收果、一次本机照料和砍除；鱼塘钓鱼、消耗工具采矿、蜂箱采蜜及一次性成就奖励，使用明确库存、等级和倒计时。
-- **自动存档**：保留库存、作物、动物、队列、订单、果园与进度，以及 v0.1/v0.2 游戏存档迁移。日记、音效与原生震动保留。
+- **镜头与触控**：100%–180% 缩放、双指缩放、单指拖动、复位，拖动不会误收获；风车、水纹、芦苇与麦田微动支持减少动态效果。
+- **存档与备份**：操作后即时保存、退后台保存，保留 v0.1/v0.2/v0.3 存档迁移。农场日记支持游戏进度 JSON 导出及确认恢复，损坏存档先保留本机恢复副本。
+- **游戏内更新**：顶部更新入口显示 GitHub 新版本与说明，用户触发下载、查看进度、取消或重试。Android 核对大小、SHA-256、包名、更高版本和相同签名，再打开系统安装器；从此版起公开 APK 使用固定签名，见 [更新与签名说明](docs/android-updates.md)。
 
 这是独立单机原型，尚未实现 Hay Day 的全部内容和联机系统。真实邻里、跨玩家交易、德比排行、联网活动、社区小镇、山谷和账号同步需要服务端；系统覆盖与官方参考见 [内容范围表](docs/hayday-feature-scope.md)。没有复制 Hay Day 的地图、角色、音效、图片或客户端源码。
 
@@ -86,11 +89,11 @@ cd android
 ./gradlew assembleDebug --no-daemon --max-workers=2
 ```
 
-输出 `android/app/build/outputs/apk/debug/app-debug.apk`，已用开发密钥签名，用于试玩，不是应用商店发布包。调试版不同构建的签名可能不同；若旧版提示签名冲突，请先导出可备份的记录，再卸载旧版安装，卸载会清除本机数据。GitHub Actions **Build Android APK** 也可构建；**Publish Android Release** 用版本标签与成功构建 run ID 核对源码，发布 APK、源码 ZIP 和 SHA256SUMS。
+输出 `android/app/build/outputs/apk/debug/app-debug.apk`，本地开发包使用开发签名。公开 v0.4.0 APK 另用固定签名，不是应用商店发布包；旧版签名不同会阻止覆盖，请保留仍需使用的旧版，备份可导出的资料后再决定迁移。GitHub Actions **Build Android APK** 构建并检查，**Publish Android Release** 核对源码、逐项 APK 内容和固定证书后发布 APK、源码 ZIP 与 SHA256SUMS；私钥不上传仓库，具体流程见 [安卓更新说明](docs/android-updates.md)。
 
 ## 结构与许可
 
-`src/components/` 为游戏视觉、小镇与真实服务，`src/lib/` 为天气、信息解析、实际记录、问诊校验和游戏规则，`android/app/src/main/java/com/fieldletter/farm/ai/` 与 `src/main/cpp/` 为本机媒体、模型管理与 JNI 推理。`tests/` 包括官方页面快照解析、日期/单位/缓存、位置、订单成本、危险症状、真实记录及玩法检查。本版验证状态见 [v0.3.0 验证范围](docs/validation-v0.3.md)。
+`src/components/` 为游戏视觉、小镇与真实服务，`src/lib/` 为天气、信息解析、实际记录、问诊校验和游戏规则，`android/app/src/main/java/com/fieldletter/farm/ai/` 与 `src/main/cpp/` 为本机媒体、模型管理与 JNI 推理。`tests/` 包括官方页面快照解析、日期/单位/缓存、位置、订单成本、危险症状、真实记录及玩法检查。本版验证状态见 [v0.4.0 验证范围](docs/validation-v0.4.md)。
 
 本项目原创源码和场景资产使用 MIT。游戏灵感参考 [Khet-Setu](https://github.com/rach-kanc/Khet-Setu) 和 [Atmospheric Harvester](https://github.com/feotro23/Atmospheric-Harvester)，没有复制其代码或资产。
 

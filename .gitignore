@@ -11,3 +11,9 @@ android/app/src/main/assets/public/
 .DS_Store
 artifacts/
 android/**/.cxx/
+__pycache__/
+*.pyc
+*.p12
+*.jks
+*.keystore
+keystore-password

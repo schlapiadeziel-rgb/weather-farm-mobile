@@ -131,6 +131,17 @@ export function unlockMachine(game: Game, machineId: MachineId): Game {
   if (game.machines.some(item => item.id === machineId)) throw new Error('这个加工坊已经建好了。'); if (game.coins < machine.cost) throw new Error('金币不足，暂时无法建造加工坊。');
   const next = clone(game); next.coins -= machine.cost; next.machines.push({ id: machineId, slots: 2, queue: [] }); log(next, `建造${machine.name}，花费 ${machine.cost} 金币。`); return next;
 }
+export function productionSlotCost(game: Game, machineId: MachineId): number {
+  resources(game); const machine = findMachine(game, machineId);
+  return 5 * (number(machine.slots, '生产槽位', 1, 20) - 1);
+}
+export function expandProductionSlots(game: Game, machineId: MachineId): Game {
+  const cost = productionSlotCost(game, machineId); const machine = findMachine(game, machineId);
+  if (machine.slots >= 9) throw new Error('生产槽位已达到 9 个上限。');
+  if (game.gems < cost) throw new Error(`钻石不足，增加生产槽位需要 ${cost} 颗。`);
+  const next = clone(game); next.gems -= cost; findMachine(next, machineId).slots += 1;
+  log(next, `为${machineById(machineId).name}增加生产槽位，花费 ${cost} 钻石。`); return next;
+}
 export function queueProduction(game: Game, machineId: MachineId, recipeId: ItemId, now = Date.now()): Game {
   time(now); resources(game); const machine = findMachine(game, machineId); const recipe = recipeById(recipeId);
   if (recipe.machine !== machineId) throw new Error('这个配方不能在此加工坊制作。'); levelRequired(game, recipe.level); levelRequired(game, machineById(machineId).level);
@@ -139,6 +150,18 @@ export function queueProduction(game: Game, machineId: MachineId, recipeId: Item
   const target = findMachine(next, machineId); const startedAt = Math.max(now, target.queue.at(-1)?.readyAt ?? now); const readyAt = time(startedAt + recipe.durationMs);
   let serial = 0; let id: string; do { id = `${machineId}-${now}-${game.xp}-${game.gems}-${game.harvests}-${game.productsCollected}-${serial++}`; } while (next.machines.some(item => item.queue.some(job => job.id === id)));
   target.queue.push({ id, recipe: recipeId, startedAt, readyAt }); log(next, `开始制作${itemById(recipe.output).name} ×${recipe.quantity}。`); return next;
+}
+export function cancelQueuedProduction(game: Game, machineId: MachineId, jobId: string, now = Date.now()): Game {
+  time(now); resources(game); const machine = findMachine(game, machineId); const index = machine.queue.findIndex(item => item.id === jobId); const job = machine.queue[index];
+  if (!job) throw new Error('这个生产任务已经取消、收取或不存在。');
+  const startedAt = timestamp(job.startedAt, '生产开始时间'); const readyAt = timestamp(job.readyAt, '生产完成时间');
+  if (readyAt < startedAt) throw new Error('生产计时无效。');
+  if (startedAt <= now) throw new Error('只能取消尚未开始的等待任务。');
+  if (game.gems < 1) throw new Error('钻石不足，取消等待任务需要 1 颗。');
+  const recipe = recipeById(job.recipe); if (recipe.machine !== machineId) throw new Error('生产配方与加工坊不匹配。');
+  const next = clone(game); for (const [item, quantity] of Object.entries(recipe.inputs)) put(next, item as ItemId, quantity!);
+  const duration = readyAt - startedAt; findMachine(next, machineId).queue = machine.queue.flatMap((item, position) => position === index ? [] : [{ ...item, ...(position > index ? { startedAt: item.startedAt - duration, readyAt: item.readyAt - duration } : {}) }]);
+  next.gems -= 1; log(next, `取消等待制作的${itemById(recipe.output).name}，退回全部原料，花费 1 钻石。`); return next;
 }
 export function collectProduction(game: Game, machineId: MachineId, jobId: string, now = Date.now()): Game {
   time(now); resources(game); const machine = findMachine(game, machineId); const job = machine.queue.find(item => item.id === jobId);

@@ -11,6 +11,10 @@ on:
         description: Successful Build Android APK run ID
         required: true
         type: string
+      signed_apk_ref:
+        description: Optional repository commit containing locally signed field-letter.apk and source-commit.txt
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -33,15 +37,36 @@ jobs:
           test "$build_commit" = "$(git rev-parse HEAD)"
           conclusion=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BUILD_RUN_ID" --jq .conclusion)
           test "$conclusion" = success
+          actual_workflow=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BUILD_RUN_ID" --jq .workflow_id)
+          expected_workflow=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/android.yml" --jq .id)
+          test "$actual_workflow" = "$expected_workflow"
       - uses: actions/download-artifact@v4
         with:
           name: 田野来信-Android
           path: release
           github-token: ${{ github.token }}
           run-id: ${{ inputs.build_run_id }}
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: build-tools;35.0.0
+          log-accepted-android-sdk-licenses: false
+      - name: Verify fixed-signature update package
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SIGNED_APK_REF: ${{ inputs.signed_apk_ref }}
+        run: |
+          if [ -n "$SIGNED_APK_REF" ]; then
+            [[ "$SIGNED_APK_REF" =~ ^[0-9a-f]{40}$ ]]
+            gh api -H 'Accept: application/vnd.github.raw+json' "repos/$GITHUB_REPOSITORY/contents/source-commit.txt?ref=$SIGNED_APK_REF" > release/source-commit.txt
+            test "$(cat release/source-commit.txt)" = "$(git rev-parse HEAD)"
+            gh api -H 'Accept: application/vnd.github.raw+json' "repos/$GITHUB_REPOSITORY/contents/field-letter.apk?ref=$SIGNED_APK_REF" > release/field-letter.apk
+          else
+            cp release/田野来信.apk release/field-letter.apk
+          fi
+          python scripts/verify-update-apk.py release/田野来信.apk release/field-letter.apk "$ANDROID_HOME/build-tools/35.0.0/apksigner" docs/android-signing-certificate.sha256
+          rm release/田野来信.apk
       - name: Package source and checksums
         run: |
-          mv release/田野来信.apk release/field-letter.apk
           git archive --format=zip --prefix=weather-farm/ --output=release/weather-farm-source.zip HEAD
           cd release
           sha256sum field-letter.apk weather-farm-source.zip > SHA256SUMS.txt

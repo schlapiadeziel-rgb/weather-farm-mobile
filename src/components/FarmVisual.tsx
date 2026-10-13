@@ -116,6 +116,16 @@ function WheatPlant({ id, fruiting }: { id: string; fruiting: boolean }) {
   </g>;
 }
 
+/** Three rooted clusters make a field read as a crop stand rather than one item. */
+function WheatClump({ id, progress }: { id: string; progress: number }) {
+  const plant = () => progress < 32 ? <YoungPlant id={id} seedling={progress < 12} /> : <WheatPlant id={id} fruiting={progress >= 68} />;
+  return <g className="fv-wheat-clump">
+    <g className="fv-wheat-cluster fv-wheat-back" transform="translate(-3 17) scale(.76)">{plant()}</g>
+    <g className="fv-wheat-cluster fv-wheat-right" transform="translate(42 23) scale(.7)">{plant()}</g>
+    <g className="fv-wheat-cluster fv-wheat-front" transform="translate(6 7) scale(.94)">{plant()}</g>
+  </g>;
+}
+
 function Berry({ id, x, y, size = 1 }: { id: string; x: number; y: number; size?: number }) {
   return <g transform={`translate(${x} ${y}) scale(${size})`}>
     <path d="M-12-5C-13-13-4-16 0-11C5-16 14-12 13-4C11 6 5 13 0 17C-6 12-11 6-12-5Z" fill={`url(#${id}-red)`} stroke="#b0494a" strokeWidth=".8" />
@@ -143,7 +153,7 @@ function WiltedPlant() {
 }
 
 function Sparkles() {
-  return <g className="fv-sparkles" fill="#fff4ad"><path className="fv-sparkle" d="m22 38 2-6 2 6 6 2-6 2-2 6-2-6-6-2Z" /><path className="fv-sparkle fv-sparkle-late" d="m99 62 1.5-4 1.5 4 4 1.5-4 1.5-1.5 4-1.5-4-4-1.5Z" /></g>;
+  return <g className="fv-sparkles" fill="#fff4ad"><path className="fv-sparkle" d="m22 38 2-6 2 6 6 2-6 2-2 6-2-6-6-2Z" /><path className="fv-sparkle fv-sparkle-late" d="m99 62 1.5-4 1.5 4 4 1.5-4 1.5-1.5 4-1.5-4-4-1.5Z" /><path className="fv-sparkle fv-sparkle-small" d="m83 20 1-3 1 3 3 1-3 1-1 3-1-3-3-1Z" /></g>;
 }
 
 /** Readable mature silhouettes for the expanded fictional crop catalogue. */
@@ -172,7 +182,7 @@ export const CropVisual = memo(function CropVisual({ crop, growth, health, moist
     <svg viewBox="0 0 120 112" focusable="false" strokeLinecap="round" strokeLinejoin="round">
       <Paint id={id} /><Soil id={id} dry={dry} empty={!crop} />
       <g className="fv-plant-art">
-        {crop && (!alive ? <WiltedPlant /> : progress < 32 ? <YoungPlant id={id} seedling={progress < 12} /> : crop === 'radish' ? <Radish id={id} fruiting={progress >= 68} /> : crop === 'tomato' ? <Tomato id={id} fruiting={progress >= 68} /> : crop === 'wheat' ? <WheatPlant id={id} fruiting={progress >= 68} /> : crop === 'strawberry' ? <Strawberry id={id} fruiting={progress >= 68} /> : <ExpandedCrop crop={crop} id={id} fruiting={progress >= 68} />)}
+        {crop && (!alive ? <WiltedPlant /> : crop === 'wheat' ? <WheatClump id={id} progress={progress} /> : progress < 32 ? <YoungPlant id={id} seedling={progress < 12} /> : crop === 'radish' ? <Radish id={id} fruiting={progress >= 68} /> : crop === 'tomato' ? <Tomato id={id} fruiting={progress >= 68} /> : crop === 'strawberry' ? <Strawberry id={id} fruiting={progress >= 68} /> : <ExpandedCrop crop={crop} id={id} fruiting={progress >= 68} />)}
       </g>
       {ripe && !dry && <Sparkles />}
       {dry && <g className="fv-water-cue" transform="translate(101 24)"><circle r="10" fill="#fff3d5" stroke="#d3aa66" strokeWidth="1" /><path d="M0-6C-2-2-5 1-5 3A5 5 0 0 0 5 3C5 1 2-2 0-6Z" fill="#a7c8cf" /><path d="M-2 2q-1 3 2 3" stroke="#fff9e9" strokeWidth="1.3" fill="none" /></g>}

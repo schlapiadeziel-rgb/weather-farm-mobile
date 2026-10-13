@@ -38,9 +38,28 @@ jobs:
         working-directory: android
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon --max-workers=2
+          ./gradlew :app:testDebugUnitTest assembleDebug --no-daemon --max-workers=2
       - name: Name APK
         run: cp android/app/build/outputs/apk/debug/app-debug.apk "田野来信.apk"
+      - name: Sign with fixed Android key when configured
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            test -n "$KEYSTORE_PASSWORD"
+            test -n "$KEY_ALIAS"
+            key_path="$RUNNER_TEMP/fieldletter-signing.p12"
+            trap 'rm -f "$key_path"' EXIT
+            printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$key_path"
+            chmod 600 "$key_path"
+            if [ -z "$KEY_PASSWORD" ]; then export KEY_PASSWORD="$KEYSTORE_PASSWORD"; fi
+            "$ANDROID_HOME/build-tools/35.0.0/apksigner" sign --ks "$key_path" --ks-key-alias "$KEY_ALIAS" --ks-pass env:KEYSTORE_PASSWORD --key-pass env:KEY_PASSWORD --out fixed.apk "田野来信.apk"
+            python scripts/verify-update-apk.py "田野来信.apk" fixed.apk "$ANDROID_HOME/build-tools/35.0.0/apksigner" docs/android-signing-certificate.sha256
+            mv fixed.apk "田野来信.apk"
+          fi
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:

@@ -3,8 +3,8 @@ import { Capacitor } from '@capacitor/core';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { ScreenOrientation } from '@capacitor/screen-orientation';
 import { StatusBar } from '@capacitor/status-bar';
-import { Sprout, CloudSun, MapPin, Droplets, Wind, Coins, Wheat, ChevronRight, X, LocateFixed, Search, RotateCcw, CalendarDays, Check, RefreshCw, Sun, Leaf, BookOpen, Volume2, VolumeX, PawPrint, Building2, ArrowLeft, Flag, Factory, ClipboardList, Warehouse, Compass, Diamond, Lock, Timer } from 'lucide-react';
-import { CROPS, LIVESTOCK, initialGame, restoreGame, tickGame, getLevel, plant, harvest, buyAnimal, feedAnimal, collectProduct, speedUpCrop, speedUpAnimal, buildPen } from './lib/game';
+import { Sprout, CloudSun, MapPin, Droplets, Wind, Coins, Wheat, ChevronRight, X, LocateFixed, Search, RotateCcw, CalendarDays, Check, RefreshCw, Sun, Leaf, BookOpen, Volume2, VolumeX, PawPrint, Building2, ArrowLeft, Flag, Factory, ClipboardList, Warehouse, Compass, Diamond, Lock, Timer, Download } from 'lucide-react';
+import { CROPS, LIVESTOCK, initialGame, tickGame, getLevel, plant, harvest, buyAnimal, feedAnimal, collectProduct, speedUpCrop, speedUpAnimal, buildPen } from './lib/game';
 import type { Game, CropId, AnimalId } from './lib/game';
 import { fetchWeather, searchLocations, PRESET_LOCATIONS, weatherLabel, weatherEmoji } from './lib/weather';
 import type { WeatherBundle, Location } from './lib/weather';
@@ -16,38 +16,25 @@ import MarketPanel from './components/MarketPanel';
 import FieldAdvicePanel from './components/FieldAdvicePanel';
 import { CropVisual, AnimalVisual } from './components/FarmVisual';
 import FarmLandscape from './components/FarmLandscape';
+import FarmViewport from './components/FarmViewport';
+import GameBackupControls from './components/GameBackupControls';
+import UpdatePanel from './components/UpdatePanel';
 import FarmTown from './components/FarmTown';
 import ProductionPanel from './components/ProductionPanel';
 import { OrdersPanel, StoragePanel, ExplorationPanel } from './components/EconomyPanels';
 import { getItem } from './lib/farmContent';
 import { readSelectedLocation, saveSelectedLocation, locationFromPosition, parseManualLocation, formatCoordinates } from './lib/location';
 import { getDevicePosition, cancelDevicePosition } from './lib/deviceLocation';
+import { readGameSave, writeGameSave, exportGameBackup } from './lib/gameSave';
+import { checkForUpdate } from './lib/appUpdate';
+import type { AppUpdate } from './lib/appUpdate';
 
 type PlayTab = 'farm' | 'livestock' | 'production' | 'orders' | 'storage' | 'explore' | 'journal';
 type Tab = 'home' | 'clinic' | 'news' | 'market' | 'advice' | 'weather' | PlayTab;
 const PLAY_TABS: readonly Tab[] = ['farm', 'livestock', 'production', 'orders', 'storage', 'explore', 'journal'];
 function sameCoordinates(a: Location, b: Location) { return a.latitude === b.latitude && a.longitude === b.longitude; }
 
-const SAVE_KEY = 'fieldletter.game.v1';
 const WEATHER_KEY = 'fieldletter.weather.v1';
-function readGame(): Game {
-  let raw: string | null = null;
-  try {
-    raw = localStorage.getItem(SAVE_KEY);
-    if (!raw) return initialGame();
-    return restoreGame(JSON.parse(raw));
-  } catch {
-    const fresh = initialGame();
-    if (raw) {
-      try {
-        const backupKey = 'fieldletter.game.recovery.v1';
-        if (!localStorage.getItem(backupKey)) localStorage.setItem(backupKey, raw);
-        fresh.log.unshift('旧游戏存档未能读取，已保留本机恢复副本；真实农场记录不受影响。');
-      } catch { fresh.log.unshift('旧游戏存档未能读取，且本机存储无法保留恢复副本。'); }
-    }
-    return fresh;
-  }
-}
 function readWeather(): WeatherBundle | null {
   try {
     const w = JSON.parse(localStorage.getItem(WEATHER_KEY) || 'null');
@@ -61,7 +48,8 @@ function gemCost(milliseconds: number) { return Math.max(1, Math.ceil(Math.max(0
 function Bar({ value, tone = 'green' }: { value: number; tone?: string }) { return <div className={`bar ${tone}`}><span style={{ width: `${Math.max(0, Math.min(100, value))}%` }} /></div>; }
 
 export default function App() {
-  const [game, setGame] = useState<Game>(readGame);
+  const [startup] = useState(readGameSave);
+  const [game, setGame] = useState<Game>(startup.game);
   const [location, setLocation] = useState<Location>(() => readSelectedLocation() || PRESET_LOCATIONS[0]);
   const [locationChosen, setLocationChosen] = useState(() => !!readSelectedLocation());
   const [bundle, setBundle] = useState<WeatherBundle | null>(() => { const cached = readWeather(); return cached && sameCoordinates(cached.location, location) ? cached : null; });
@@ -89,8 +77,16 @@ export default function App() {
   const [clock, setClock] = useState(Date.now());
   const [sound, setSound] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
+  const [updateOpen, setUpdateOpen] = useState(false);
+  const [availableUpdate, setAvailableUpdate] = useState<AppUpdate | null>(null);
+  const [exportingGame, setExportingGame] = useState(false);
   const [portraitDismissed, setPortraitDismissed] = useState(false);
   const requestId = useRef(0);
+  const weatherAttemptAt = useRef(0);
+  const gameRef = useRef(game);
+  gameRef.current = game;
+  const saveWarning = useRef(false);
+  const backupBusy = useRef(false);
   const locationAttempt = useRef(0);
   const searchAttempt = useRef(0);
   const timeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -122,6 +118,7 @@ export default function App() {
   }, []);
   const loadWeather = useCallback(async (place: Location) => {
     const id = ++requestId.current;
+    weatherAttemptAt.current = Date.now();
     setBundle(previous => previous && sameCoordinates(previous.location, place) ? previous : null);
     setLoading(true); setWeatherError('');
     try {
@@ -134,21 +131,48 @@ export default function App() {
     } finally { if (id === requestId.current) setLoading(false); }
   }, []);
   useEffect(() => { void loadWeather(location); }, []); // Refresh at launch; a foreground timer keeps regional weather current.
-  useEffect(() => { const timer = setInterval(() => { const now = Date.now(); setClock(now); setGame(previous => tickGame(previous, now)); }, 1000); return () => clearInterval(timer); }, []);
   useEffect(() => {
-    const timer = setInterval(() => {
-      setClock(Date.now());
-      if (document.visibilityState === 'visible' && !loading && bundle && Date.now() - Date.parse(bundle.fetchedAt) >= 900000) void loadWeather(location);
-    }, 60000);
-    return () => clearInterval(timer);
+    const advance = () => { if (document.visibilityState === 'visible') { const now = Date.now(); setClock(now); setGame(previous => tickGame(previous, now)); } };
+    const timer = setInterval(advance, 1000);
+    document.addEventListener('visibilitychange', advance);
+    return () => { clearInterval(timer); document.removeEventListener('visibilitychange', advance); };
+  }, []);
+  useEffect(() => {
+    const refresh = () => {
+      const now = Date.now(); setClock(now);
+      const due = bundle ? now - Date.parse(bundle.fetchedAt) >= 900000 : now - weatherAttemptAt.current >= 60000;
+      if (document.visibilityState === 'visible' && !loading && due) void loadWeather(location);
+    };
+    const timer = setInterval(refresh, 60000);
+    document.addEventListener('visibilitychange', refresh);
+    return () => { clearInterval(timer); document.removeEventListener('visibilitychange', refresh); };
   }, [bundle, loading, location, loadWeather]);
-  useEffect(() => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(game)); } catch { showNotice('存档暂时无法保存，当前游戏仍可继续。'); } }, [game, showNotice]);
+  const saveCurrentGame = useCallback((next = gameRef.current) => {
+    const saved = writeGameSave(next);
+    if (!saved && !saveWarning.current) showNotice('本机存档暂时无法保存，请在农场日记导出游戏备份。');
+    saveWarning.current = !saved;
+    return saved;
+  }, [showNotice]);
+  useEffect(() => {
+    if (startup.warning) showNotice(startup.warning);
+    saveCurrentGame();
+    const timer = setInterval(() => { if (document.visibilityState === 'visible') saveCurrentGame(); }, 15000);
+    const flush = () => { saveCurrentGame(); };
+    window.addEventListener('pagehide', flush);
+    document.addEventListener('visibilitychange', flush);
+    return () => { clearInterval(timer); window.removeEventListener('pagehide', flush); document.removeEventListener('visibilitychange', flush); saveCurrentGame(); };
+  }, [startup, saveCurrentGame, showNotice]);
+  useEffect(() => {
+    const controller = new AbortController();
+    void checkForUpdate({ signal: controller.signal }).then(setAvailableUpdate).catch(() => {});
+    return () => controller.abort();
+  }, []);
   useEffect(() => {
     if (Capacitor.isNativePlatform()) {
       void ScreenOrientation.lock({ orientation: 'landscape' }).catch(() => {});
       void StatusBar.hide().catch(() => {});
     }
-    return () => { clearTimeout(timeout.current); ++locationAttempt.current; ++searchAttempt.current; void cancelDevicePosition().catch(() => {}); };
+    return () => { clearTimeout(timeout.current); ++requestId.current; ++locationAttempt.current; ++searchAttempt.current; void cancelDevicePosition().catch(() => {}); };
   }, []);
 
   function feedback() {
@@ -162,7 +186,16 @@ export default function App() {
       } catch { /* Audio may be unavailable on some WebViews. */ }
     }
   }
-  function commitGame(next: Game) { setGame(next); feedback(); showNotice(next.log[0] || '农场已更新'); }
+  function commitGame(next: Game) { gameRef.current = next; setGame(next); feedback(); showNotice(next.log[0] || '农场已更新'); return saveCurrentGame(next); }
+  async function backupGame() {
+    if (backupBusy.current) return;
+    backupBusy.current = true; setExportingGame(true);
+    try {
+      const result = await exportGameBackup(gameRef.current);
+      showNotice(result.shared ? '已打开游戏备份分享，请在目标应用确认保存。真实记录需另行备份。' : '已下载游戏备份，请保管好 JSON 文件。');
+    } catch (error) { showNotice(error instanceof Error ? error.message : '游戏备份导出失败，请重试。'); }
+    finally { backupBusy.current = false; setExportingGame(false); }
+  }
   function animalAct(action: 'buy' | 'feed' | 'collect' | 'speed', target = selectedPen) {
     try {
       const next = action === 'buy' ? buyAnimal(game, target, animalSeed) : action === 'feed' ? feedAnimal(game, target) : action === 'collect' ? collectProduct(game, target) : speedUpAnimal(game, target);
@@ -228,6 +261,7 @@ export default function App() {
       <div className="live-status"><span className={loading ? 'pulse-dot pending' : bundle ? 'pulse-dot' : 'pulse-dot error'} />{loading ? '连接天气中' : bundle ? stale || weatherError ? '上次天气' : '区域天气' : '天气未连接'}</div>
       <div className="top-weather"><CloudSun size={20} /><strong>{bundle ? `${Math.round(bundle.current.temp)}°` : '—'}</strong><span>{bundle ? weatherLabel(bundle.current.code) : '等待数据'}</span><i /><Droplets size={16} /><span>{bundle ? `${Math.round(bundle.current.humidity)}%` : '—'}</span><i /><Wind size={16} /><span>{bundle ? `${Math.round(bundle.current.wind)} km/h` : '—'}</span></div>
       {simulation && <><div className="wallet"><Coins size={20} /><strong>{game.coins}</strong><span>金币</span><Diamond size={17} /><strong>{game.gems}</strong><span>钻石</span></div><button className="icon-button" aria-label="打开谷仓与筒仓" onClick={() => navigate('storage')}><Warehouse size={21} /></button><button className="icon-button diary-button" aria-label="查看农场日记" onClick={() => navigate('journal')}><BookOpen size={19} /></button></>}
+      <button className={`icon-button update-button ${availableUpdate ? 'has-update' : ''}`} aria-label={availableUpdate ? '游戏更新：发现新版本' : '游戏更新'} aria-haspopup="dialog" onClick={() => setUpdateOpen(true)}><Download size={19} />{availableUpdate && <span className="update-dot" />}</button>
       <button className="icon-button sound-button" aria-label={sound ? '关闭音效' : '打开音效'} onClick={() => setSound(!sound)}>{sound ? <Volume2 size={19} /> : <VolumeX size={19} />}</button>
     </header>
 
@@ -239,10 +273,11 @@ export default function App() {
         <div className="rail-spacer" />{simulation && <button className="rail-button reset-button" aria-label="重置模拟农场" onClick={() => setResetOpen(true)}><RotateCcw size={19} /><span>重开</span></button>}
       </nav>
 
-      {tab === 'home' ? <FarmDashboard weather={serviceWeather} loading={loading} weatherError={serviceWeatherError} refresh={() => locationChosen ? void loadWeather(location) : setLocationOpen(true)} navigate={navigate} /> : tab === 'clinic' ? <DiagnosticPanel weather={weatherError || stale ? null : serviceWeather} /> : tab === 'news' ? <NewsPanel /> : tab === 'market' ? <MarketPanel locationName={locationChosen ? location.name : '请先设置真实农场位置'} /> : tab === 'advice' ? <FieldAdvicePanel weather={serviceWeather} weatherError={serviceWeatherError} navigate={() => navigate('clinic')} /> : tab === 'production' ? <ProductionPanel game={game} now={clock} onChange={commitGame} notify={showNotice} /> : tab === 'orders' ? <OrdersPanel game={game} now={clock} onChange={commitGame} notify={showNotice} /> : tab === 'storage' ? <StoragePanel game={game} now={clock} onChange={commitGame} notify={showNotice} /> : tab === 'explore' ? <ExplorationPanel game={game} now={clock} onChange={commitGame} notify={showNotice} /> : tab === 'farm' ? <>
+      {tab === 'home' ? <FarmDashboard weather={serviceWeather} loading={loading} weatherError={serviceWeatherError} refresh={() => locationChosen ? void loadWeather(location) : setLocationOpen(true)} navigate={navigate} /> : tab === 'clinic' ? <DiagnosticPanel weather={weatherError || stale ? null : serviceWeather} /> : tab === 'news' ? <NewsPanel /> : tab === 'market' ? <MarketPanel locationName={locationChosen ? location.name : '请先设置真实农场位置'} /> : tab === 'advice' ? <FieldAdvicePanel weather={serviceWeather} weatherError={serviceWeatherError} navigate={() => navigate('clinic')} /> : tab === 'production' ? <ProductionPanel game={game} now={clock} onChange={commitGame} notify={showNotice} onNavigate={navigate} /> : tab === 'orders' ? <OrdersPanel game={game} now={clock} onChange={commitGame} notify={showNotice} /> : tab === 'storage' ? <StoragePanel game={game} now={clock} onChange={commitGame} notify={showNotice} /> : tab === 'explore' ? <ExplorationPanel game={game} now={clock} onChange={commitGame} notify={showNotice} /> : tab === 'farm' ? <>
         <main className="farm-scene map-scene">
-          <FarmLandscape onVisit={area => area === 'town' ? setTownOpen(true) : navigate(area)} /><div className="scene-shade" />
           <div className="scene-top"><div className="day-pill"><Sun size={17} /><strong>我的农田</strong><span>{game.unlockedPlots} 块耕地</span></div><button className="quest-sign" onClick={goal.action}><Flag size={17} /><span><strong>{goal.title}</strong><small>{goal.detail}</small></span><ChevronRight size={15} /></button></div>
+          <FarmViewport>
+          <FarmLandscape onVisit={area => area === 'town' ? setTownOpen(true) : navigate(area)} /><div className="scene-shade" />
           <div className="field-wrap"><div className="plot-grid">{game.plots.map(p => {
             const c = CROPS.find(s => s.id === p.crop), ready = p.growth >= 100 && !!c, locked = p.id > game.unlockedPlots;
             return <button key={p.id} className={`plot ${p.id === selected ? 'selected' : ''} ${c ? 'planted' : 'empty'} ${ready ? 'ripe' : ''} ${locked ? 'locked' : ''}`} onClick={() => { if (locked) { navigate('storage'); return; } setSelected(p.id); if (ready) act('harvest', p.id); else { setDetailsOpen(true); feedback(); } }} aria-label={`${p.id}号地块，${locked ? '未解锁，前往扩建' : c ? `${c.name}，${ready ? '轻触收获2份' : `生长${Math.round(p.growth)}%`}` : '空地，可播种'}`} aria-pressed={p.id === selected}>
@@ -250,6 +285,7 @@ export default function App() {
               {!locked && c && <span className="plot-label">{ready ? '收获 ×2' : timerText((p.readyAt ?? clock) - clock)}</span>}{locked && <span className="plot-label">可扩建</span>}{!locked && c && !ready && <span className="plot-growth"><i style={{ width: `${p.growth}%` }} /></span>}{ready && <span className="ready-mark"><Check size={11} /></span>}
             </button>;
           })}</div><span className="field-caption">播种用 1 份 · 收获得 2 份 · 留种、加工，再去交订单</span></div>
+          </FarmViewport>
           <div className="farm-bottom"><div className="farm-level"><span className="level-emblem"><Wheat size={21} /></span><div><strong>Lv. {level} 农场主</strong><Bar value={(game.xp - levelBase) / (nextLevelXp - levelBase) * 100} tone="gold" /><span>{game.xp} / {nextLevelXp} 经验</span></div></div><button className="advance-button" onClick={() => navigate('orders')}><ClipboardList size={20} /><span>订单板</span><ChevronRight size={18} /></button></div>
           {notice && <div className="toast" role="status"><Sprout size={16} />{notice}</div>}
         </main>
@@ -264,7 +300,7 @@ export default function App() {
         </aside>}
       </> : tab === 'livestock' ? <>
         <main className="farm-scene livestock-scene map-scene">
-          <FarmLandscape onVisit={area => area === 'town' ? setTownOpen(true) : navigate(area)} /><div className="scene-shade" />
+          <FarmViewport><FarmLandscape onVisit={area => area === 'town' ? setTownOpen(true) : navigate(area)} /><div className="scene-shade" /></FarmViewport>
           <div className="scene-top"><div className="day-pill"><PawPrint size={17} /><strong>我的牧场</strong><span>饲料换产物</span></div><button className="quest-sign" onClick={() => navigate('production')}><Factory size={17} /><span><strong>先备好动物的口粮</strong><small>饲料厂里加工饲料</small></span><ChevronRight size={15} /></button></div>
           <div className="livestock-field"><div className="pen-grid">{game.animals.map(p => {
             const a = LIVESTOCK.find(v => v.id === p.animal), ready = p.progress >= 100 && !!a;
@@ -287,11 +323,12 @@ export default function App() {
         <div className="view-heading"><div><span className="eyebrow">{tab === 'weather' ? 'WEATHER STATION' : 'SIMULATION JOURNAL'}</span><h2>{tab === 'weather' ? '农场天气站' : '每一份耕耘，都有回响'}</h2></div>{tab !== 'journal' && <button className="refresh-button" onClick={() => void loadWeather(location)} disabled={loading}><RefreshCw size={16} className={loading ? 'spin' : ''} />刷新天气</button>}</div>
         {weatherError && <div className="error-banner" role="alert">{weatherError}{bundle && ' 当前显示上次成功获取的数据。'}</div>}
         {tab === 'weather' && <><div className="weather-stats"><article><span>当前气温</span><strong>{bundle ? Math.round(bundle.current.temp) : '—'}<small>°C</small></strong><Sun size={28} /></article><article><span>空气湿度</span><strong>{bundle ? Math.round(bundle.current.humidity) : '—'}<small>%</small></strong><Droplets size={28} /></article><article><span>当前风速</span><strong>{bundle ? Math.round(bundle.current.wind) : '—'}<small>km/h</small></strong><Wind size={28} /></article><article><span>今日降水预报</span><strong>{bundle ? bundle.forecast[0].rain.toFixed(1) : '—'}<small>mm</small></strong><CloudSun size={28} /></article></div><div className="forecast-heading"><h3>未来 7 天天气</h3><span>日最低 / 最高气温</span></div><div className="forecast-grid">{bundle?.forecast.map((w, i) => <article key={w.date} className={i === 0 ? 'forecast-day today' : 'forecast-day'}><span>{i === 0 ? '今天' : i === 1 ? '明天' : shortDate(w.date)}</span><b>{weatherEmoji(w.code)}</b><strong>{Math.round(w.minTemp)}° / {Math.round(w.maxTemp)}°</strong><small>{weatherLabel(w.code)}</small><span className="rain-value"><Droplets size={12} />{Math.round(w.rainChance)}%</span></article>)}</div><p className="weather-attribution">数据：<a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo</a> · {bundle ? `更新于 ${new Date(bundle.fetchedAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })} · ${bundle.timezone}` : '尚未连接'}。预报会随气象条件变化。</p></>}
-        {tab === 'journal' && <><div className="journal-stats"><article><Wheat size={26} /><strong>{game.harvests}</strong><span>农作物收获</span></article><article><CalendarDays size={26} /><strong>{game.ordersDelivered}</strong><span>完成订单</span></article><article><PawPrint size={26} /><strong>{game.productsCollected}</strong><span>养殖产物</span></article><article><Sprout size={26} /><strong>{game.xp}</strong><span>累计经验</span></article></div><div className="journal-list">{game.log.map((line, i) => <div key={`${game.day}-${i}`}><span className="journal-dot" /><p>{line}</p>{i === 0 && <span className="new-label">最新</span>}</div>)}</div><p className="journal-footnote">作物、动物和加工按真实倒计时推进。游戏库存与金币不参与真实农场建议。</p></>}
+        {tab === 'journal' && <><GameBackupControls onExport={backupGame} exporting={exportingGame} notify={showNotice} onRestore={next => { const saved = commitGame(next); setSelected(1); setSelectedPen(1); setDetailsOpen(false); showNotice(saved ? '已恢复并保存游戏进度。真实农场记录和位置设置保留。' : '本次已恢复，但本机存档无法保存。请立即导出游戏备份，再处理存储问题。'); }} /><button className="journal-update-link" onClick={() => setUpdateOpen(true)}><Download size={17} />游戏版本与更新</button><div className="journal-stats"><article><Wheat size={26} /><strong>{game.harvests}</strong><span>农作物收获</span></article><article><CalendarDays size={26} /><strong>{game.ordersDelivered}</strong><span>完成订单</span></article><article><PawPrint size={26} /><strong>{game.productsCollected}</strong><span>养殖产物</span></article><article><Sprout size={26} /><strong>{game.xp}</strong><span>累计经验</span></article></div><div className="journal-list">{game.log.map((line, i) => <div key={`${game.day}-${i}`}><span className="journal-dot" /><p>{line}</p>{i === 0 && <span className="new-label">最新</span>}</div>)}</div><p className="journal-footnote">作物、动物和加工按真实倒计时推进。游戏库存与金币不参与真实农场建议。</p></>}
         {notice && <div className="content-toast" role="status">{notice}</div>}
       </main>}
     </div>
     <footer className="statusbar"><span><Leaf size={13} />{simulation ? '我的农场 · 播种，照料，等待丰收' : '小镇服务 · 真实农场资料独立保存'}</span><span>{!locationChosen ? '当前为示例城市天气，请设置你的农场位置' : bundle ? `${bundle.location.name} · ${stale || weatherError ? '上次获取' : '区域模型'} · ${bundle.timezone}` : weatherError || '正在连接 Open-Meteo…'}</span><button onClick={() => simulation ? setTownOpen(true) : navigate(lastPlayTab)}>{simulation ? '逛逛小镇' : '返回农场'}<ChevronRight size={12} /></button></footer>
+    {updateOpen && <UpdatePanel onClose={() => setUpdateOpen(false)} initialUpdate={availableUpdate} beforeInstall={() => saveCurrentGame()} onBackup={() => void backupGame()} />}
     {townOpen && <FarmTown onVisit={navigate} onClose={() => setTownOpen(false)} />}
 
     {locationOpen && <div className="modal-backdrop" onClick={closeLocation}>
@@ -311,7 +348,7 @@ export default function App() {
         <p className="modal-note">位置仅用于天气查询。切换位置会移除上一地区的天气；查询失败时不会换回其他城市。</p>
       </section>
     </div>}
-    {resetOpen && <div className="modal-backdrop"><section className="reset-modal" role="alertdialog" aria-modal="true" aria-labelledby="reset-title"><Sprout size={30} /><h2 id="reset-title">重置模拟农场？</h2><p>游戏金币、钻石、库存、地块、动物、工坊、订单、果园和日记将恢复初始状态。真实农场记录、问诊和位置设置单独保存。</p><div><button className="secondary-action" onClick={() => setResetOpen(false)}>继续耕耘</button><button className="primary-action" onClick={() => { setGame(initialGame()); setSelected(1); setSelectedPen(1); setDetailsOpen(false); setResetOpen(false); showNotice('新一季开始了，种下第一份期待。'); }}>重新开始</button></div></section></div>}
+    {resetOpen && <div className="modal-backdrop"><section className="reset-modal" role="alertdialog" aria-modal="true" aria-labelledby="reset-title"><Sprout size={30} /><h2 id="reset-title">重置模拟农场？</h2><p>游戏金币、钻石、库存、地块、动物、工坊、订单、果园和日记将恢复初始状态。真实农场记录、问诊和位置设置单独保存。</p><div><button className="secondary-action" onClick={() => setResetOpen(false)}>继续耕耘</button><button className="primary-action" onClick={() => { const saved = commitGame(initialGame()); setSelected(1); setSelectedPen(1); setDetailsOpen(false); setResetOpen(false); showNotice(saved ? '新一季开始了，种下第一份期待。' : '本次已重新开始，但本机存档无法保存。请导出游戏备份，避免重启丢失进度。'); }}>重新开始</button></div></section></div>}
     {!portraitDismissed && <div className="rotate-overlay"><div>📱</div><h2>横过来，田野更宽阔</h2><p>这款游戏为横屏触控设计</p><button onClick={() => setPortraitDismissed(true)}>先用竖屏试玩</button></div>}
   </div>;
 }

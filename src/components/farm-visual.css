@@ -34,6 +34,10 @@
 .fv-crop[data-condition="withered"] .fv-plant-art { opacity: .8; }
 .fv-sparkle { opacity: .75; animation: fv-glint 3.8s ease-in-out infinite; }
 .fv-sparkle-late { animation-delay: -1.9s; }
+.fv-sparkle-small { animation-delay: -2.7s; animation-duration: 4.7s; }
+.fv-wheat-back .fv-wind { animation-delay: -2.2s; animation-duration: 6.3s; }
+.fv-wheat-right .fv-wind { animation-delay: -3.6s; animation-duration: 5.9s; }
+.fv-crop[data-stage="ripe"] .fv-sparkles { filter: drop-shadow(0 0 2px #fff4a680); }
 .fv-water-cue { animation: fv-water-cue 4s ease-in-out infinite; }
 .fv-animal-body {
   transform-box: view-box;

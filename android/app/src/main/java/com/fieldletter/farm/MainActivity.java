@@ -7,12 +7,14 @@ import androidx.core.view.WindowInsetsControllerCompat;
 import com.getcapacitor.BridgeActivity;
 import com.fieldletter.farm.ai.LocalAiPlugin;
 import com.fieldletter.farm.location.FarmLocationPlugin;
+import com.fieldletter.farm.update.FarmUpdatePlugin;
 
 public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(LocalAiPlugin.class);
         registerPlugin(FarmLocationPlugin.class);
+        registerPlugin(FarmUpdatePlugin.class);
         super.onCreate(savedInstanceState);
         enterImmersiveMode();
     }

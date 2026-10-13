@@ -43,7 +43,7 @@ function Windmill({ x, y }: { x: number; y: number }) {
     <path d="m67 45 40-18 21 111-49 24-27-14Z" fill="#f3e1af" /><path d="m107 27 21 111-22 11-16-110Z" fill="#d0b982" />
     <path d="m62 47 26-35 26 12 8 26-41 20Z" fill="#a67750" /><path d="m62 47 19 23 41-20v7L81 78 62 55Z" fill="#87634b" />
     <path d="m91 114 16-8 3 35-18 9Z" fill="#7c8b66" /><path d="m88 88 15-7 2 14-15 7Z" fill="#98bec1" stroke="#fff1c9" strokeWidth="2" />
-    <g transform="translate(88 58)"><path d="M0 0V-45m0 45h45M0 0v45m0-45h-45" stroke="#8f7952" strokeWidth="4" /><path d="M-4-14v-32l13-6 3 34ZM14-4h32l6 13-34 3ZM4 14v32l-13 6-3-34ZM-14 4h-32l-6-13 34-3Z" fill="#fff3c8" stroke="#cbb47e" strokeWidth="1.3" /><path d="M0-17v-29m17 46h29M0 17v29m-17-46h-29" stroke="#dec58a" strokeWidth="2" /><circle r="8" fill="#ad8a58" stroke="#f7df9e" strokeWidth="3" /></g>
+    <g transform="translate(88 58)"><g className="fl-windmill-blades"><path d="M0 0V-45m0 45h45M0 0v45m0-45h-45" stroke="#8f7952" strokeWidth="4" /><path d="M-4-14v-32l13-6 3 34ZM14-4h32l6 13-34 3ZM4 14v32l-13 6-3-34ZM-14 4h-32l-6-13 34-3Z" fill="#fff3c8" stroke="#cbb47e" strokeWidth="1.3" /><path d="M0-17v-29m17 46h29M0 17v29m-17-46h-29" stroke="#dec58a" strokeWidth="2" /></g><circle r="8" fill="#ad8a58" stroke="#f7df9e" strokeWidth="3" /></g>
     <path d="m144 137 30-16 14 7v27l-31 16-13-8Z" fill="#c0a36f" /><path d="m144 137 13 8 31-17-14-7Z" fill="#ead6a4" /><path d="m148 146 8 4m7-5 19-10m-33 20 8 4m7-5 17-9" stroke="#9c8156" strokeWidth="2" />
   </g>;
 }
@@ -104,11 +104,11 @@ export function FarmLandscape({ onVisit, className = '' }: FarmLandscapeProps) {
     </MapPlace>
     <MapPlace area="explore" label="前往水塘，探索钓鱼与果园" hit="M911 376 1128 374 1200 477 1125 563 940 581 886 498Z" onVisit={onVisit}>
       <path d="M927 418c33-41 95-29 151-19 73-8 122 40 89 87-19 38-91 58-163 49-89 11-127-40-97-76 1-17 5-28 20-41Z" fill="#6b9f68" opacity=".3" transform="translate(5 11)" /><path d="M927 414c33-41 95-29 151-19 73-8 122 40 89 87-19 38-91 58-163 49-89 11-127-40-97-76 1-17 5-28 20-41Z" fill="#d7d6a2" stroke="#94b275" strokeWidth="5" /><path d="M943 423c39-32 85-20 134-14 64-8 101 31 77 62-26 35-85 48-143 41-66 7-99-28-82-58 3-16 5-22 14-31Z" fill={`url(#${paint}-water)`} />
-      <path d="M949 429c33-25 73-17 109-14m-70 71c25 11 65 13 92 4m-40-47 47 4m-34 29 40-3" stroke="#d9f3e8" strokeWidth="3" strokeLinecap="round" opacity=".7" fill="none" />
+      <g className="fl-water-ripples"><path d="M949 429c33-25 73-17 109-14m-70 71c25 11 65 13 92 4m-40-47 47 4m-34 29 40-3" stroke="#d9f3e8" strokeWidth="3" strokeLinecap="round" opacity=".7" fill="none" /><ellipse className="fl-water-ring" cx="1103" cy="447" rx="13" ry="4" fill="none" stroke="#dcf5eb" strokeWidth="1.7" /></g>
       <path d="m918 456 64-30 22 13-66 32Z" fill="#c9a371" stroke="#937b52" strokeWidth="2" /><path d="m925 455 23 13m-13-19 23 13m-13-18 23 13m-13-19 23 14m-12-18 23 14" stroke="#f0d6a3" strokeWidth="3" /><path d="M925 463v13m50-41v15" stroke="#987b50" strokeWidth="4" />
       <path d="m939 437 6-29 6-3m-6 4 34 21-1 16" stroke="#756e48" strokeWidth="2" fill="none" /><path d="m976 446 3 7 3-6" fill="#e8bc67" />
       <path d="m1109 432 28-13 27 16-27 14Z" fill="#dfb976" stroke="#9b8758" strokeWidth="2" /><path d="m1116 431 20 11 20-8" stroke="#ba965b" strokeWidth="2" fill="none" />
-      <path d="M918 509v-21m7 18 5-22m201-93-3-25m12 31 5-23m-12 128 4-18m6 12 4-21" stroke="#729d65" strokeWidth="3" fill="none" /><path d="M918 490v-9m12 4v-8m198-111-1-8m18 16 1-9m-9 119 2-8" stroke="#aa9a53" strokeWidth="5" strokeLinecap="round" />
+      <g className="fl-pond-reeds"><path d="M918 509v-21m7 18 5-22m201-93-3-25m12 31 5-23m-12 128 4-18m6 12 4-21" stroke="#729d65" strokeWidth="3" fill="none" /><path d="M918 490v-9m12 4v-8m198-111-1-8m18 16 1-9m-9 119 2-8" stroke="#aa9a53" strokeWidth="5" strokeLinecap="round" /></g>
       <Sign x={967} y={548} label="探索" />
     </MapPlace>
     <g aria-hidden="true"><Tree x={1180} y={384} size={.74} /><Tree x={880} y={429} size={.56} /><Tree x={860} y={540} size={.8} /><Tree x={1162} y={594} size={.93} /><Tree x={86} y={425} size={.95} /><Tree x={127} y={568} size={.74} /><Tree x={409} y={573} size={.8} autumn /><Tree x={308} y={634} size={.87} /><Tree x={699} y={636} size={.85} /><Tree x={952} y={664} size={.74} />
