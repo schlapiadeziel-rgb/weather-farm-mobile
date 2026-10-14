@@ -25,6 +25,13 @@ export interface AppUpdateInfo {
   versionCode: number;
   platform: 'android' | 'web';
   canInstall: boolean;
+  downloadedUpdate?: DownloadedAppUpdate;
+}
+export interface DownloadedAppUpdate {
+  versionName: string;
+  versionCode: number;
+  sha256: string;
+  size: number;
 }
 export interface UpdateProgress { received: number; total: number; progress: number }
 interface FarmUpdatePlugin {
@@ -33,6 +40,7 @@ interface FarmUpdatePlugin {
   cancelDownload(): Promise<void>;
   install(): Promise<{ opened: true }>;
   addListener(eventName: 'updateProgress', listener: (progress: UpdateProgress) => void): Promise<PluginListenerHandle>;
+  addListener(eventName: 'updateResume', listener: () => void): Promise<PluginListenerHandle>;
 }
 const nativeUpdater = registerPlugin<FarmUpdatePlugin>('FarmUpdate');
 
@@ -126,7 +134,26 @@ export async function getAppUpdateInfo(): Promise<AppUpdateInfo> {
   if (Capacitor.getPlatform() !== 'android') return { versionName: packageInfo.version, versionCode: 0, platform: 'web', canInstall: false };
   const info = await nativeUpdater.info();
   if (!parseUpdateVersion(info.versionName) || info.versionName.startsWith('v') || !Number.isSafeInteger(info.versionCode) || info.versionCode < 1 || info.platform !== 'android' || typeof info.canInstall !== 'boolean') throw new AppUpdateError('无法读取当前应用版本，请重新打开应用。', 'invalid_version');
-  return info;
+  const downloadedUpdate = parseDownloadedUpdate(info.downloadedUpdate, info.versionCode);
+  return { versionName: info.versionName, versionCode: info.versionCode, platform: info.platform, canInstall: info.canInstall, ...(downloadedUpdate ? { downloadedUpdate } : {}) };
+}
+
+/** Native metadata is a hint from this process, never permission to install an arbitrary file. */
+export function parseDownloadedUpdate(value: unknown, installedVersionCode: number): DownloadedAppUpdate | null {
+  const update = object(value);
+  if (!Number.isSafeInteger(installedVersionCode) || installedVersionCode < 1 || !update
+      || typeof update.versionName !== 'string' || update.versionName.startsWith('v') || !parseUpdateVersion(update.versionName)
+      || !Number.isSafeInteger(update.versionCode) || (update.versionCode as number) <= installedVersionCode
+      || typeof update.sha256 !== 'string' || !/^[a-f0-9]{64}$/.test(update.sha256)
+      || !Number.isSafeInteger(update.size) || (update.size as number) < 1 || (update.size as number) > MAX_UPDATE_BYTES) return null;
+  return { versionName: update.versionName, versionCode: update.versionCode as number, sha256: update.sha256, size: update.size as number };
+}
+
+/** Reuse only the exact package described by the release checked for this dialog. */
+export function matchesDownloadedUpdate(info: AppUpdateInfo, update: AppUpdate | null): boolean {
+  if (info.platform !== 'android' || !update) return false;
+  const downloaded = parseDownloadedUpdate(info.downloadedUpdate, info.versionCode);
+  return !!downloaded && downloaded.versionName === update.versionName && downloaded.sha256 === update.sha256 && downloaded.size === update.size;
 }
 
 function aborted(signal: AbortSignal): never { throw new AppUpdateError(signal.reason === 'update-timeout' ? '检查更新超时，请稍后重试。' : '已取消检查更新。', signal.reason === 'update-timeout' ? 'timeout' : 'cancelled'); }
@@ -208,6 +235,9 @@ export async function listenToUpdateProgress(listener: (progress: UpdateProgress
     if (!Number.isFinite(progress.received) || !Number.isFinite(progress.total) || progress.received < 0 || progress.total < 1 || progress.received > progress.total || !Number.isFinite(progress.progress)) return;
     listener({ received: progress.received, total: progress.total, progress: Math.max(0, Math.min(1, progress.received / progress.total)) });
   });
+}
+export async function listenToAppUpdateResume(listener: () => void): Promise<PluginListenerHandle | null> {
+  return Capacitor.getPlatform() === 'android' ? nativeUpdater.addListener('updateResume', listener) : null;
 }
 export async function cancelAppUpdateDownload(): Promise<void> { if (Capacitor.getPlatform() === 'android') await nativeUpdater.cancelDownload(); }
 export async function installAppUpdate(): Promise<{ opened: true }> {

@@ -67,10 +67,31 @@ public final class FarmUpdatePlugin extends Plugin {
             result.put("versionCode", versionCode(installed));
             result.put("platform", "android");
             result.put("canInstall", canInstall());
+            synchronized (stateLock) {
+                // Offer only the verified package held by this bridge, never scan disk cache.
+                VerifiedUpdate update = readyUpdate;
+                if (!destroyed && update != null && update.file.isFile()
+                        && update.file.length() == update.size
+                        && update.versionCode > versionCode(installed)) {
+                    JSObject downloaded = new JSObject();
+                    downloaded.put("versionName", update.versionName);
+                    downloaded.put("versionCode", update.versionCode);
+                    downloaded.put("sha256", update.sha256);
+                    downloaded.put("size", update.size);
+                    result.put("downloadedUpdate", downloaded);
+                }
+            }
             call.resolve(result);
         } catch (Exception error) {
             call.reject("无法读取当前游戏版本，请关闭游戏后重试。", "invalid_update");
         }
+    }
+
+    @Override
+    protected void handleOnResume() {
+        // A settings/installer return may not produce a WebView visibility event.
+        // JS refreshes info only; this does not check releases or download anything.
+        if (!destroyed) notifyListeners("updateResume", new JSObject());
     }
 
     @PluginMethod

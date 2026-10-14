@@ -1,0 +1,183 @@
+.fg-overlay { position: fixed; inset: 0; z-index: 150; display: flex; align-items: center; justify-content: center; padding: max(16px, env(safe-area-inset-top)) max(18px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(18px, env(safe-area-inset-left)); background: #17392dc4; backdrop-filter: blur(5px); }
+.fg-dialog { width: min(1060px, 100%); height: min(670px, 100%); max-height: 100%; display: flex; flex-direction: column; color: #3d4a35; background: #fff7df; border: 1px solid #eadbb4; border-radius: 23px; box-shadow: 0 20px 80px #09271f66, inset 0 0 0 4px #fffbed; overflow: hidden; font-family: inherit; }
+.fg-dialog *, .fg-dialog *::before, .fg-dialog *::after { box-sizing: border-box; }
+.fg-dialog button { font: inherit; cursor: pointer; }
+.fg-dialog button:focus-visible, .fg-page:focus-visible { outline: 3px solid #497b5d; outline-offset: -3px; }
+.fg-dialog button:disabled { cursor: default; opacity: .38; }
+.fg-header { flex: none; display: flex; align-items: center; gap: 15px; min-height: 96px; padding: 17px 24px; border-bottom: 1px solid #dccba7; background: linear-gradient(105deg, #fff9e7 20%, #f4e8c7); }
+.fg-book-seal { width: 54px; height: 58px; flex: none; display: grid; place-items: center; color: #f6edcb; background: #638667; border-radius: 9px 9px 18px 18px; box-shadow: inset 0 0 0 4px #ffffff25, 0 3px 0 #3d664d; transform: rotate(-5deg); }
+.fg-heading { min-width: 0; flex: 1; }
+.fg-eyebrow { display: block; font-size: 11px; font-weight: 700; color: #8a7a53; letter-spacing: 1.5px; }
+.fg-heading h2 { margin: 3px 0 0; font-size: 25px; font-weight: 800; color: #385d44; line-height: 1.2; }
+.fg-heading p { margin: 4px 0 0; color: #7b795b; font-size: 12px; }
+.fg-close { flex: none; display: flex; align-items: center; justify-content: center; gap: 7px; min-height: 44px; padding: 0 14px; border: 1px solid #cdbb92; border-radius: 12px; color: #656546; background: #fff9e8; }
+.fg-body { flex: 1; min-height: 0; display: grid; grid-template-columns: 224px minmax(0, 1fr); }
+.fg-index { min-height: 0; overflow: auto; padding: 13px 16px; background: #efe5c6; border-right: 1px solid #ddcea9; scrollbar-width: thin; scrollbar-color: #b4bd93 transparent; }
+.fg-route-map { display: block; width: 100%; height: auto; border-radius: 11px; }
+.fg-index > .fg-route-map { border: 1px solid #c8c7a0; margin-bottom: 10px; }
+.fg-index-title { display: block; color: #8b805c; font-size: 10px; letter-spacing: 2px; margin: 0 5px 10px; }
+.fg-index nav { display: flex; flex-direction: column; gap: 6px; }
+.fg-chapter-link { position: relative; width: 100%; display: flex; gap: 10px; align-items: center; min-height: 59px; padding: 9px; border: 1px solid transparent; border-radius: 10px; background: transparent; color: #637154; text-align: left; }
+.fg-chapter-link:hover { background: #fff4d8; }
+.fg-chapter-link.fg-selected { background: #fff9e8; border-color: #bfcb98; box-shadow: 0 2px 7px #9b875317; color: #41664b; }
+.fg-chapter-number { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; border: 1px solid #b6bc8d; color: #718460; font-size: 11px; flex: none; background: #f5edd3; }
+.fg-selected .fg-chapter-number { color: #fff8e3; background: #6c906b; border-color: #6c906b; }
+.fg-chapter-label { flex: 1; min-width: 0; }
+.fg-chapter-label strong { display: block; font-size: 13px; }
+.fg-chapter-label small { display: flex; align-items: center; gap: 3px; color: #8a8467; font-size: 9px; margin-top: 3px; white-space: nowrap; }
+.fg-chapter-link > svg { flex: none; opacity: .75; }
+.fg-index-note { margin: 15px 8px 4px; font-size: 10px; line-height: 1.9; color: #938565; }
+.fg-page { min-width: 0; min-height: 0; overflow: auto; padding: 24px 27px 19px; scrollbar-width: thin; scrollbar-color: #bdc5a2 transparent; background: radial-gradient(ellipse at 90% 0%, #fffdf0 0%, transparent 55%), repeating-linear-gradient(0deg, #a2906203, #a2906203 1px, transparent 1px, transparent 28px); }
+.fg-page-heading { display: flex; align-items: center; gap: 13px; margin-bottom: 19px; }
+.fg-page-number { color: #b5b58a; font-size: 34px; font-weight: 800; line-height: 1; letter-spacing: -2px; }
+.fg-page-heading > div { flex: 1; }
+.fg-page-kicker { color: #9b8a61; font-size: 10px; letter-spacing: 1px; }
+.fg-page-heading h3 { margin: 3px 0 0; color: #3f694d; font-size: 24px; line-height: 1.15; }
+.fg-page-heading > svg { color: #91a377; }
+.fg-page-layout { display: grid; grid-template-columns: 196px minmax(0, 1fr); align-items: start; gap: 23px; }
+.fg-illustration { position: relative; height: 226px; overflow: hidden; isolation: isolate; border-radius: 42% 42% 13px 13px; border: 1px solid #d5d4a9; background: linear-gradient(#dceada, #eff0d4 58%, #c5d49e 59%); box-shadow: inset 0 0 0 5px #fdf9df55; }
+.fg-art-sun { position: absolute; top: 23px; right: 31px; width: 26px; height: 26px; border-radius: 50%; background: #f9eab5; box-shadow: 0 0 0 9px #ffedbd30; }
+.fg-art-cloud { position: absolute; top: 47px; left: 16px; width: 49px; height: 13px; background: #faffed99; border-radius: 30px; }
+.fg-art-cloud::before { content: ''; position: absolute; top: -7px; left: 12px; width: 23px; height: 20px; border-radius: 50%; background: inherit; }
+.fg-art-cloud-two { top: 66px; left: auto; right: 17px; width: 40px; }
+.fg-art-hill { position: absolute; left: -18%; width: 138%; height: 85px; border-radius: 50%; }
+.fg-art-hill-back { bottom: 50px; background: #b8cf98; transform: rotate(-13deg); }
+.fg-art-hill-front { bottom: 12px; background: #a8bf87; transform: rotate(8deg); }
+.fg-illustration .fv-visual { position: absolute; max-width: none; z-index: 2; }
+.fg-art-seedling { width: 76px; left: -3px; bottom: 31px; }
+.fg-art-wheat { width: 126px; right: -11px; bottom: 35px; }
+.fg-seed-pouch { position: absolute; top: 52px; left: 22px; z-index: 3; width: 42px; height: 49px; padding-top: 9px; transform: rotate(-13deg); color: #9c724a; border: 1px solid #c5ac72; border-radius: 5px 5px 11px 11px; background: #f5dfa6; box-shadow: 2px 3px 0 #54784215; font-size: 9px; text-align: center; }
+.fg-seed-pouch span { display: block; font-size: 18px; }
+.fg-art-note { position: absolute; left: 6px; bottom: 8px; width: calc(100% - 12px); text-align: center; font-size: 10px; color: #60774f; line-height: 22px; background: #f8f1d6da; border-radius: 5px; z-index: 4; }
+.fg-art-chicken { width: 122px; left: 16px; bottom: 27px; }
+.fg-art-fence { position: absolute; bottom: 75px; left: 11px; width: 183px; height: 35px; background: repeating-linear-gradient(90deg, transparent, transparent 8px, #f3e8bd 9px, #f3e8bd 13px, transparent 14px, transparent 27px); transform: rotate(-8deg); opacity: .8; }
+.fg-art-fence::after { content: ''; position: absolute; top: 11px; left: 0; right: 0; height: 5px; background: #f1e3b3; }
+.fg-art-feed { position: absolute; left: 24px; bottom: 43px; font-size: 21px; z-index: 3; }
+.fg-art-eggs { position: absolute; right: 4px; bottom: 30px; font-size: 22px; z-index: 3; letter-spacing: -7px; transform: rotate(-12deg); }
+.fg-workshop-art { position: absolute; width: 175px; bottom: 36px; left: 7px; z-index: 2; }
+.fg-art-bread { position: absolute; font-size: 28px; right: 12px; bottom: 49px; z-index: 3; transform: rotate(-14deg); }
+.fg-order-board { position: absolute; top: 64px; left: 27px; right: 27px; z-index: 2; transform: rotate(-6deg); color: #74603e; border: 5px solid #ba9562; border-radius: 6px; background: #fff6d7; box-shadow: 2px 5px 0 #6f734422; padding: 6px; }
+.fg-order-board > span { display: flex; align-items: center; justify-content: space-between; font-size: 11px; min-height: 21px; border-bottom: 1px dashed #dac6a1; }
+.fg-order-board > span:first-child { font-size: 9px; color: #9e865e; justify-content: center; letter-spacing: 2px; }
+.fg-order-board svg { color: #82a074; }
+.fg-art-basket { position: absolute; bottom: 32px; right: 16px; z-index: 3; font-size: 34px; }
+.fg-illustration-4 .fg-route-map { position: absolute; width: 235px; max-width: none; height: 160px; top: 41px; left: -16px; z-index: 2; }
+.fg-town-pin { position: absolute; top: 66px; right: 40px; z-index: 3; display: grid; place-items: center; color: #fff9de; background: #74976d; border: 3px solid #fff4cf; box-shadow: 0 3px 8px #385f4430; border-radius: 50%; width: 41px; height: 41px; }
+.fg-copy { min-width: 0; }
+.fg-lead { margin: 0 0 14px; font-size: 13px; line-height: 1.85; color: #596047; }
+.fg-instructions { padding: 0; margin: 0 0 15px; list-style: none; counter-reset: fg-step; }
+.fg-instructions li { position: relative; padding: 0 0 9px 27px; font-size: 12px; line-height: 1.7; counter-increment: fg-step; }
+.fg-instructions li::before { content: counter(fg-step); position: absolute; top: 1px; left: 0; width: 19px; height: 19px; display: grid; place-items: center; border-radius: 6px; background: #e5ecd2; color: #64835c; font-size: 10px; font-weight: 700; }
+.fg-field-tip { padding: 11px 12px; border: 1px solid #d9dec0; border-left: 3px solid #91aa7a; border-radius: 3px 9px 9px 3px; background: #edf0db85; }
+.fg-tip-title { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; color: #5a7a50; }
+.fg-field-tip p { margin: 6px 0 0; font-size: 11px; color: #74775c; line-height: 1.8; }
+.fg-page-note { margin: 13px 0 0; font-size: 10px; line-height: 1.85; color: #8a8061; }
+.fg-durable { display: flex; align-items: center; gap: 5px; margin: 11px 0 0; font-size: 11px; color: #60835a; }
+.fg-supply-note { display: flex; align-items: center; gap: 8px; padding: 8px 10px; margin-top: 17px; border-top: 1px dashed #d9cba8; color: #918265; font-size: 10px; }
+.fg-supply-note > svg { color: #8ea17c; flex: none; }
+.fg-supply-note > span { flex: 1; }
+.fg-supply-note button { display: flex; align-items: center; justify-content: center; gap: 5px; min-height: 44px; flex: none; border: 0; border-radius: 8px; padding: 0 10px; background: #efe9cf; color: #71805a; font-size: 11px; }
+.fg-footer { flex: none; min-height: 72px; display: flex; align-items: center; gap: 18px; padding: 10px 24px; border-top: 1px solid #ddcea9; background: #fbf3dc; }
+.fg-page-controls { display: flex; align-items: center; gap: 9px; flex: none; }
+.fg-page-controls button { display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid #ddcfaa; border-radius: 10px; background: #fff9e5; color: #73835b; }
+.fg-page-controls > span { width: 31px; font-size: 11px; color: #9c8c66; text-align: center; }
+.fg-footer-note { flex: 1; font-size: 11px; color: #a09270; }
+.fg-go { display: flex; align-items: center; justify-content: center; gap: 15px; min-height: 46px; min-width: 166px; border-radius: 11px; border: 1px solid #4b7654; padding: 0 15px; background: linear-gradient(#739a6f, #5b865f); color: #fff9dd; font-size: 13px; font-weight: 700; box-shadow: 0 2px 0 #386245; }
+@media (max-width: 950px) {
+  .fg-body { grid-template-columns: 187px minmax(0, 1fr); }
+  .fg-index { padding: 12px 10px; }
+  .fg-chapter-link { gap: 7px; }
+  .fg-page { padding: 18px; }
+  .fg-page-layout { grid-template-columns: 155px minmax(0, 1fr); gap: 16px; }
+  .fg-illustration { height: 205px; }
+  .fg-art-wheat { width: 115px; right: -20px; }
+  .fg-art-chicken { width: 110px; left: 1px; }
+  .fg-art-eggs { right: 0; }
+  .fg-workshop-art { width: 155px; left: 0; }
+  .fg-order-board { left: 18px; right: 18px; }
+  .fg-illustration-4 .fg-route-map { left: -39px; }
+}
+@media (max-height: 520px) and (min-width: 640px) {
+  .fg-overlay { padding-top: max(12px, env(safe-area-inset-top)); padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+  .fg-dialog { border-radius: 17px; }
+  .fg-header { min-height: 66px; padding: 9px 17px; gap: 11px; }
+  .fg-book-seal { width: 41px; height: 43px; }
+  .fg-book-seal > svg { width: 22px; height: 22px; }
+  .fg-heading h2 { font-size: 21px; }
+  .fg-heading p { font-size: 10px; margin-top: 2px; }
+  .fg-eyebrow { font-size: 9px; letter-spacing: 1px; }
+  .fg-index > .fg-route-map, .fg-index-title, .fg-index-note { display: none; }
+  .fg-index { padding: 7px 9px; }
+  .fg-index nav { gap: 3px; }
+  .fg-chapter-link { min-height: 46px; padding: 5px 6px; }
+  .fg-chapter-label strong { font-size: 11px; }
+  .fg-chapter-label small { font-size: 8px; margin-top: 2px; }
+  .fg-chapter-number { width: 23px; height: 23px; }
+  .fg-body { grid-template-columns: 168px minmax(0, 1fr); }
+  .fg-page { padding: 12px 16px; }
+  .fg-page-heading { margin-bottom: 12px; gap: 11px; }
+  .fg-page-number { font-size: 28px; }
+  .fg-page-heading h3 { font-size: 20px; }
+  .fg-page-kicker { font-size: 9px; }
+  .fg-page-layout { grid-template-columns: 139px minmax(0, 1fr); gap: 15px; }
+  .fg-illustration { height: 178px; border-radius: 40% 40% 11px 11px; }
+  .fg-art-sun { top: 18px; right: 21px; width: 23px; height: 23px; }
+  .fg-seed-pouch { top: 38px; left: 16px; }
+  .fg-art-wheat { width: 105px; right: -16px; bottom: 28px; }
+  .fg-art-seedling { width: 65px; left: -3px; bottom: 26px; }
+  .fg-art-chicken { width: 100px; left: -2px; bottom: 24px; }
+  .fg-art-feed { left: 15px; bottom: 39px; }
+  .fg-art-eggs { font-size: 19px; bottom: 30px; }
+  .fg-art-note { font-size: 9px; }
+  .fg-workshop-art { width: 143px; left: -3px; bottom: 26px; }
+  .fg-art-bread { font-size: 24px; right: 4px; bottom: 40px; }
+  .fg-order-board { top: 42px; left: 14px; right: 14px; }
+  .fg-art-basket { font-size: 27px; right: 6px; bottom: 28px; }
+  .fg-illustration-4 .fg-route-map { left: -44px; top: 23px; }
+  .fg-town-pin { top: 49px; right: 17px; width: 37px; height: 37px; }
+  .fg-lead { font-size: 12px; margin-bottom: 10px; }
+  .fg-instructions li { font-size: 11px; padding-bottom: 7px; }
+  .fg-footer { min-height: 60px; padding: 7px 17px; gap: 13px; }
+  .fg-footer-note { font-size: 10px; }
+  .fg-go { min-height: 44px; font-size: 12px; min-width: 153px; }
+}
+@media (max-width: 639px) {
+  .fg-overlay { padding: max(12px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left)); }
+  .fg-header { padding: 12px; min-height: 79px; gap: 11px; }
+  .fg-book-seal { width: 42px; height: 47px; }
+  .fg-heading h2 { font-size: 22px; }
+  .fg-heading p { font-size: 9px; }
+  .fg-eyebrow { font-size: 9px; }
+  .fg-close { width: 44px; padding: 0; }
+  .fg-close span { display: none; }
+  .fg-body { display: flex; flex-direction: column; }
+  .fg-index { flex: none; padding: 6px; border-right: 0; border-bottom: 1px solid #ddcea9; overflow-x: auto; }
+  .fg-index > .fg-route-map, .fg-index-title, .fg-index-note, .fg-chapter-label small, .fg-chapter-link > svg { display: none; }
+  .fg-index nav { flex-direction: row; gap: 2px; min-width: 345px; }
+  .fg-chapter-link { flex: 1; min-width: 0; min-height: 44px; flex-direction: column; justify-content: center; gap: 2px; padding: 4px 2px; }
+  .fg-chapter-number { width: 19px; height: 19px; font-size: 9px; }
+  .fg-chapter-label strong { font-size: 9px; }
+  .fg-page { flex: 1; padding: 16px; }
+  .fg-page-layout { display: block; }
+  .fg-illustration { float: left; width: 120px; height: 159px; margin: 0 13px 8px 0; }
+  .fg-art-wheat { width: 95px; right: -20px; bottom: 24px; }
+  .fg-art-seedling { width: 58px; left: -3px; bottom: 23px; }
+  .fg-seed-pouch { top: 26px; left: 12px; }
+  .fg-art-chicken { width: 95px; left: -5px; bottom: 25px; }
+  .fg-art-eggs { font-size: 17px; }
+  .fg-art-note { font-size: 8px; }
+  .fg-art-feed { left: 13px; }
+  .fg-workshop-art { width: 128px; left: -4px; bottom: 28px; }
+  .fg-art-bread { font-size: 22px; right: 1px; bottom: 38px; }
+  .fg-order-board { top: 33px; left: 10px; right: 10px; }
+  .fg-art-basket { font-size: 24px; right: 3px; bottom: 27px; }
+  .fg-illustration-4 .fg-route-map { top: 10px; left: -60px; }
+  .fg-town-pin { top: 37px; right: 11px; width: 33px; height: 33px; }
+  .fg-instructions, .fg-field-tip { clear: both; }
+  .fg-footer { min-height: 63px; padding: 8px 12px; justify-content: space-between; gap: 7px; }
+  .fg-page-controls { gap: 4px; }
+  .fg-page-controls button { width: 44px; }
+  .fg-footer-note { display: none; }
+  .fg-go { min-width: 135px; min-height: 44px; padding: 0 10px; gap: 8px; font-size: 11px; }
+  .fg-supply-note { padding: 6px 0; gap: 5px; font-size: 9px; }
+}

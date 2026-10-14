@@ -4,7 +4,7 @@ import { ArrowUpRight, CheckCircle2, Download, HardDriveDownload, LoaderCircle, 
 import type { PluginListenerHandle } from '@capacitor/core';
 import {
   UPDATE_RELEASES_URL, cancelAppUpdateDownload, checkForUpdate, compareUpdateVersions, downloadAppUpdate,
-  getAppUpdateInfo, installAppUpdate, listenToUpdateProgress, updateErrorCode, updateErrorMessage,
+  getAppUpdateInfo, installAppUpdate, listenToAppUpdateResume, listenToUpdateProgress, matchesDownloadedUpdate, updateErrorCode, updateErrorMessage,
   type AppUpdate, type AppUpdateInfo, type UpdateProgress,
 } from '../lib/appUpdate';
 import './app-update.css';
@@ -32,6 +32,7 @@ export function UpdatePanel({ onClose, beforeInstall, onBackup, initialUpdate }:
   const [status, setStatus] = useState('正在读取版本与更新信息…');
   const overlayRef = useRef<HTMLDivElement>(null), dialogRef = useRef<HTMLDivElement>(null), closeRef = useRef<HTMLButtonElement>(null);
   const mountedRef = useRef(false), operationRef = useRef(0), downloadActiveRef = useRef(false), actionBusyRef = useRef(false);
+  const infoRequestRef = useRef(0);
   const controllerRef = useRef<AbortController | null>(null), listenerRef = useRef<PluginListenerHandle | null>(null);
   const closeCallbackRef = useRef(onClose);
   closeCallbackRef.current = onClose;
@@ -39,6 +40,7 @@ export function UpdatePanel({ onClose, beforeInstall, onBackup, initialUpdate }:
   const check = async (knownInfo?: AppUpdateInfo, initial?: AppUpdate | null) => {
     if (actionBusyRef.current) return;
     const operation = ++operationRef.current;
+    infoRequestRef.current++;
     controllerRef.current?.abort();
     const controller = new AbortController();
     controllerRef.current = controller;
@@ -51,12 +53,32 @@ export function UpdatePanel({ onClose, beforeInstall, onBackup, initialUpdate }:
       const latest = initial && compareUpdateVersions(initial.versionName, deviceInfo.versionName) > 0
         ? initial : await checkForUpdate({ signal: controller.signal, currentVersion: deviceInfo.versionName });
       if (!mountedRef.current || operationRef.current !== operation) return;
-      setUpdate(latest); setDownloaded(false); setProgress(null);
-      setStage(latest ? 'available' : 'current');
-      setStatus(latest ? `发现 ${latest.versionName}，点击下载后才会获取安装包。` : '当前已是可用的最新发布版本。');
+      const reusable = matchesDownloadedUpdate(deviceInfo, latest);
+      setUpdate(latest); setDownloaded(reusable);
+      setProgress(reusable && latest ? { received: latest.size, total: latest.size, progress: 1 } : null);
+      setStage(reusable ? 'downloaded' : latest ? 'available' : 'current');
+      setStatus(reusable ? '此更新包已下载并通过校验，可继续安装；安装前会再次核验。' : latest ? `发现 ${latest.versionName}，点击下载后才会获取安装包。` : '当前已是可用的最新发布版本。');
     } catch (issue) {
       if (!mountedRef.current || operationRef.current !== operation || controller.signal.aborted) return;
       setStage('error'); setError(updateErrorMessage(issue)); setErrorCode(updateErrorCode(issue)); setStatus('这次更新检查没有完成。');
+    }
+  };
+
+  // Refresh permission information without checking releases or disturbing a transfer.
+  const refreshInfoRef = useRef<() => Promise<void>>(async () => {});
+  refreshInfoRef.current = async () => {
+    if (!mountedRef.current || !info || info.platform !== 'android' || stage === 'checking' || downloadActiveRef.current || actionBusyRef.current) return;
+    const operation = operationRef.current, request = ++infoRequestRef.current;
+    try {
+      const deviceInfo = await getAppUpdateInfo();
+      if (!mountedRef.current || operation !== operationRef.current || request !== infoRequestRef.current || downloadActiveRef.current || actionBusyRef.current) return;
+      setInfo(deviceInfo);
+      if (deviceInfo.canInstall && errorCode === 'install_permission_required') {
+        setError(''); setErrorCode('');
+        setStatus('安装来源权限已允许，点击安装更新后在系统页面确认。');
+      }
+    } catch {
+      // A foreground refresh must not erase a completed download or replace its status.
     }
   };
 
@@ -64,11 +86,28 @@ export function UpdatePanel({ onClose, beforeInstall, onBackup, initialUpdate }:
     mountedRef.current = true;
     void check(undefined, initialUpdate);
     return () => {
-      mountedRef.current = false; operationRef.current++;
+      mountedRef.current = false; operationRef.current++; infoRequestRef.current++;
       controllerRef.current?.abort();
       void listenerRef.current?.remove().catch(() => {});
       listenerRef.current = null;
       if (downloadActiveRef.current) void cancelAppUpdateDownload().catch(() => {});
+    };
+  }, []);
+
+  useEffect(() => {
+    let disposed = false, resumeListener: PluginListenerHandle | null = null;
+    const refresh = () => { if (document.visibilityState === 'visible') void refreshInfoRef.current(); };
+    document.addEventListener('visibilitychange', refresh);
+    window.addEventListener('focus', refresh);
+    void listenToAppUpdateResume(refresh).then(handle => {
+      if (disposed) void handle?.remove().catch(() => {});
+      else resumeListener = handle;
+    }).catch(() => {});
+    return () => {
+      disposed = true;
+      document.removeEventListener('visibilitychange', refresh);
+      window.removeEventListener('focus', refresh);
+      void resumeListener?.remove().catch(() => {});
     };
   }, []);
 
@@ -157,8 +196,14 @@ export function UpdatePanel({ onClose, beforeInstall, onBackup, initialUpdate }:
       setStage('installer'); setStatus('系统安装页面已打开。请确认更新；完成后重新打开田野来信。');
     } catch (issue) {
       if (!mountedRef.current || operationRef.current !== operation) return;
-      setError(updateErrorMessage(issue)); setErrorCode(updateErrorCode(issue)); setStage('downloaded');
-      setStatus(updateErrorCode(issue) === 'install_permission_required' ? '返回游戏后，点“继续安装”再次打开安装程序。' : '安装没有完成，现有游戏和记录仍保留。');
+      const code = updateErrorCode(issue);
+      const invalidated = ['no_download', 'hash_mismatch', 'size_mismatch', 'package_mismatch', 'invalid_update', 'version_not_newer', 'signature_mismatch'].includes(code);
+      setError(updateErrorMessage(issue)); setErrorCode(code); setStage(invalidated ? 'error' : 'downloaded');
+      if (invalidated) {
+        setDownloaded(false); setProgress(null);
+        setInfo(current => current ? { ...current, downloadedUpdate: undefined } : current);
+      }
+      setStatus(code === 'install_permission_required' ? '返回游戏后，点“继续安装”再次打开安装程序。' : invalidated ? '更新缓存已失效，请重新下载后安装。' : '安装没有完成，现有游戏和记录仍保留。');
     } finally { actionBusyRef.current = false; }
   };
 
@@ -179,7 +224,7 @@ export function UpdatePanel({ onClose, beforeInstall, onBackup, initialUpdate }:
         {android && <div className="au-safety"><ShieldCheck size={19} /><div><strong>先核对，再安装</strong><p>应用会核对安装包、版本与签名。安装需要你的系统确认；覆盖更新会保留数据，建议提前导出备份。</p><p>Android 8 及以上首次安装时，系统可能要求允许“安装未知应用”。只允许田野来信后返回，再点继续安装。</p>{info && !info.canInstall && <small>当前尚未取得此安装来源的权限，下载完成后可在系统设置授权。</small>}</div></div>}
       </div>
       <footer className="au-footer"><div className="au-links"><a href={update?.releaseUrl ?? UPDATE_RELEASES_URL} target="_blank" rel="noopener noreferrer" onClick={event => { if (android) { event.preventDefault(); void openSource(update?.releaseUrl ?? UPDATE_RELEASES_URL).catch(issue => setError(updateErrorMessage(issue))); } }}>查看发布页<ArrowUpRight size={14} /></a>{onBackup && <button className="au-backup" disabled={stage === 'installing'} onClick={onBackup}>导出游戏备份</button>}</div><div className="au-actions">
-        {stage === 'downloading' || stage === 'cancelling' ? <button className="au-secondary" onClick={() => void cancelDownload()} disabled={stage === 'cancelling'}>取消下载</button> : <button className="au-secondary" onClick={() => void check(info ?? undefined)} disabled={working}><RefreshCw size={16} />{stage === 'error' && !update ? '重试检查' : '检查更新'}</button>}
+        {stage === 'downloading' || stage === 'cancelling' ? <button className="au-secondary" onClick={() => void cancelDownload()} disabled={stage === 'cancelling'}>取消下载</button> : <button className="au-secondary" onClick={() => void check()} disabled={working}><RefreshCw size={16} />{stage === 'error' && !update ? '重试检查' : '检查更新'}</button>}
         {android && update && !downloaded && stage !== 'checking' && <button className="au-primary" disabled={working} onClick={() => void startDownload()}><Download size={17} />{stage === 'error' ? '重新下载' : `下载 ${sizeLabel(update.size)}`}</button>}
         {android && downloaded && <button className="au-primary" disabled={working} onClick={() => void install()}><HardDriveDownload size={17} />{errorCode === 'install_permission_required' || stage === 'installer' ? '继续安装' : '安装更新'}</button>}
       </div></footer>

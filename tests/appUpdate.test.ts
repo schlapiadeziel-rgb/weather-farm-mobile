@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 import {
   AppUpdateError, MAX_UPDATE_BYTES, UPDATE_API_URL, UPDATE_REPOSITORY, checkForUpdate, compareUpdateVersions,
-  downloadAppUpdate, parseUpdateChecksum, parseUpdateRelease, parseUpdateVersion, trustedUpdateAssetUrl, updateErrorMessage,
+  downloadAppUpdate, matchesDownloadedUpdate, parseDownloadedUpdate, parseUpdateChecksum, parseUpdateRelease, parseUpdateVersion, trustedUpdateAssetUrl, updateErrorMessage,
 } from '../src/lib/appUpdate.ts';
 
 const originalFetch = globalThis.fetch;
@@ -33,6 +33,36 @@ function installResponses(releases: unknown, checksum = checksums) {
   return requests;
 }
 afterEach(() => { globalThis.fetch = originalFetch; });
+
+test('in-memory downloaded metadata requires a newer integer build and valid bounded release fields', () => {
+  const downloaded = { versionName: '0.4.0', versionCode: 5, sha256: hash, size: 20_000_000 };
+  assert.deepEqual(parseDownloadedUpdate(downloaded, 4), downloaded);
+  assert.equal(parseDownloadedUpdate(undefined, 4), null); // Older native bridges omit the optional field.
+  for (const value of [null, [], 'ready', { ...downloaded, versionName: 'v0.4.0' }, { ...downloaded, versionName: '0.4' },
+    { ...downloaded, versionName: '0.04.0' }, { ...downloaded, versionCode: 4 }, { ...downloaded, versionCode: 3 },
+    { ...downloaded, versionCode: 5.5 }, { ...downloaded, versionCode: Number.MAX_SAFE_INTEGER + 1 },
+    { ...downloaded, sha256: 'z'.repeat(64) }, { ...downloaded, sha256: hash.toUpperCase() },
+    { ...downloaded, sha256: hash.slice(1) }, { ...downloaded, size: 0 }, { ...downloaded, size: -1 },
+    { ...downloaded, size: 1.5 }, { ...downloaded, size: MAX_UPDATE_BYTES + 1 }, { ...downloaded, size: NaN },
+  ]) assert.equal(parseDownloadedUpdate(value, 4), null);
+  for (const installed of [0, 1.5, NaN, Infinity]) assert.equal(parseDownloadedUpdate(downloaded, installed), null);
+});
+test('downloaded metadata is reconstructed without paths, URLs or unexpected native properties', () => {
+  const downloaded = { versionName: '0.4.0', versionCode: 5, sha256: hash, size: 20_000_000 };
+  assert.deepEqual(parseDownloadedUpdate({ ...downloaded, path: '/private/cache/file.apk', url: 'https://evil.example/update.apk' }, 4), downloaded);
+});
+test('a completed download is reusable only with an exact version, checksum and size from the checked release', () => {
+  const update = { ...parseUpdateRelease(release(), '0.3.0')!, sha256: hash };
+  const info = { versionName: '0.3.0', versionCode: 4, platform: 'android' as const, canInstall: false,
+    downloadedUpdate: { versionName: '0.4.0', versionCode: 5, sha256: hash, size: 20_000_000 } };
+  assert.equal(matchesDownloadedUpdate(info, update), true); // No install-source permission needed to retain the download.
+  assert.equal(matchesDownloadedUpdate({ ...info, canInstall: true }, update), true);
+  for (const changed of [{ ...update, versionName: '0.5.0' }, { ...update, sha256: 'b2'.repeat(32) }, { ...update, size: 20_000_001 }]) assert.equal(matchesDownloadedUpdate(info, changed), false);
+  assert.equal(matchesDownloadedUpdate(info, null), false);
+  assert.equal(matchesDownloadedUpdate({ ...info, platform: 'web' }, update), false);
+  assert.equal(matchesDownloadedUpdate({ ...info, versionCode: 5 }, update), false);
+  assert.equal(matchesDownloadedUpdate({ ...info, downloadedUpdate: undefined }, update), false);
+});
 
 test('release versions compare numeric major/minor/patch fields, including multi-digit increments', () => {
   assert.deepEqual(parseUpdateVersion('v0.4.0'), [0, 4, 0]);
