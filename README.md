@@ -2,7 +2,7 @@
 
 中文横屏农场经营游戏。参考 Hay Day 的播种、喂养、库存、加工排队、交订单和路边摊循环，代码与场景美术独立原创。打开先进入斜角俯视的原创农场地图，田地、牧场、工坊、河塘与小镇相连；小镇建筑保留真实天气、本机图文 AI、官方资讯和实际农场记录。
 
-[下载 Android v0.5.0 试玩版](https://github.com/schlapiadeziel-rgb/weather-farm-mobile/releases/tag/v0.5.0) · [版本与安装包](https://github.com/schlapiadeziel-rgb/weather-farm-mobile/releases)
+[下载 Android v0.6.0 试玩版](https://github.com/schlapiadeziel-rgb/weather-farm-mobile/releases/tag/v0.6.0) · [版本与安装包](https://github.com/schlapiadeziel-rgb/weather-farm-mobile/releases)
 
 ![横屏农田](docs/planting.png)
 ![横屏牧场](docs/livestock.png)
@@ -12,11 +12,15 @@
 ![游戏内版本与更新](docs/game-update.png)
 ![连续播种工具](docs/field-tools.png)
 ![农场新手手册](docs/farm-guide.png)
+![农场看板](docs/farm-activity.png)
 
 截图为开发预览；天气与资讯以各自来源、地区和时间为准。游戏产量和收益不代表现实生产。
 
 ## 农场经营玩法
 
+- **农场看板**：主动打开查看成熟田地、动物产物、工坊成品、可交订单、路边摊货款和最近完成的倒计时。入口只导航，不自动收取或交货；订单分别核对当前库存，交货后再计算。
+- **材料来源**：订单显示明确缺货量，缺货入口和工坊原料可以跳到对应作物、动物、配方、果园、鱼塘、矿山或蜂箱；查看不会扣游戏资源。窄横屏的工坊可切换制作配方和生产队列。
+- **操作反馈**：游戏各经营页面共享提示；写盘失败会保留本次操作结果并提醒导出游戏备份，避免把仅存在内存的成果当成已保存。
 - **田地连续操作**：浏览、播种、收获三种方式；选种后划过田地，松手执行一次，经过的地块会预览高亮。资源不足只保留已经完成的部分；多指、失焦、弹窗和切换方式会取消，防止旧点击误操作。
 - **新手手册**：可选的五步图鉴串起留种、养殖、工坊、订单和小镇，包含来源导航和真实服务用途，不强制阻挡游戏。
 - **播种与留种**：12 种作物，每次播种用库存 1 份，成熟收获 2 份和经验；收成进入筒仓，金币来自销售与订单。按倒计时成熟，离线时间继续计算，作物不因天气或未浇水枯萎。
@@ -97,7 +101,7 @@ cd android
 
 ## 结构与许可
 
-`src/components/` 为游戏视觉、小镇与真实服务，`src/lib/` 为天气、信息解析、实际记录、问诊校验和游戏规则，`android/app/src/main/java/com/fieldletter/farm/ai/` 与 `src/main/cpp/` 为本机媒体、模型管理与 JNI 推理。`tests/` 包括官方页面快照解析、日期/单位/缓存、位置、订单成本、危险症状、真实记录及玩法检查。本版验证状态见 [v0.5.0 验证范围](docs/validation-v0.5.md)。
+`src/components/` 为游戏视觉、小镇与真实服务，`src/lib/` 为天气、信息解析、实际记录、问诊校验和游戏规则，`android/app/src/main/java/com/fieldletter/farm/ai/` 与 `src/main/cpp/` 为本机媒体、模型管理与 JNI 推理。`tests/` 包括官方页面快照解析、日期/单位/缓存、位置、订单成本、危险症状、真实记录及玩法检查。本版验证状态见 [v0.6.0 验证范围](docs/validation-v0.6.md)。
 
 本项目原创源码和场景资产使用 MIT。游戏灵感参考 [Khet-Setu](https://github.com/rach-kanc/Khet-Setu) 和 [Atmospheric Harvester](https://github.com/feotro23/Atmospheric-Harvester)，没有复制其代码或资产。
 
