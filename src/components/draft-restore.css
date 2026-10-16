@@ -1,0 +1,15 @@
+.draft-restore-controls{width:100%;min-width:0}
+.draft-restore-controls button{min-height:44px;display:inline-flex;align-items:center;justify-content:center;gap:7px}
+.draft-restore-message{font-size:12px;line-height:1.7;overflow-wrap:anywhere}
+.draft-restore-preview{border:1px solid #d5c08c;border-radius:12px;background:#fffaf0;padding:14px;margin-top:10px;color:#64522f;overflow-wrap:anywhere}
+.draft-restore-preview h4{font-size:14px;margin:0 0 8px}
+.draft-restore-preview p{margin:7px 0;line-height:1.7}
+.draft-restore-file{font-size:11px}
+.draft-restore-preview dl{margin:8px 0;font-size:12px;line-height:1.7}
+.draft-restore-preview dl>div{display:grid;grid-template-columns:86px minmax(0,1fr);gap:10px;margin:5px 0}
+.draft-restore-preview dt{font-weight:600}
+.draft-restore-preview dd{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;max-height:180px;overflow:auto;overscroll-behavior:contain}
+.draft-restore-preview summary{min-height:44px;cursor:pointer}
+.draft-restore-warning{padding:8px 10px;background:#fff0d5;border-radius:7px}
+.draft-restore-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+@media(max-width:550px){.draft-restore-actions button{flex:1 1 180px}.draft-restore-preview dl>div{grid-template-columns:72px minmax(0,1fr);gap:7px}}

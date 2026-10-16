@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
-import { CLINIC_DRAFT_KEY, CLINIC_DRAFT_RECOVERY_KEY, clearClinicDraft, emptyClinicDraftFields, readClinicDraft, saveClinicDraft } from '../src/lib/clinicDraft.ts';
+import { CLINIC_DRAFT_KEY, CLINIC_DRAFT_RECOVERY_KEY, MAX_CLINIC_DRAFT_BYTES, clearClinicDraft, emptyClinicDraftFields, parseClinicDraftJson, prepareRestoredClinicDraft, readClinicDraft, saveClinicDraft } from '../src/lib/clinicDraft.ts';
 import type { ClinicDraftFields, ClinicDraftSnapshot, ClinicDraftStorage } from '../src/lib/clinicDraft.ts';
 
 class MemoryStorage implements ClinicDraftStorage {
@@ -225,4 +225,68 @@ test('draft operations never touch game, real record, location or case keys, and
   const source = readFileSync(new URL('../src/lib/clinicDraft.ts', import.meta.url), 'utf8');
   assert.doesNotMatch(source, /^\s*import\b/m);
   assert.doesNotMatch(source, /normalizeObservation|localStorage\.clear\(/);
+});
+
+test('exported v1 draft JSON parses without completing or rewriting unfinished text', () => {
+  const original = { ...draft({ category: 'animal', subject: '', symptoms: '  呼吸情况待观察\n  ', affected: '1e-', total: '?未清点', management: '先等兽医\r\n' }), speechReviewed: false, hadMedia: true, measurementIds: ['external-measurement'] };
+  const before = JSON.stringify(original, null, 2);
+  const parsed = parseClinicDraftJson(before);
+  assert.deepEqual(parsed, original);
+  parsed.fields.symptoms = '不同对象';
+  parsed.measurementIds.push('second');
+  assert.equal(JSON.stringify(original, null, 2), before);
+});
+
+test('draft import accepts only the strict draft schema, rejecting game, cases and native payload fields', () => {
+  const original = draft();
+  const invalid: unknown[] = [null, [], {}, { version: 1, exportedAt: original.updatedAt, cases: [] }, { ...original, version: 2 }];
+  for (const key of ['game', 'cases', 'outcome', 'modelInfo', 'localUri', 'previewDataUrl', 'media', 'attachments', 'includeWeather']) {
+    invalid.push({ ...original, [key]: 'content://private/123' });
+    invalid.push({ ...original, fields: { ...original.fields, [key]: 'file:///private/123' } });
+  }
+  for (const value of invalid) assert.throws(() => parseClinicDraftJson(JSON.stringify(value)));
+  assert.throws(() => parseClinicDraftJson('{unfinished'), /JSON/);
+  assert.throws(() => parseClinicDraftJson(''), /JSON/);
+});
+
+test('draft file limit counts UTF-8 bytes including JSON whitespace instead of UTF-16 characters', () => {
+  const valid = JSON.stringify(draft({ symptoms: '叶'.repeat(4000) }));
+  assert.ok(new TextEncoder().encode(valid).byteLength < MAX_CLINIC_DRAFT_BYTES);
+  assert.equal(parseClinicDraftJson(valid).fields.symptoms.length, 4000);
+  const padded = valid + ' '.repeat(MAX_CLINIC_DRAFT_BYTES - new TextEncoder().encode(valid).byteLength);
+  assert.equal(new TextEncoder().encode(padded).byteLength, MAX_CLINIC_DRAFT_BYTES);
+  assert.equal(parseClinicDraftJson(padded).fields.symptoms.length, 4000);
+  assert.throws(() => parseClinicDraftJson(padded + ' '), /128 KiB/);
+  const unicodeOversized = valid + '\u3000'.repeat(Math.ceil((MAX_CLINIC_DRAFT_BYTES - valid.length) / 3));
+  assert.ok(unicodeOversized.length < MAX_CLINIC_DRAFT_BYTES);
+  assert.throws(() => parseClinicDraftJson(unicodeOversized), /128 KiB/);
+});
+
+test('restoring a draft clears nonportable measurement IDs and preserves missing-media and speech gates', () => {
+  const original = { ...draft({ subject: '番茄', affected: '未知', total: '-未量' }), measurementIds: ['same-id-as-this-phone'], speechReviewed: false, hadMedia: true };
+  const before = structuredClone(original), start = Date.now();
+  const restored = prepareRestoredClinicDraft(original);
+  assert.deepEqual(restored.fields, original.fields);
+  assert.deepEqual(restored.measurementIds, []);
+  assert.equal(restored.speechReviewed, false);
+  assert.equal(restored.hadMedia, true);
+  assert.ok(Date.parse(restored.updatedAt) >= start && Date.parse(restored.updatedAt) <= Date.now());
+  assert.deepEqual(original, before);
+  restored.fields.subject = '新的文字'; restored.measurementIds.push('local');
+  assert.deepEqual(original, before);
+  assert.deepEqual(Object.keys(restored), ['version', 'updatedAt', 'fields', 'speechReviewed', 'measurementIds', 'hadMedia']);
+});
+
+test('draft preview and preparation do not access local storage and revalidate direct object input', () => {
+  const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+  try {
+    Object.defineProperty(globalThis, 'localStorage', { configurable: true, get() { throw new Error('Must not read storage'); } });
+    const original = draft({ subject: '现场记录' });
+    assert.equal(prepareRestoredClinicDraft(parseClinicDraftJson(JSON.stringify(original))).fields.subject, '现场记录');
+    assert.throws(() => prepareRestoredClinicDraft({ ...original, localUri: 'content://bad' } as ClinicDraftSnapshot), /字段/);
+    assert.throws(() => prepareRestoredClinicDraft({ ...original, measurementIds: ['id', 'id'] }), /记录编号/);
+  } finally {
+    if (descriptor) Object.defineProperty(globalThis, 'localStorage', descriptor);
+    else Reflect.deleteProperty(globalThis, 'localStorage');
+  }
 });

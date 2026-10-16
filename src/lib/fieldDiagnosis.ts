@@ -70,7 +70,7 @@ export type DiagnosisOutcome = {
 };
 export type EducationEntry = { id: string; title: string; body: string; sourceUrl: string; sourceName: string };
 export type ModelInfo = { modelId: string; modelName: string; engineVersion: string; durationMs: number };
-export type LocalCase = { version: 1; id: string; createdAt: string; observation: FieldObservation; outcome: DiagnosisOutcome; modelInfo?: ModelInfo };
+export type LocalCase = { version: 1; id: string; createdAt: string; observation: FieldObservation; outcome: DiagnosisOutcome; modelInfo?: ModelInfo; importedAt?: string };
 export type CaseStorage = Pick<Storage, 'getItem' | 'setItem'>;
 
 export const EDUCATION_ENTRIES: readonly EducationEntry[] = [
@@ -307,6 +307,12 @@ function normalizeModelInfo(value: unknown): ModelInfo | undefined {
   };
 }
 
+function normalizeImportedAt(value: unknown): string | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== 'string' || !validTimestamp(value)) throw new Error('案例导入时间无效。');
+  return value;
+}
+
 export function createLocalCase(observation: FieldObservation, outcome: DiagnosisOutcome, createdAt = new Date().toISOString(), modelInfo?: ModelInfo): LocalCase {
   if (!validTimestamp(createdAt)) throw new Error('案例时间无效。');
   const normalized = normalizeObservation(observation);
@@ -331,7 +337,8 @@ export function loadLocalCases(storage?: CaseStorage): LocalCase[] {
         const observation = normalizeObservation(value.observation as FieldObservation);
         let modelInfo: ModelInfo | undefined;
         try { modelInfo = normalizeModelInfo(value.modelInfo); } catch { /* Keep the observation, without invalid model provenance. */ }
-        return [{ version: 1, id: value.id, createdAt: value.createdAt, observation, outcome: parseDiagnosisOutput(value.outcome.raw, observation), modelInfo }];
+        const importedAt = normalizeImportedAt(value.importedAt);
+        return [{ version: 1, id: value.id, createdAt: value.createdAt, observation, outcome: parseDiagnosisOutput(value.outcome.raw, observation), modelInfo, ...(importedAt !== undefined ? { importedAt } : {}) }];
       } catch { return []; }
     });
   } catch { return []; }
@@ -341,7 +348,8 @@ export function saveLocalCases(cases: LocalCase[], storage?: CaseStorage): void 
   const normalized = cases.slice(0, 20).map((item) => {
     const observation = normalizeObservation(item.observation);
     if (!validTimestamp(item.createdAt)) throw new Error('案例时间无效。');
-    return { version: 1, id: cleanText(item.id, '案例编号', 200), createdAt: item.createdAt, observation, outcome: parseDiagnosisOutput(item.outcome.raw, observation), modelInfo: normalizeModelInfo(item.modelInfo) };
+    const importedAt = normalizeImportedAt(item.importedAt);
+    return { version: 1, id: cleanText(item.id, '案例编号', 200), createdAt: item.createdAt, observation, outcome: parseDiagnosisOutput(item.outcome.raw, observation), modelInfo: normalizeModelInfo(item.modelInfo), ...(importedAt !== undefined ? { importedAt } : {}) };
   });
   const payload = JSON.stringify(normalized);
   if (payload.length > 500000) throw new Error('本地案例过大，请减少案例或说明长度后保存。');

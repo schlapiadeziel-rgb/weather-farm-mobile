@@ -10,18 +10,21 @@ import { MEASUREMENT_TYPES, readFarmRecords } from '../lib/farmRecords';
 import { exportLocalJson, formatDate, messageOf, openSource } from '../lib/deviceUi';
 import { clearClinicDraft, emptyClinicDraftFields, readClinicDraft, saveClinicDraft } from '../lib/clinicDraft';
 import type { ClinicDraftFields, ClinicDraftSnapshot } from '../lib/clinicDraft';
+import { prepareRestoredClinicDraft } from '../lib/clinicDraft';
+import CaseBackupControls from './CaseBackupControls';
+import DraftRestoreControls from './DraftRestoreControls';
 import type { WeatherBundle } from '../lib/weather';
 import '../styles/knowledge.css';
 import './clinic-session.css';
 
 type Attachment = { media: AiMedia; description: string };
-type Completed = { observation: FieldObservation; outcome: DiagnosisOutcome; createdAt: string; modelInfo?: ModelInfo; caseId?: string };
+type Completed = { observation: FieldObservation; outcome: DiagnosisOutcome; createdAt: string; modelInfo?: ModelInfo; caseId?: string; importedAt?: string };
 // Android pickers may finish after navigation. A new panel waits for an old
 // picker before clearing native files, so a late callback cannot erase its media.
 let pendingMediaSelection: Promise<SelectedAiMedia> | null = null;
 const stateLabels: Record<ModelStatus['state'], string> = { unsupported: '网页不可用', missing: '尚未准备模型', downloading: '下载中', downloaded: '已下载，未加载', loading: '加载中', ready: '本机已就绪', generating: '生成中', error: '需检查状态' };
 const riskLabels = { low: '仍需观察', medium: '需要核实', high: '尽快现场排查', urgent: '立即联系专业人员' };
-const optionalNumber = (value: string) => value.trim() ? Number(value) : undefined;
+const optionalNumber = (value: string) => value.trim() ? /^\d+$/.test(value.trim()) ? Number(value) : NaN : undefined;
 function bytes(value: number | undefined): string {
   if (!value || !Number.isFinite(value)) return '未读取';
   return value >= 1024 ** 3 ? `${(value / 1024 ** 3).toFixed(1)} GiB` : `${Math.ceil(value / 1024 ** 2)} MiB`;
@@ -315,6 +318,7 @@ export default function DiagnosticPanel({ weather, active = true, onDraftWarning
     if (!activeRef.current || !result || generation.current || result.caseId) return;
     try {
       const item = createLocalCase(result.observation, result.outcome, result.createdAt, result.modelInfo);
+      if (result.importedAt) item.importedAt = result.importedAt;
       const next = [item, ...safeCases()].slice(0, 20); saveLocalCases(next); setCases(next);
       showCompleted({ ...result, caseId: item.id }, false); showMessage('已保存这份结果对应的观察快照，最近最多保留 20 个案例。');
     } catch (error) { showMessage(messageOf(error)); }
@@ -340,6 +344,8 @@ export default function DiagnosticPanel({ weather, active = true, onDraftWarning
     if (!activeRef.current || !result || generation.current) return;
     try {
       const item = createLocalCase(result.observation, result.outcome, result.createdAt, result.modelInfo);
+      if (result.caseId) item.id = result.caseId;
+      if (result.importedAt) item.importedAt = result.importedAt;
       await exportLocalJson(item, `fieldletter-observation-${Date.now()}.json`);
     } catch (error) { showMessage(messageOf(error)); }
   }
@@ -350,7 +356,7 @@ export default function DiagnosticPanel({ weather, active = true, onDraftWarning
     // current attachment session before viewing history to prevent reuse.
     if (native && !(await clearAttachments())) return;
     if (!mounted.current) return;
-    showCompleted({ observation: item.observation, outcome: item.outcome, createdAt: item.createdAt, modelInfo: item.modelInfo, caseId: item.id });
+    showCompleted({ observation: item.observation, outcome: item.outcome, createdAt: item.createdAt, modelInfo: item.modelInfo, caseId: item.id, importedAt: item.importedAt });
     setCasesOpen(false);
     showMessage('正在查看历史记录快照。左侧文字仍是当前观察；附件已清空，新的分析需要重新选择现场照片。');
   }
@@ -368,6 +374,22 @@ export default function DiagnosticPanel({ weather, active = true, onDraftWarning
     if (!activeRef.current) return;
     try { await exportLocalJson({ ...draftSnapshot.current, updatedAt: new Date().toISOString() }, `fieldletter-clinic-draft-${Date.now()}.json`); }
     catch (error) { setDraftStatus({ kind: 'error', text: `文字草稿导出未完成：${messageOf(error)}` }); }
+  }
+
+  function restoreDraft(incoming: ClinicDraftSnapshot, expectedSignature: string) {
+    if (!activeRef.current || generation.current || capture.current || speech.current || operation.current || modelBusy) throw new Error('请先结束当前操作，再恢复文字草稿。');
+    if (expectedSignature !== draftSignatureRef.current) throw new Error('预览后表单已改变，请重新选择草稿文件。');
+    if (draftSnapshot.current.hadMedia) throw new Error('请先处理当前附件，或明确选择“本次仅用文字”，再恢复草稿。');
+    const snapshot = prepareRestoredClinicDraft(incoming);
+    // Persist first: a rejected write must leave the current form and its
+    // pending autosave intact. No imported measurement ID is linked locally.
+    saveClinicDraft(snapshot);
+    if (draftTimer.current) { clearTimeout(draftTimer.current); draftTimer.current = null; }
+    const signature = JSON.stringify([snapshot.fields, snapshot.speechReviewed, [], snapshot.hadMedia]);
+    draftSnapshot.current = snapshot; draftSignatureRef.current = signature; savedDraftSignature.current = signature;
+    setDraft(snapshot.fields); setSpeechReviewed(snapshot.speechReviewed); setMeasurementIds([]); setIncludeWeather(false);
+    setMediaRecoveryNeeded(snapshot.hadMedia); setClearDraftOpen(false);
+    setDraftStatus({ kind: 'restored', text: '文字草稿已从文件恢复并保存。请核对文字，重新选择实测与天气；原完成结果和案例保留。' });
   }
 
   function clearTextDraft() {
@@ -393,6 +415,8 @@ export default function DiagnosticPanel({ weather, active = true, onDraftWarning
     <section className={`clinic-draft-status ${draftStatus.kind}`} aria-label="本机文字草稿">
       <div><strong>本机文字草稿</strong><p role={draftStatus.kind === 'error' || draftStatus.kind === 'warning' ? 'alert' : 'status'}>{draftStatus.text}</p><small>仅保存文字与实测勾选；照片、视频帧、附件说明及模型输出不写入文字草稿。</small></div>
       <div className="clinic-draft-actions"><button className="quiet-button" disabled={!active} onClick={() => void exportDraft()}><Download size={15} />导出文字草稿</button><button className="quiet-button" disabled={formLocked || !!modelBusy} onClick={() => setClearDraftOpen(value => !value)}><Trash2 size={15} />清空文字草稿</button></div>
+      <DraftRestoreControls active={active} disabled={formLocked || !!modelBusy || attachments.length > 0 || mediaRecoveryNeeded} currentSignature={draftSignature} onRestore={restoreDraft} />
+      {(attachments.length > 0 || mediaRecoveryNeeded) && <p className="card-footnote">恢复草稿前，请先处理当前附件或未恢复附件提示。</p>}
       {clearDraftOpen && <div className="clinic-draft-confirm"><p>清空表单文字与实测勾选？现有附件、完成结果和案例保留。</p><button className="quiet-button" disabled={formLocked || !!modelBusy} onClick={() => setClearDraftOpen(false)}>保留文字</button><button className="quiet-button" disabled={formLocked || !!modelBusy} onClick={clearTextDraft}>确认清空文字</button></div>}
     </section>
     {mediaRecoveryNeeded && <div className="clinic-media-recovery" role="alert"><strong>上次附件未恢复，请重选并补充说明；或明确本次仅文字。</strong><p>文字草稿不保存原图片、视频帧及附件说明。确认前不会生成或保存新的观察。</p><button className="quiet-button" disabled={formLocked} onClick={() => { if (!activeRef.current || formLocked) return; setMediaRecoveryNeeded(false); showMessage('已明确本次仅用文字；上次附件不会参与本次观察。'); }}>本次仅用文字</button></div>}
@@ -400,12 +424,12 @@ export default function DiagnosticPanel({ weather, active = true, onDraftWarning
       <div className="category-toggle" role="group" aria-label="观察类别"><button type="button" className={draft.category === 'crop' ? 'active' : ''} aria-pressed={draft.category === 'crop'} disabled={formLocked} onClick={() => setDraft({ ...draft, category: 'crop' })}>种植作物</button><button type="button" className={draft.category === 'animal' ? 'active' : ''} aria-pressed={draft.category === 'animal'} disabled={formLocked} onClick={() => setDraft({ ...draft, category: 'animal' })}>养殖动物 / 水产</button></div>
       <form onSubmit={event => { event.preventDefault(); void generate(); }}>
         <label>实际品种 / 动物名称<input required maxLength={100} disabled={formLocked} value={draft.subject} onChange={event => setDraft({ ...draft, subject: event.target.value })} placeholder={draft.category === 'crop' ? '例如：番茄，注明品种更有帮助' : '例如：蛋鸡 / 猪 / 草鱼'} /></label>
-        <label>亲眼观察到的异常<textarea required maxLength={4000} disabled={formLocked} value={draft.symptoms} onChange={event => setDraft({ ...draft, symptoms: event.target.value })} placeholder="写颜色、形态、行为、发生位置和变化，未知情况不要猜测。" /></label>
+        <label>亲眼观察到的异常<textarea aria-label="亲眼观察到的异常" required maxLength={4000} disabled={formLocked} value={draft.symptoms} onChange={event => setDraft({ ...draft, symptoms: event.target.value })} placeholder="写颜色、形态、行为、发生位置和变化，未知情况不要猜测。" /></label>
         {!speechReviewed && <label className="checkbox-label"><input type="checkbox" disabled={formLocked} checked={speechReviewed} onChange={event => setSpeechReviewed(event.target.checked)} />我已核对语音转写与实际情况一致</label>}
         <div className="form-pair"><label>最早发现时间<input maxLength={200} disabled={formLocked} value={draft.onset} onChange={event => setDraft({ ...draft, onset: event.target.value })} placeholder="例如：10 月 9 日清晨开始，具体未知可写未知" /></label><label>{draft.category === 'crop' ? '生长期' : '日龄 / 养殖阶段'}<input maxLength={200} disabled={formLocked} value={draft.stage} onChange={event => setDraft({ ...draft, stage: event.target.value })} placeholder="实际记录，可留空" /></label></div>
         <label>发生范围与变化<input maxLength={400} disabled={formLocked} value={draft.extent} onChange={event => setDraft({ ...draft, extent: event.target.value })} placeholder="例如：北棚两行 / 2 号池；是否正在扩大" /></label>
-        <div className="form-pair"><label>受影响数量（株 / 只 / 尾）<input type="number" min="0" step="1" disabled={formLocked} value={draft.affected} onChange={event => setDraft({ ...draft, affected: event.target.value })} /></label><label>同范围总数量<input type="number" min="0" step="1" disabled={formLocked} value={draft.total} onChange={event => setDraft({ ...draft, total: event.target.value })} /></label></div>
-        <label>近期管理变化<textarea maxLength={1000} disabled={formLocked} value={draft.management} onChange={event => setDraft({ ...draft, management: event.target.value })} placeholder="实际施肥、投喂、换水、灌溉、转群等时间；没有记录可留空" /></label>
+        <div className="form-pair"><label>受影响数量（株 / 只 / 尾）<input type="text" inputMode="numeric" maxLength={32} disabled={formLocked} value={draft.affected} onChange={event => setDraft({ ...draft, affected: event.target.value })} /></label><label>同范围总数量<input type="text" inputMode="numeric" maxLength={32} disabled={formLocked} value={draft.total} onChange={event => setDraft({ ...draft, total: event.target.value })} /></label></div>
+        <label>近期管理变化<textarea aria-label="近期管理变化" maxLength={1000} disabled={formLocked} value={draft.management} onChange={event => setDraft({ ...draft, management: event.target.value })} placeholder="实际施肥、投喂、换水、灌溉、转群等时间；没有记录可留空" /></label>
         {draft.symptoms.trim() && <TriageNotice observation={previewObservation} />}
         <div className="capture-actions" style={{ gridTemplateColumns: 'repeat(5, minmax(0, 1fr))' }}><button type="button" disabled={!native || !mediaReady || modelLocked || attachments.length >= 3} onClick={() => void selectMedia('camera')}><Camera size={19} />拍照</button><button type="button" disabled={!native || !mediaReady || modelLocked || attachments.length >= 3} onClick={() => void selectMedia('gallery')}><Image size={19} />选照片</button><button type="button" disabled={!native || !mediaReady || modelLocked || attachments.length > 0} onClick={() => void selectMedia('video-camera')}><Video size={19} />拍短视频</button><button type="button" disabled={!native || !mediaReady || modelLocked || attachments.length > 0} onClick={() => void selectMedia('video-gallery')}><Video size={19} />选视频</button><button type="button" disabled={!native || !status?.speechSupported || modelLocked} onClick={() => void startSpeech()}><Mic size={19} />离线转写</button></div>
         {speechBusy && <button type="button" className="quiet-button" onClick={() => void stopSpeech()}><Square size={14} />停止录音</button>}
@@ -425,6 +449,7 @@ export default function DiagnosticPanel({ weather, active = true, onDraftWarning
       {!generating && completed && retainedResult && <p className="clinic-retained-result" role="status">仍为上次完成结果，并非本次{retainedResult === 'stopped' ? '停止' : '失败'}输出；保存和导出使用下方原记录快照。</p>}
       {generating ? <><div className="diagnosis-placeholder"><LoaderCircle className="spin" size={28} /><h3>{stopRequested ? '正在结束本次生成' : '本机正在整理观察'}</h3><p>已生成 {tokenCount} 个 token。完整输出仍需通过结构与内容校验。</p></div><details className="raw-response"><summary>查看生成中的原始文字（未经校验）</summary><pre>{stream || '等待模型输出…'}</pre></details></> : completed ? <>
         <p className="card-footnote">观察对象：{completed.observation.subject} · 本次结果对应下方记录快照，修改左侧表单不会改写已完成结果。</p>
+        {completed.importedAt && <p className="clinic-retained-result">备份导入于 {formatDate(completed.importedAt, true)}。观察与模型信息均为文件声明，来源未核验；附件仅有文字说明，未恢复原照片。</p>}
         <TriageNotice observation={completed.observation} />
         {completed.outcome.status === 'structured' && completed.outcome.result ? <>
           <ResultList title="观察依据" items={completed.outcome.result.observations} /><h4>可能原因（需要核验）</h4>
@@ -455,7 +480,8 @@ export default function DiagnosticPanel({ weather, active = true, onDraftWarning
       <p className="model-privacy"><ShieldCheck size={15} /><span>选择、下载、导入、加载均由你主动操作。切换页面不会取消已开始的下载；只有点击取消下载才发出取消请求。模型未就绪或内存不足时请先记录观察并联系专业人员。</span></p>{status?.engineVersion && <p className="card-footnote">引擎：{status.engineVersion}</p>}{message && <p className="inline-message" role="status">{message}</p>}
     </Dialog>}
     {casesOpen && <Dialog titleId="local-cases-title" className="cases-modal" onClose={() => setCasesOpen(false)}><header><h2 id="local-cases-title">本机观察案例</h2><button className="modal-close" aria-label="关闭本机案例" onClick={() => setCasesOpen(false)}><X size={19} /></button></header><p className="card-footnote">{CASE_STORAGE_NOTICE} 最近最多保留 20 个案例。</p>
-      {cases.length ? <><div className="case-list">{cases.map(item => <article key={item.id}><strong>{item.observation.subject} · {item.observation.category === 'crop' ? '种植' : '养殖'}</strong><p>{item.observation.symptoms}</p><small>{formatDate(item.createdAt, true)} · {!item.modelInfo && !item.outcome.raw ? '仅观察，未生成 AI 建议' : item.outcome.status === 'structured' ? '通过结构校验，仍需现场核实' : '原始输出未通过校验'}{item.modelInfo ? ` · ${item.modelInfo.modelName}` : item.outcome.raw ? ' · 未记录模型来源' : ''}</small><div className="case-actions"><button className="text-link" disabled={formLocked} onClick={() => void viewCase(item)}>查看快照与结果</button><button className="text-link" onClick={() => void exportLocalJson(item, `fieldletter-case-${Date.now()}.json`).catch(error => showMessage(messageOf(error)))}><Download size={14} />导出</button><button className="delete-record" disabled={formLocked} aria-label={`删除 ${item.observation.subject} 的案例`} onClick={() => deleteCase(item.id)}><Trash2 size={16} /></button></div></article>)}</div><div className="result-actions"><button className="quiet-button" onClick={() => void exportLocalJson({ version: 1, exportedAt: new Date().toISOString(), cases }, `fieldletter-cases-${Date.now()}.json`).catch(error => showMessage(messageOf(error)))}><Download size={15} />导出全部案例</button></div></> : <div className="service-empty"><FileText size={30} /><h3>还没有保存的案例</h3><p>完成分析后可手动保存本次实际使用的观察、实测和模型来源。</p></div>}{message && <p className="inline-message" role="status">{message}</p>}
+      <CaseBackupControls active={active} disabled={formLocked || !!modelBusy} cases={cases} onImported={next => { setCases(next); showMessage('新增案例已合并到本设备；本机原记录保留，导入来源未核验。'); }} />
+      {cases.length ? <><div className="case-list">{cases.map(item => <article key={item.id}><strong>{item.observation.subject} · {item.observation.category === 'crop' ? '种植' : '养殖'}</strong><p>{item.observation.symptoms}</p><small>{item.importedAt ? '备份导入 · 来源未核验 · ' : ''}{formatDate(item.createdAt, true)} · {!item.modelInfo && !item.outcome.raw ? '仅观察，未生成 AI 建议' : item.outcome.status === 'structured' ? '通过结构校验，仍需现场核实' : '原始输出未通过校验'}{item.modelInfo ? ` · ${item.modelInfo.modelName}` : item.outcome.raw ? ' · 未记录模型来源' : ''}</small><div className="case-actions"><button className="text-link" disabled={formLocked} onClick={() => void viewCase(item)}>查看快照与结果</button><button className="text-link" onClick={() => void exportLocalJson(item, `fieldletter-case-${Date.now()}.json`).catch(error => showMessage(messageOf(error)))}><Download size={14} />导出</button><button className="delete-record" disabled={formLocked} aria-label={`删除 ${item.observation.subject} 的案例`} onClick={() => deleteCase(item.id)}><Trash2 size={16} /></button></div></article>)}</div></> : <div className="service-empty"><FileText size={30} /><h3>还没有保存的案例</h3><p>完成分析后可手动保存本次实际使用的观察、实测和模型来源。</p></div>}{message && <p className="inline-message" role="status">{message}</p>}
     </Dialog>}
   </main>;
 }

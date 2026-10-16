@@ -1,6 +1,8 @@
 /** Unfinished, real-world observations only. Media and model results are never persisted here. */
 export const CLINIC_DRAFT_KEY = 'fieldletter.clinic-draft.v1';
 export const CLINIC_DRAFT_RECOVERY_KEY = `${CLINIC_DRAFT_KEY}.recovery`;
+/** Independent of the storage limit: a text-only exported draft fits well within this cap. */
+export const MAX_CLINIC_DRAFT_BYTES = 128 * 1024;
 export type ClinicDraftStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 
 export interface ClinicDraftFields {
@@ -77,6 +79,23 @@ function normalizeDraft(value: unknown): ClinicDraftSnapshot {
     },
     speechReviewed: draft.speechReviewed, measurementIds: [...draft.measurementIds] as string[], hadMedia: draft.hadMedia,
   };
+}
+
+/** Parse only our text draft format; parsing never reads or changes device storage. */
+export function parseClinicDraftJson(text: string): ClinicDraftSnapshot {
+  if (typeof text !== 'string' || new TextEncoder().encode(text).byteLength > MAX_CLINIC_DRAFT_BYTES) {
+    throw new Error('文字草稿超过 128 KiB，请选择从问诊页面导出的草稿 JSON 文件。');
+  }
+  let value: unknown;
+  try { value = JSON.parse(text) as unknown; }
+  catch { throw new Error('文件不是有效的 JSON 文字草稿。'); }
+  return normalizeDraft(value);
+}
+
+/** IDs refer to records on the exporting device. Never select another device's records by ID. */
+export function prepareRestoredClinicDraft(snapshot: ClinicDraftSnapshot): ClinicDraftSnapshot {
+  const restored = normalizeDraft(snapshot);
+  return { ...restored, updatedAt: new Date().toISOString(), measurementIds: [] };
 }
 
 function getStorage(storage?: ClinicDraftStorage): ClinicDraftStorage | null {
