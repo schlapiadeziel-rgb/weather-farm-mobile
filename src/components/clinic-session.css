@@ -1,0 +1,20 @@
+.clinic-draft-status,.clinic-media-recovery,.clinic-model-recovery,.clinic-retained-result{border:1px solid #d7dfc7;background:#f5f6ea;border-radius:13px;padding:14px 16px;margin:14px 0;color:#4e633f;font-size:12px;line-height:1.7;overflow-wrap:anywhere}
+.clinic-draft-status{display:flex;align-items:center;flex-wrap:wrap;gap:12px}
+.clinic-draft-status>div:first-child{flex:1;min-width:200px}
+.clinic-draft-status strong,.clinic-media-recovery strong{font-size:13px}
+.clinic-draft-status p,.clinic-media-recovery p,.clinic-model-recovery p{margin:4px 0}
+.clinic-draft-status small{font-size:11px;color:#68765c}
+.clinic-draft-status.error,.clinic-draft-status.warning,.clinic-media-recovery,.clinic-retained-result{background:#fff3df;border-color:#dfc390;color:#785421}
+.clinic-draft-actions,.clinic-draft-confirm{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.clinic-draft-confirm{width:100%;border-top:1px solid #d8dfca;padding-top:10px}
+.clinic-draft-confirm p{flex:1;min-width:180px}
+.clinic-view button,.clinic-view .quiet-button,.clinic-view .solid-button,.clinic-view .text-link,.clinic-view .modal-close,.clinic-view input:not([type=checkbox]),.clinic-view select,.clinic-view summary{min-height:44px}
+.clinic-view summary{display:flex;align-items:center;cursor:pointer}
+.clinic-view .checkbox-label{min-height:44px;justify-content:center}
+.clinic-view .checkbox-label input{min-width:20px;min-height:20px}
+.clinic-view .model-modal,.clinic-view .cases-modal{max-height:calc(100dvh - 24px);overflow:auto;overscroll-behavior:contain}
+.clinic-view .analyze-actions{flex-wrap:wrap}
+.clinic-view .result-actions button{min-height:44px}
+.clinic-model-recovery{margin-top:12px;background:#fff3df;border-color:#dfc390}
+@media(max-width:850px) and (orientation:landscape){.clinic-view .clinic-layout{grid-template-columns:1fr}.clinic-draft-status{padding:12px}.clinic-draft-actions{width:100%}.clinic-draft-actions button{flex:1}}
+@media(max-width:550px){.clinic-draft-actions{width:100%}.clinic-draft-actions button{flex:1}.clinic-draft-confirm p{flex-basis:100%}}

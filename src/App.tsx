@@ -62,6 +62,7 @@ export default function App() {
   const [locationChosen, setLocationChosen] = useState(() => !!readSelectedLocation());
   const [bundle, setBundle] = useState<WeatherBundle | null>(() => { const cached = readWeather(); return cached && sameCoordinates(cached.location, location) ? cached : null; });
   const [tab, setTab] = useState<Tab>('farm');
+  const [clinicVisited, setClinicVisited] = useState(false);
   const [lastPlayTab, setLastPlayTab] = useState<PlayTab>('farm');
   const [townOpen, setTownOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -124,6 +125,7 @@ export default function App() {
   const readyCounts = Object.fromEntries(activity.sections.map(section => [section.id, section.count]));
   const readyTotal = activity.sections.reduce((sum, section) => sum + section.count, 0);
   function navigate(next: Tab) {
+    if (next === 'clinic') setClinicVisited(true);
     if (PLAY_TABS.includes(next)) { setLastPlayTab(next as PlayTab); if (next !== tab) setDetailsOpen(false); }
     setTab(next); setTownOpen(false); setActivityOpen(false); setFieldMode('browse');
   }
@@ -321,7 +323,7 @@ export default function App() {
       </nav>
 
       <Suspense fallback={<main className="content-view service-loading" role="status"><span className="brand-icon"><Building2 size={26} /></span><h2>正在打开小镇服务…</h2><p>准备好之后，继续照顾今天的农场。</p></main>}>
-      {tab === 'home' ? <FarmDashboard weather={serviceWeather} loading={loading} weatherError={serviceWeatherError} refresh={() => locationChosen ? void loadWeather(location) : setLocationOpen(true)} navigate={navigate} /> : tab === 'clinic' ? <DiagnosticPanel weather={weatherError || stale ? null : serviceWeather} /> : tab === 'news' ? <NewsPanel /> : tab === 'market' ? <MarketPanel locationName={locationChosen ? location.name : '请先设置真实农场位置'} /> : tab === 'advice' ? <FieldAdvicePanel weather={serviceWeather} weatherError={serviceWeatherError} navigate={() => navigate('clinic')} /> : tab === 'production' ? <ProductionPanel game={game} now={clock} onChange={commitGame} notify={showNotice} onNavigate={navigate} focus={productionFocus} onRequestItem={requestItem} /> : tab === 'orders' ? <OrdersPanel requestId={orderView.requestId} game={game} now={clock} onChange={commitGame} notify={showNotice} onRequestItem={requestItem} initialKind={orderView.kind} /> : tab === 'storage' ? <StoragePanel requestId={storageView.requestId} game={game} now={clock} onChange={commitGame} notify={showNotice} initialTab={storageView.section} /> : tab === 'explore' ? <ExplorationPanel requestId={exploreView.requestId} game={game} now={clock} onChange={commitGame} notify={showNotice} initialTab={exploreView.section} /> : tab === 'farm' ? <>
+      {tab === 'home' ? <FarmDashboard weather={serviceWeather} loading={loading} weatherError={serviceWeatherError} refresh={() => locationChosen ? void loadWeather(location) : setLocationOpen(true)} navigate={navigate} /> : tab === 'clinic' ? null : tab === 'news' ? <NewsPanel /> : tab === 'market' ? <MarketPanel locationName={locationChosen ? location.name : '请先设置真实农场位置'} /> : tab === 'advice' ? <FieldAdvicePanel weather={serviceWeather} weatherError={serviceWeatherError} navigate={() => navigate('clinic')} /> : tab === 'production' ? <ProductionPanel game={game} now={clock} onChange={commitGame} notify={showNotice} onNavigate={navigate} focus={productionFocus} onRequestItem={requestItem} /> : tab === 'orders' ? <OrdersPanel requestId={orderView.requestId} game={game} now={clock} onChange={commitGame} notify={showNotice} onRequestItem={requestItem} initialKind={orderView.kind} /> : tab === 'storage' ? <StoragePanel requestId={storageView.requestId} game={game} now={clock} onChange={commitGame} notify={showNotice} initialTab={storageView.section} /> : tab === 'explore' ? <ExplorationPanel requestId={exploreView.requestId} game={game} now={clock} onChange={commitGame} notify={showNotice} initialTab={exploreView.section} /> : tab === 'farm' ? <>
         <main className={`farm-scene map-scene ${activeFieldMode !== 'browse' ? 'field-mode-active' : ''}`}>
           <div className="scene-top"><div className="day-pill"><Sun size={17} /><strong>我的农田</strong><span>{game.unlockedPlots} 块耕地</span></div><button className="quest-sign" onClick={goal.action}><Flag size={17} /><span><strong>{goal.title}</strong><small>{goal.detail}</small></span><ChevronRight size={15} /></button></div>
           <FieldTools game={game} mode={fieldMode} seed={seed} onModeChange={chooseFieldMode} onSeedChange={next => { setSeed(next); chooseFieldMode('plant'); }} onHelp={openGuide} />
@@ -378,6 +380,11 @@ export default function App() {
 
       </main>}
       </Suspense>
+      {clinicVisited && <div className="clinic-session-slot" hidden={tab !== 'clinic'}>
+        <Suspense fallback={<main className="content-view service-loading" role="status"><h2>正在打开 AI 诊所…</h2><p>准备本次现场观察。</p></main>}>
+          <DiagnosticPanel weather={weatherError || stale ? null : serviceWeather} active={tab === 'clinic'} onDraftWarning={showNotice} />
+        </Suspense>
+      </div>}
       <div className={`game-notice ${notice ? 'is-visible' : ''}`} role="status" aria-atomic="true">{notice && <><Sprout size={17} aria-hidden="true" /><span>{notice}</span></>}</div>
     </div>
     <footer className="statusbar"><span><Leaf size={13} />{simulation ? '我的农场 · 播种，照料，等待丰收' : '小镇服务 · 真实农场资料独立保存'}</span><span>{!locationChosen ? '当前为示例城市天气，请设置你的农场位置' : bundle ? `${bundle.location.name} · ${stale || weatherError ? '上次获取' : '区域模型'} · ${bundle.timezone}` : weatherError || '正在连接 Open-Meteo…'}</span><button onClick={() => simulation ? setTownOpen(true) : navigate(lastPlayTab)}>{simulation ? '逛逛小镇' : '返回农场'}<ChevronRight size={12} /></button></footer>

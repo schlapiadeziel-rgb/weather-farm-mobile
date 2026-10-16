@@ -8,10 +8,12 @@ import { buildDiagnosisPrompt, CASE_STORAGE_NOTICE, createLocalCase, getRelevant
 import type { DiagnosisOutcome, FieldObservation, LocalCase, ModelInfo } from '../lib/fieldDiagnosis';
 import { MEASUREMENT_TYPES, readFarmRecords } from '../lib/farmRecords';
 import { exportLocalJson, formatDate, messageOf, openSource } from '../lib/deviceUi';
+import { clearClinicDraft, emptyClinicDraftFields, readClinicDraft, saveClinicDraft } from '../lib/clinicDraft';
+import type { ClinicDraftFields, ClinicDraftSnapshot } from '../lib/clinicDraft';
 import type { WeatherBundle } from '../lib/weather';
 import '../styles/knowledge.css';
+import './clinic-session.css';
 
-type Draft = { category: 'crop' | 'animal'; subject: string; symptoms: string; onset: string; extent: string; affected: string; total: string; stage: string; management: string };
 type Attachment = { media: AiMedia; description: string };
 type Completed = { observation: FieldObservation; outcome: DiagnosisOutcome; createdAt: string; modelInfo?: ModelInfo; caseId?: string };
 // Android pickers may finish after navigation. A new panel waits for an old
@@ -52,22 +54,27 @@ function ResultList({ title, items }: { title: string; items: string[] }) {
   return <><h4>{title}</h4>{items.length ? <ul>{items.map((item, index) => <li key={`${index}-${item}`}>{item}</li>)}</ul> : <p className="card-footnote">未提供，需要继续核实。</p>}</>;
 }
 
-export default function DiagnosticPanel({ weather }: { weather: WeatherBundle | null }) {
+export default function DiagnosticPanel({ weather, active = true, onDraftWarning }: { weather: WeatherBundle | null; active?: boolean; onDraftWarning?: (message: string) => void }) {
   const native = isNativeLocalAiAvailable();
-  const [draft, setDraft] = useState<Draft>({ category: 'crop', subject: '', symptoms: '', onset: '', extent: '', affected: '', total: '', stage: '', management: '' });
+  const [initialDraft] = useState(readClinicDraft);
+  const [draft, setDraft] = useState<ClinicDraftFields>(() => initialDraft.snapshot?.fields || emptyClinicDraftFields());
   const [farmRecords, setFarmRecords] = useState(readFarmRecords);
-  const [measurementIds, setMeasurementIds] = useState<string[]>([]);
+  const [measurementIds, setMeasurementIds] = useState<string[]>(() => initialDraft.snapshot?.measurementIds || []);
   const [includeWeather, setIncludeWeather] = useState(false);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [mediaReady, setMediaReady] = useState(!native);
   const [captureBusy, setCaptureBusy] = useState(false);
   const [speechBusy, setSpeechBusy] = useState(false);
-  const [speechReviewed, setSpeechReviewed] = useState(true);
+  const [speechReviewed, setSpeechReviewed] = useState(initialDraft.snapshot?.speechReviewed ?? true);
+  const [mediaRecoveryNeeded, setMediaRecoveryNeeded] = useState(!!initialDraft.snapshot?.hadMedia);
+  const [draftStatus, setDraftStatus] = useState<{ kind: 'empty' | 'saved' | 'restored' | 'warning' | 'error'; text: string }>(() => initialDraft.warning ? { kind: 'warning', text: initialDraft.warning } : initialDraft.snapshot ? { kind: 'restored', text: '已恢复本机文字草稿，请重新核对；草稿不等同于已保存案例。' } : { kind: 'empty', text: '文字草稿仅保存在本机；填写后自动保存，不等于已保存案例。' });
+  const [clearDraftOpen, setClearDraftOpen] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [stopRequested, setStopRequested] = useState(false);
   const [stream, setStream] = useState('');
   const [tokenCount, setTokenCount] = useState(0);
   const [completed, setCompleted] = useState<Completed | null>(null);
+  const [retainedResult, setRetainedResult] = useState<'failed' | 'stopped' | ''>('');
   const [cases, setCases] = useState(safeCases);
   const [status, setStatus] = useState<ModelStatus | null>(null);
   const [models, setModels] = useState<ModelProfile[]>([]);
@@ -77,19 +84,72 @@ export default function DiagnosticPanel({ weather }: { weather: WeatherBundle | 
   const [casesOpen, setCasesOpen] = useState(false);
   const [message, setMessage] = useState('');
   const mounted = useRef(false);
+  const activeRef = useRef(active); activeRef.current = active;
+  const draftWarningCallback = useRef(onDraftWarning); draftWarningCallback.current = onDraftWarning;
+  const draftSnapshot = useRef<ClinicDraftSnapshot>({ version: 1, updatedAt: new Date().toISOString(), fields: draft, speechReviewed, measurementIds, hadMedia: attachments.length > 0 || mediaRecoveryNeeded });
+  draftSnapshot.current = { version: 1, updatedAt: draftSnapshot.current.updatedAt, fields: draft, speechReviewed, measurementIds, hadMedia: attachments.length > 0 || mediaRecoveryNeeded };
+  const draftSignature = JSON.stringify([draft, speechReviewed, measurementIds, attachments.length > 0 || mediaRecoveryNeeded]);
+  const savedDraftSignature = useRef(draftSignature);
+  const draftSignatureRef = useRef(draftSignature); draftSignatureRef.current = draftSignature;
+  const draftTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const generation = useRef<{ stopped: boolean } | null>(null);
   const speech = useRef<{ stopped: boolean } | null>(null);
   const capture = useRef(false);
   const operation = useRef(false);
   const completedRef = useRef<Completed | null>(null);
-  const formLocked = generating || speechBusy || captureBusy;
+  const formLocked = !active || generating || speechBusy || captureBusy;
   const modelLocked = formLocked || !!modelBusy || status?.state === 'downloading' || status?.state === 'loading' || status?.state === 'generating';
   const previewObservation: FieldObservation = { category: draft.category, subject: draft.subject, symptoms: draft.symptoms, onset: draft.onset, extent: draft.extent };
   const selectedModel = models.find(model => model.id === status?.modelId) || models.find(model => model.selected);
+  const measurementChoices = [...farmRecords.measurements.filter(item => measurementIds.includes(item.id)), ...farmRecords.measurements.slice(-30).reverse().filter(item => !measurementIds.includes(item.id))];
   const observationOnly = !!completed && !completed.modelInfo && completed.outcome.raw === '';
 
   function showMessage(text: string) { if (mounted.current) setMessage(text); }
-  function showCompleted(value: Completed | null) { completedRef.current = value; if (mounted.current) setCompleted(value); }
+  function showCompleted(value: Completed | null, fresh = true) { completedRef.current = value; if (mounted.current) { setCompleted(value); if (fresh) setRetainedResult(''); } }
+  function flushDraft() {
+    if (draftTimer.current) { clearTimeout(draftTimer.current); draftTimer.current = null; }
+    if (savedDraftSignature.current === draftSignatureRef.current) return;
+    try {
+      const snapshot = { ...draftSnapshot.current, updatedAt: new Date().toISOString() };
+      saveClinicDraft(snapshot); draftSnapshot.current = snapshot; savedDraftSignature.current = draftSignatureRef.current;
+      if (mounted.current) setDraftStatus({ kind: 'saved', text: '文字草稿已自动保存在本机；案例需另行保存。' });
+    } catch (error) {
+      if (mounted.current) setDraftStatus({ kind: 'error', text: `文字草稿未能保存：${messageOf(error)} 可先导出文字草稿。` });
+      if (!activeRef.current) draftWarningCallback.current?.('问诊文字草稿未能保存，请返回 AI 诊所导出草稿。');
+    }
+  }
+
+  useEffect(() => {
+    if (savedDraftSignature.current === draftSignature) return;
+    draftTimer.current = setTimeout(flushDraft, 300);
+    return () => { if (draftTimer.current) { clearTimeout(draftTimer.current); draftTimer.current = null; } };
+  }, [draftSignature]);
+
+  useEffect(() => {
+    const onPageHide = () => flushDraft();
+    const onVisibility = () => { if (document.visibilityState === 'hidden') flushDraft(); };
+    window.addEventListener('pagehide', onPageHide); document.addEventListener('visibilitychange', onVisibility);
+    return () => { flushDraft(); window.removeEventListener('pagehide', onPageHide); document.removeEventListener('visibilitychange', onVisibility); };
+  }, []);
+
+  function refreshMeasurements() {
+    const next = readFarmRecords(); setFarmRecords(next);
+    const selected = draftSnapshot.current.measurementIds;
+    const valid = selected.filter(id => next.measurements.some(item => item.id === id));
+    if (valid.length !== selected.length) { setMeasurementIds(valid); setMessage('已移除不存在的实测记录；分析只使用当前勾选项。'); }
+  }
+
+  useEffect(() => {
+    if (active) { refreshMeasurements(); return; }
+    flushDraft(); setModelOpen(false); setCasesOpen(false); setClearDraftOpen(false);
+    if (speech.current) { speech.current.stopped = true; void localAi.stopSpeech().catch(() => {}); }
+    if (generation.current) {
+      generation.current.stopped = true; setStopRequested(true); setStream('');
+      if (completedRef.current) setRetainedResult('stopped');
+      showMessage('离开诊室已请求停止本次生成；返回后需手动分析。');
+      void localAi.stopGeneration().catch(() => {});
+    }
+  }, [active]);
   async function refreshModels() {
     const [nextStatus, profiles] = await Promise.all([localAi.getStatus(), localAi.listModels()]);
     if (mounted.current) { setStatus(nextStatus); setModels(profiles.models); }
@@ -104,12 +164,12 @@ export default function DiagnosticPanel({ weather }: { weather: WeatherBundle | 
         localAi.addListener('aiState', next => {
           if (!disposed) {
             setStatus(next);
-            if (next.state === 'generating' && generation.current?.stopped) void localAi.stopGeneration().catch(() => {});
+            if (next.state === 'generating' && (generation.current?.stopped || !activeRef.current)) void localAi.stopGeneration().catch(() => {});
           }
         }),
         localAi.addListener('aiProgress', next => { if (!disposed) setProgress(next); }),
         localAi.addListener('aiToken', next => {
-          if (!disposed && generation.current && !generation.current.stopped) { setStream(previous => previous + next.text); setTokenCount(next.tokenCount); }
+          if (!disposed && activeRef.current && generation.current && !generation.current.stopped) { setStream(previous => previous + next.text); setTokenCount(next.tokenCount); }
         }),
       ]);
       for (const result of registrations) {
@@ -140,7 +200,7 @@ export default function DiagnosticPanel({ weather }: { weather: WeatherBundle | 
   }, [native]);
 
   async function modelAction(label: string, action: () => Promise<unknown>) {
-    if (operation.current || generation.current || speech.current || capture.current) return;
+    if (!activeRef.current || operation.current || generation.current || speech.current || capture.current) return;
     operation.current = true; setModelBusy(label); setMessage('');
     try { await action(); await refreshModels(); }
     catch (error) { showMessage(messageOf(error)); }
@@ -148,7 +208,7 @@ export default function DiagnosticPanel({ weather }: { weather: WeatherBundle | 
   }
 
   async function clearAttachments() {
-    if (generation.current || capture.current || speech.current) return false;
+    if (!activeRef.current || generation.current || capture.current || speech.current || operation.current) return false;
     capture.current = true; setCaptureBusy(true);
     try { await localAi.clearMedia(); if (mounted.current) { setAttachments([]); setMediaReady(true); } return true; }
     catch (error) { showMessage(messageOf(error)); return false; }
@@ -157,29 +217,32 @@ export default function DiagnosticPanel({ weather }: { weather: WeatherBundle | 
 
   async function selectMedia(source: 'camera' | 'gallery' | 'video-camera' | 'video-gallery') {
     const isVideo = source.startsWith('video-');
-    if (!native || !mediaReady || generation.current || speech.current || capture.current || operation.current || pendingMediaSelection || attachments.length >= 3 || (isVideo && attachments.length > 0)) return;
+    if (!activeRef.current || !native || !mediaReady || generation.current || speech.current || capture.current || operation.current || pendingMediaSelection || attachments.length >= 3 || (isVideo && attachments.length > 0)) return;
     capture.current = true; setCaptureBusy(true); setMessage('');
     const request = isVideo ? localAi.selectVideo({ source: source === 'video-camera' ? 'camera' : 'gallery' }) : localAi.selectImage({ source: source as 'camera' | 'gallery' });
     pendingMediaSelection = request;
     try {
       const selection = await request;
       if (!mounted.current) return;
-      if (!Array.isArray(selection.media) || selection.media.length + attachments.length > 3) {
+      if (!Array.isArray(selection.media) || !selection.media.length || selection.media.length + attachments.length > 3) {
         await localAi.clearMedia(); setAttachments([]);
         throw new Error('这次附件超过 3 张照片或关键帧，已清空；请重新选择。');
       }
       setAttachments(previous => [...previous, ...selection.media.map(media => ({ media, description: '' }))]);
-      if (isVideo) showMessage(`已提取 ${selection.media.length} 个静态关键帧${selection.videoDurationSeconds !== undefined ? `，原视频约 ${selection.videoDurationSeconds.toFixed(1)} 秒` : ''}。只分析这些帧，不分析连续动作或原视频音轨。`);
+      setMediaRecoveryNeeded(false);
+      const recoveredNotice = mediaRecoveryNeeded ? '本次使用新选择的附件；上次附件及说明未恢复，请重新补充说明。' : '';
+      if (isVideo) showMessage(`${recoveredNotice}已提取 ${selection.media.length} 个静态关键帧${selection.videoDurationSeconds !== undefined ? `，原视频约 ${selection.videoDurationSeconds.toFixed(1)} 秒` : ''}。只分析这些帧，不分析连续动作或原视频音轨。`);
+      else if (recoveredNotice) showMessage(recoveredNotice);
     } catch (error) { showMessage(messageOf(error)); }
     finally { if (pendingMediaSelection === request) pendingMediaSelection = null; capture.current = false; if (mounted.current) setCaptureBusy(false); }
   }
 
   async function startSpeech() {
-    if (!native || !status?.speechSupported || generation.current || speech.current || capture.current || operation.current) return;
+    if (!activeRef.current || !native || !status?.speechSupported || generation.current || speech.current || capture.current || operation.current) return;
     const session = { stopped: false }; speech.current = session; setSpeechBusy(true); setMessage('');
     try {
       const result = await localAi.transcribeSpeech();
-      if (!mounted.current || session.stopped || speech.current !== session) return;
+      if (!mounted.current || !activeRef.current || session.stopped || speech.current !== session) return;
       const combined = [draft.symptoms.trim(), result.text.trim()].filter(Boolean).join('\n');
       if (combined.length > 4000) throw new Error('转写后症状超过 4000 字，请精简已有描述后重新录音。');
       if (!result.text.trim()) throw new Error('没有识别到文字，请重试或手动输入。');
@@ -214,7 +277,8 @@ export default function DiagnosticPanel({ weather }: { weather: WeatherBundle | 
   }
 
   async function generate() {
-    if (generation.current || speech.current || capture.current || operation.current) return;
+    if (!activeRef.current || generation.current || speech.current || capture.current || operation.current) return;
+    if (mediaRecoveryNeeded) { showMessage('上次附件未恢复。请重选并补充说明，或明确选择“本次仅用文字”。'); return; }
     if (!native || !mediaReady || status?.state !== 'ready') { showMessage('请先在模型中心准备并加载本机模型，等待附件初始化完成。'); return; }
     if (!speechReviewed) { showMessage('请先核对语音转写文字。'); return; }
     if (attachments.length && !status.visionSupported) { showMessage('当前模型没有就绪的图像能力，请检查模型和配套视觉文件。'); return; }
@@ -224,15 +288,15 @@ export default function DiagnosticPanel({ weather }: { weather: WeatherBundle | 
     catch (error) { showMessage(messageOf(error)); return; }
     const session = { stopped: false }; generation.current = session;
     const modelAtStart = { modelId: status.modelId, modelName: status.modelName, engineVersion: status.engineVersion };
-    setGenerating(true); setStopRequested(false); setStream(''); setTokenCount(0); setMessage(''); showCompleted(null);
+    setGenerating(true); setStopRequested(false); setStream(''); setTokenCount(0); setMessage('');
     try {
       const output = await localAi.generate({ ...prompt, mediaIds: attachments.map(item => item.media.id), maxTokens: 1024 });
       if (!mounted.current || generation.current !== session) return;
-      if (session.stopped || output.stopped) { setStream(''); showMessage('生成已停止；未保存为完成结果或案例。'); return; }
+      if (!activeRef.current || session.stopped || output.stopped) { setStream(''); if (completedRef.current) setRetainedResult('stopped'); showMessage('生成已停止；这次输出未保存为完成结果或案例。'); return; }
       const outcome = parseDiagnosisOutput(output.text, observation);
       showCompleted({ observation, outcome, createdAt: new Date().toISOString(), modelInfo: { ...modelAtStart, modelId: output.modelId, durationMs: output.durationMs } });
       setStream('');
-    } catch (error) { if (!session.stopped) showMessage(messageOf(error)); }
+    } catch (error) { if (mounted.current) { setStream(''); if (completedRef.current) setRetainedResult(session.stopped ? 'stopped' : 'failed'); } if (!session.stopped) showMessage(messageOf(error)); }
     finally {
       if (generation.current === session) generation.current = null;
       if (mounted.current) { setGenerating(false); setStopRequested(false); void refreshModels().catch(error => showMessage(messageOf(error))); }
@@ -241,23 +305,24 @@ export default function DiagnosticPanel({ weather }: { weather: WeatherBundle | 
 
   async function stopGeneration() {
     if (!generation.current) return;
-    generation.current.stopped = true; setStopRequested(true);
+    generation.current.stopped = true; setStopRequested(true); if (completedRef.current) setRetainedResult('stopped');
     try { await localAi.stopGeneration(); showMessage('已请求停止，等待本机引擎结束；这次输出不会保存为完成结果。'); }
     catch (error) { showMessage(messageOf(error)); }
   }
 
   function saveCase() {
     const result = completedRef.current;
-    if (!result || generation.current || result.caseId) return;
+    if (!activeRef.current || !result || generation.current || result.caseId) return;
     try {
       const item = createLocalCase(result.observation, result.outcome, result.createdAt, result.modelInfo);
       const next = [item, ...safeCases()].slice(0, 20); saveLocalCases(next); setCases(next);
-      showCompleted({ ...result, caseId: item.id }); showMessage('已保存本次分析使用的观察快照，最近最多保留 20 个案例。');
+      showCompleted({ ...result, caseId: item.id }, false); showMessage('已保存这份结果对应的观察快照，最近最多保留 20 个案例。');
     } catch (error) { showMessage(messageOf(error)); }
   }
 
   function saveObservation() {
-    if (generation.current || speech.current || capture.current) return;
+    if (!activeRef.current || generation.current || speech.current || capture.current) return;
+    if (mediaRecoveryNeeded) { showMessage('上次附件未恢复。请重选并补充说明，或明确选择“本次仅用文字”。'); return; }
     if (!speechReviewed) { showMessage('请先核对语音转写文字。'); return; }
     try {
       const observation = observationSnapshot();
@@ -272,7 +337,7 @@ export default function DiagnosticPanel({ weather }: { weather: WeatherBundle | 
 
   async function exportCompleted() {
     const result = completedRef.current;
-    if (!result) return;
+    if (!activeRef.current || !result || generation.current) return;
     try {
       const item = createLocalCase(result.observation, result.outcome, result.createdAt, result.modelInfo);
       await exportLocalJson(item, `fieldletter-observation-${Date.now()}.json`);
@@ -280,7 +345,7 @@ export default function DiagnosticPanel({ weather }: { weather: WeatherBundle | 
   }
 
   async function viewCase(item: LocalCase) {
-    if (generation.current || capture.current || speech.current) return;
+    if (!activeRef.current || generation.current || capture.current || speech.current) return;
     // Saved cases contain descriptions, not retained native images. Drop the
     // current attachment session before viewing history to prevent reuse.
     if (native && !(await clearAttachments())) return;
@@ -291,18 +356,46 @@ export default function DiagnosticPanel({ weather }: { weather: WeatherBundle | 
   }
 
   function deleteCase(id: string) {
-    if (generation.current || capture.current || speech.current) return;
+    if (!activeRef.current || generation.current || capture.current || speech.current) return;
     try {
       const next = cases.filter(item => item.id !== id); saveLocalCases(next); setCases(next);
-      if (completedRef.current?.caseId === id) showCompleted({ ...completedRef.current, caseId: undefined });
+      if (completedRef.current?.caseId === id) showCompleted({ ...completedRef.current, caseId: undefined }, false);
       showMessage('该案例已从本设备删除。');
     } catch (error) { showMessage(messageOf(error)); }
+  }
+
+  async function exportDraft() {
+    if (!activeRef.current) return;
+    try { await exportLocalJson({ ...draftSnapshot.current, updatedAt: new Date().toISOString() }, `fieldletter-clinic-draft-${Date.now()}.json`); }
+    catch (error) { setDraftStatus({ kind: 'error', text: `文字草稿导出未完成：${messageOf(error)}` }); }
+  }
+
+  function clearTextDraft() {
+    if (!activeRef.current || generation.current || capture.current || speech.current || operation.current) return;
+    if (draftTimer.current) { clearTimeout(draftTimer.current); draftTimer.current = null; }
+    const fields = emptyClinicDraftFields();
+    const snapshot: ClinicDraftSnapshot = { version: 1, updatedAt: new Date().toISOString(), fields, speechReviewed: true, measurementIds: [], hadMedia: attachments.length > 0 || mediaRecoveryNeeded };
+    try {
+      // A still-live attachment session (or unresolved recovery warning) must
+      // remain explicit even when the user clears only the text fields.
+      if (snapshot.hadMedia) saveClinicDraft(snapshot); else clearClinicDraft();
+      const signature = JSON.stringify([fields, true, [], snapshot.hadMedia]);
+      draftSnapshot.current = snapshot; draftSignatureRef.current = signature; savedDraftSignature.current = signature;
+      setDraft(fields); setSpeechReviewed(true); setMeasurementIds([]); setIncludeWeather(false); setClearDraftOpen(false);
+      setDraftStatus({ kind: 'empty', text: '文字与实测勾选已清空；现有附件、完成结果和已保存案例仍保留。' });
+    } catch (error) { setDraftStatus({ kind: 'error', text: `文字草稿未能清空：${messageOf(error)} 表单仍保留。` }); }
   }
 
   return <main className="service-view clinic-view">
     <div className="service-heading"><div><span className="eyebrow">真实观察 · 本机辅助排查</span><h2>把现场线索记录清楚</h2><p>作物、牲畜与水产异常先看事实，紧急情况立即联系专业人员。</p></div><div className="clinic-heading-actions"><button className="quiet-button" disabled={generating} onClick={() => { setCases(safeCases()); setCasesOpen(true); }}><FileText size={16} />本机案例 {cases.length}</button><button className="quiet-button" onClick={() => { setModelOpen(true); void refreshModels().catch(error => showMessage(messageOf(error))); }}><Cpu size={16} />模型中心</button></div></div>
     <div className="model-summary"><Cpu size={22} /><div><strong>{status?.modelName || '安卓本机模型'}<span className={`model-state ${status?.state || ''}`}>{status ? stateLabels[status.state] : '正在读取状态'}</span></strong><p>{native ? '模型需由你下载或导入，再手动加载。分析在设备内运行。' : '网页预览没有本机 AI 引擎，请安装安卓版本；观察表单和历史案例仍可查看。'}</p></div><button className="quiet-button" onClick={() => setModelOpen(true)}>管理模型</button></div>
     {message && <p className="inline-message" role="status">{message}</p>}
+    <section className={`clinic-draft-status ${draftStatus.kind}`} aria-label="本机文字草稿">
+      <div><strong>本机文字草稿</strong><p role={draftStatus.kind === 'error' || draftStatus.kind === 'warning' ? 'alert' : 'status'}>{draftStatus.text}</p><small>仅保存文字与实测勾选；照片、视频帧、附件说明及模型输出不写入文字草稿。</small></div>
+      <div className="clinic-draft-actions"><button className="quiet-button" disabled={!active} onClick={() => void exportDraft()}><Download size={15} />导出文字草稿</button><button className="quiet-button" disabled={formLocked || !!modelBusy} onClick={() => setClearDraftOpen(value => !value)}><Trash2 size={15} />清空文字草稿</button></div>
+      {clearDraftOpen && <div className="clinic-draft-confirm"><p>清空表单文字与实测勾选？现有附件、完成结果和案例保留。</p><button className="quiet-button" disabled={formLocked || !!modelBusy} onClick={() => setClearDraftOpen(false)}>保留文字</button><button className="quiet-button" disabled={formLocked || !!modelBusy} onClick={clearTextDraft}>确认清空文字</button></div>}
+    </section>
+    {mediaRecoveryNeeded && <div className="clinic-media-recovery" role="alert"><strong>上次附件未恢复，请重选并补充说明；或明确本次仅文字。</strong><p>文字草稿不保存原图片、视频帧及附件说明。确认前不会生成或保存新的观察。</p><button className="quiet-button" disabled={formLocked} onClick={() => { if (!activeRef.current || formLocked) return; setMediaRecoveryNeeded(false); showMessage('已明确本次仅用文字；上次附件不会参与本次观察。'); }}>本次仅用文字</button></div>}
     <div className="clinic-layout"><section className="service-card observation-form"><div className="section-heading"><h3>这次现场观察</h3><span>不采用游戏数据</span></div>
       <div className="category-toggle" role="group" aria-label="观察类别"><button type="button" className={draft.category === 'crop' ? 'active' : ''} aria-pressed={draft.category === 'crop'} disabled={formLocked} onClick={() => setDraft({ ...draft, category: 'crop' })}>种植作物</button><button type="button" className={draft.category === 'animal' ? 'active' : ''} aria-pressed={draft.category === 'animal'} disabled={formLocked} onClick={() => setDraft({ ...draft, category: 'animal' })}>养殖动物 / 水产</button></div>
       <form onSubmit={event => { event.preventDefault(); void generate(); }}>
@@ -320,15 +413,16 @@ export default function DiagnosticPanel({ weather }: { weather: WeatherBundle | 
         <p className="card-footnote">尽量在自然光下拍摄，先擦净镜头并对焦；过暗、模糊或反光时补拍。{draft.category === 'crop' ? '作物建议补拍整株、受影响部位近景和叶背，并对照同批正常植株。' : '动物建议补拍全身、异常部位，并用文字记录呼吸和行为；静态关键帧不能证明连续行为。'}</p>{native && status && !status.speechSupported && <p className="card-footnote">这台设备暂无可用的离线语音服务，请手动输入；不会改用云端转写。</p>}
         {attachments.length > 0 && <><div className="media-thumbnails">{attachments.map((item, index) => <div className="media-thumb" key={item.media.id}><img src={item.media.previewDataUrl} alt={item.media.kind === 'photo' ? `现场照片 ${index + 1}` : `视频静态帧 ${index + 1}`} /><small>{item.media.kind === 'photo' ? `照片 ${index + 1}` : `约 ${item.media.timestampSeconds?.toFixed(1) ?? '未知时点'} 秒关键帧`}</small></div>)}</div>{attachments.map((item, index) => <label key={item.media.id}>附件 {index + 1} 说明<input maxLength={700} disabled={formLocked} value={item.description} onChange={event => setAttachments(previous => previous.map((attachment, position) => position === index ? { ...attachment, description: event.target.value } : attachment))} placeholder="部位、位置、实际拍摄时间；不确定的时间请留空" /></label>)}<button type="button" className="text-link" disabled={formLocked} onClick={() => void clearAttachments()}><Trash2 size={14} />清空全部附件</button></>}
         {!mediaReady && native && <button type="button" className="text-link" disabled={formLocked} onClick={() => void clearAttachments()}>重试初始化附件</button>}
-        <details><summary>主动选择现场实测记录（已选 {measurementIds.length} 项）</summary><button type="button" className="text-link" disabled={formLocked} onClick={() => { const next = readFarmRecords(); setFarmRecords(next); setMeasurementIds(previous => previous.filter(id => next.measurements.some(item => item.id === id))); }}><RefreshCw size={13} />刷新农场记录</button>{farmRecords.measurements.length ? farmRecords.measurements.slice(-30).reverse().map(item => <label className="checkbox-label" key={item.id}><input type="checkbox" disabled={formLocked || (!measurementIds.includes(item.id) && measurementIds.length >= 12)} checked={measurementIds.includes(item.id)} onChange={event => setMeasurementIds(previous => event.target.checked ? [...previous, item.id] : previous.filter(id => id !== item.id))} /><span>{MEASUREMENT_TYPES[item.kind].label} {item.value} {MEASUREMENT_TYPES[item.kind].unit}<br />{item.place} · {formatDate(item.observedAt, true)}{item.instrument ? ` · ${item.instrument}` : ''}</span></label>) : <p className="card-footnote">没有已保存实测记录，可先去工作台添加。未勾选的记录不会交给模型。</p>}</details>
+        <details><summary>主动选择现场实测记录（已选 {measurementIds.length} 项）</summary><button type="button" className="text-link" disabled={formLocked} onClick={refreshMeasurements}><RefreshCw size={13} />刷新农场记录</button>{farmRecords.measurements.length ? measurementChoices.map(item => <label className="checkbox-label" key={item.id}><input type="checkbox" disabled={formLocked || (!measurementIds.includes(item.id) && measurementIds.length >= 12)} checked={measurementIds.includes(item.id)} onChange={event => setMeasurementIds(previous => event.target.checked ? [...previous, item.id] : previous.filter(id => id !== item.id))} /><span>{MEASUREMENT_TYPES[item.kind].label} {item.value} {MEASUREMENT_TYPES[item.kind].unit}<br />{item.place} · {formatDate(item.observedAt, true)}{item.instrument ? ` · ${item.instrument}` : ''}</span></label>) : <p className="card-footnote">没有已保存实测记录，可先去工作台添加。未勾选的记录不会交给模型。</p>}</details>
         <label className="checkbox-label"><input type="checkbox" disabled={formLocked || !weather || !(weather.dataTime || weather.currentTime)} checked={includeWeather && !!weather} onChange={event => setIncludeWeather(event.target.checked)} />附上当前区域天气模型数据（不是田间实测）</label>
         {includeWeather && weather && <p className="card-footnote">Open-Meteo · {weather.location.name} · 模型时点 {weather.currentTime || weather.dataTime} · {weather.timezone}。空气气温 {weather.current.temp}°C、湿度 {weather.current.humidity}%、风速 {weather.current.wind} km/h；今日全日降水预报 {weather.forecast[0].rain} mm。空气天气不能代替水温、溶氧或土壤实测。</p>}
-        <div className="analyze-actions">{!generating && <button type="button" className="quiet-button" disabled={formLocked || !speechReviewed || !draft.subject.trim() || !draft.symptoms.trim()} onClick={saveObservation}><Save size={15} />保存观察</button>}{generating ? <button type="button" className="quiet-button" disabled={stopRequested} onClick={() => void stopGeneration()}><Square size={15} />{stopRequested ? '等待停止' : '停止本次生成'}</button> : <button type="submit" className="solid-button" disabled={!native || !mediaReady || status?.state !== 'ready' || formLocked || !!modelBusy || !speechReviewed}><ScanLine size={17} />在设备内整理观察</button>}{captureBusy && <span>读取附件中…</span>}</div>
+        <div className="analyze-actions">{!generating && <button type="button" className="quiet-button" disabled={formLocked || mediaRecoveryNeeded || !speechReviewed || !draft.subject.trim() || !draft.symptoms.trim()} onClick={saveObservation}><Save size={15} />保存观察</button>}{generating ? <button type="button" className="quiet-button" disabled={stopRequested} onClick={() => void stopGeneration()}><Square size={15} />{stopRequested ? '等待停止' : '停止本次生成'}</button> : <button type="submit" className="solid-button" disabled={!native || !mediaReady || status?.state !== 'ready' || formLocked || mediaRecoveryNeeded || !!modelBusy || !speechReviewed}><ScanLine size={17} />在设备内整理观察</button>}{captureBusy && <span>读取附件中…</span>}</div>
         <p className="privacy-note"><ShieldCheck size={14} /><span>本次分析只使用上述文字、勾选的记录及所选静态图片。原媒体留在设备，不上传诊断服务；模型下载和查看外部参考资料需要网络。</span></p>
       </form>
     </section>
-    <section className="service-card diagnosis-card"><header><h3>{observationOnly ? '观察记录（未生成 AI 建议）' : completed ? '本次观察整理结果' : '辅助排查结果'}</h3>{completed?.outcome.result && <span className={`diagnosis-tag ${completed.outcome.result.risk}`}>{riskLabels[completed.outcome.result.risk]}</span>}</header>
+    <section className="service-card diagnosis-card"><header><h3>{observationOnly ? '观察记录（未生成 AI 建议）' : completed ? retainedResult ? '上次完成的整理结果' : '本次观察整理结果' : '辅助排查结果'}</h3>{completed?.outcome.result && <span className={`diagnosis-tag ${completed.outcome.result.risk}`}>{riskLabels[completed.outcome.result.risk]}</span>}</header>
       <p className="diagnosis-source-note">{MODEL_NOTICE}</p>
+      {!generating && completed && retainedResult && <p className="clinic-retained-result" role="status">仍为上次完成结果，并非本次{retainedResult === 'stopped' ? '停止' : '失败'}输出；保存和导出使用下方原记录快照。</p>}
       {generating ? <><div className="diagnosis-placeholder"><LoaderCircle className="spin" size={28} /><h3>{stopRequested ? '正在结束本次生成' : '本机正在整理观察'}</h3><p>已生成 {tokenCount} 个 token。完整输出仍需通过结构与内容校验。</p></div><details className="raw-response"><summary>查看生成中的原始文字（未经校验）</summary><pre>{stream || '等待模型输出…'}</pre></details></> : completed ? <>
         <p className="card-footnote">观察对象：{completed.observation.subject} · 本次结果对应下方记录快照，修改左侧表单不会改写已完成结果。</p>
         <TriageNotice observation={completed.observation} />
@@ -341,7 +435,7 @@ export default function DiagnosticPanel({ weather }: { weather: WeatherBundle | 
         {!observationOnly && <details className="raw-response"><summary>查看模型原始输出（不是确诊或处理指令）</summary><pre>{completed.outcome.raw}</pre></details>}
         <div className="diagnosis-meta"><span>{observationOnly ? '记录于' : '生成于'} {formatDate(completed.createdAt, true)}</span>{completed.modelInfo && <><span>{completed.modelInfo.modelName}</span><span>{(completed.modelInfo.durationMs / 1000).toFixed(1)} 秒</span></>}</div>
         {completed.modelInfo && <p className="card-footnote">模型编号：{completed.modelInfo.modelId} · 引擎：{completed.modelInfo.engineVersion}</p>}
-        <div className="result-actions"><button className="solid-button" disabled={!!completed.caseId} onClick={saveCase}>{completed.caseId ? <Check size={15} /> : <Save size={15} />}{completed.caseId ? '已保存本机案例' : '保存本次观察与结果'}</button><button className="quiet-button" onClick={() => void exportCompleted()}><Download size={15} />导出记录</button></div>
+        <div className="result-actions"><button className="solid-button" disabled={!active || generating || !!completed.caseId} onClick={saveCase}>{completed.caseId ? <Check size={15} /> : <Save size={15} />}{completed.caseId ? '已保存本机案例' : '保存本次观察与结果'}</button><button className="quiet-button" disabled={!active || generating} onClick={() => void exportCompleted()}><Download size={15} />导出记录</button></div>
         <p className="card-footnote">{CASE_STORAGE_NOTICE}</p>
       </> : <div className="diagnosis-placeholder"><ScanLine size={35} /><h3>从真实观察开始</h3><p>先填写实际对象与异常，再选择有关照片和实测。文字警讯会立即显示；模型未就绪也不要延误紧急处置。</p></div>}
       <h4>相关观察与管理参考</h4>{getRelevantGuidance(completed?.observation || previewObservation).map(entry => <div className="cause-card" key={entry.id}><strong>{entry.title}</strong><p>{entry.body}</p><button className="text-link" onClick={() => void openSource(entry.sourceUrl).catch(error => showMessage(messageOf(error)))}>{entry.sourceName}<ArrowUpRight size={13} /></button></div>)}
@@ -353,8 +447,9 @@ export default function DiagnosticPanel({ weather }: { weather: WeatherBundle | 
         <div className="model-facts"><div><span>设备总内存</span><strong>{bytes(status?.totalMemoryBytes)}</strong></div><div><span>当前可用内存</span><strong>{bytes(status?.availableMemoryBytes)}</strong></div><div><span>可用存储</span><strong>{bytes(status?.freeStorageBytes)}</strong></div></div>
         <p className="card-footnote">{status ? stateLabels[status.state] : '正在读取状态'} · 主模型 {status?.modelPresent ? '已准备' : '未准备'} · 配套视觉文件 {status?.projectorPresent ? '已准备' : '未准备'}。文件在原生端核验后才能加载，下载完成不会自动加载。</p>
         {(status?.state === 'downloading' || modelBusy === '下载模型') && <><div className="model-progress" role="progressbar" aria-label="模型下载进度" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(Math.min(100, Math.max(0, (progress?.progress ?? status?.progress ?? 0) * 100)))}><span style={{ width: `${Math.min(100, Math.max(0, (progress?.progress ?? status?.progress ?? 0) * 100))}%` }} /></div><p className="card-footnote">总进度（正在读取{progress?.part === 'projector' ? '配套视觉文件' : '主模型'}）：{bytes(progress?.downloadedBytes ?? status?.downloadedBytes)} / {bytes(progress?.totalBytes ?? status?.totalBytes)}</p></>}
-        {status?.error && <p className="data-warning" role="alert">{status.error}{status.visionSupported && ' 若模型仍占用内存，可先卸载再加载。'}</p>}
-        <div className="model-controls"><button className="solid-button" disabled={modelLocked || !selectedModel || (status?.modelPresent && status?.projectorPresent)} onClick={() => { setProgress(null); void modelAction('下载模型', () => localAi.downloadModels()); }}><Download size={15} />下载当前档位文件</button>{(status?.state === 'downloading' || modelBusy === '下载模型') && <button className="quiet-button" onClick={() => void localAi.cancelDownload().then(() => showMessage('已请求取消下载。已校验完成的文件会保留。')).catch(error => showMessage(messageOf(error)))}><Square size={14} />取消下载</button>}<button className="quiet-button" disabled={modelLocked || !status?.canLoad || !status?.modelPresent || !status?.projectorPresent || status?.state === 'ready'} onClick={() => void modelAction('加载模型', () => localAi.loadModel())}><Cpu size={15} />加载到内存</button><button className="quiet-button" disabled={modelLocked || !status?.visionSupported} onClick={() => void modelAction('卸载模型', () => localAi.unloadModel())}>从内存卸载</button></div>
+        {status?.error && <p className="data-warning" role="alert">{status.error}</p>}
+        {status?.state === 'error' && status.loaded && <div className="clinic-model-recovery"><p>模型仍在内存中。可手动卸载后重新加载；文字与完成结果保留，之后请自行点击分析。</p><button className="quiet-button" disabled={modelLocked} onClick={() => void modelAction('重新加载模型', async () => { await localAi.unloadModel(); if (!mounted.current || !activeRef.current) return; await localAi.loadModel(); })}><RefreshCw size={15} />卸载并重新加载</button></div>}
+        <div className="model-controls"><button className="solid-button" disabled={modelLocked || !selectedModel || (status?.modelPresent && status?.projectorPresent)} onClick={() => { setProgress(null); void modelAction('下载模型', () => localAi.downloadModels()); }}><Download size={15} />下载当前档位文件</button>{(status?.state === 'downloading' || modelBusy === '下载模型') && <button className="quiet-button" onClick={() => { if (!activeRef.current) return; void localAi.cancelDownload().then(() => showMessage('已请求取消下载。已校验完成的文件会保留。')).catch(error => showMessage(messageOf(error))); }}><Square size={14} />取消下载</button>}<button className="quiet-button" disabled={modelLocked || !status?.canLoad || !status?.modelPresent || !status?.projectorPresent || status?.state === 'ready'} onClick={() => void modelAction('加载模型', () => localAi.loadModel())}><Cpu size={15} />加载到内存</button><button className="quiet-button" disabled={modelLocked || !status?.loaded} onClick={() => void modelAction('卸载模型', () => localAi.unloadModel())}>从内存卸载</button></div>
         <div className="model-import-controls"><button className="text-link" disabled={modelLocked} onClick={() => void modelAction('导入主模型', () => localAi.importModel({ part: 'model' }))}><Upload size={14} />导入主模型 GGUF</button><button className="text-link" disabled={modelLocked} onClick={() => void modelAction('导入配套视觉文件', () => localAi.importModel({ part: 'projector' }))}><Upload size={14} />导入配套 mmproj</button><button className="text-link" disabled={!!modelBusy && status?.state !== 'downloading'} onClick={() => void refreshModels().catch(error => showMessage(messageOf(error)))}><RefreshCw size={14} />刷新状态与列表</button></div>
       </>}
       <p className="model-privacy"><ShieldCheck size={15} /><span>选择、下载、导入、加载均由你主动操作。切换页面不会取消已开始的下载；只有点击取消下载才发出取消请求。模型未就绪或内存不足时请先记录观察并联系专业人员。</span></p>{status?.engineVersion && <p className="card-footnote">引擎：{status.engineVersion}</p>}{message && <p className="inline-message" role="status">{message}</p>}

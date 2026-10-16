@@ -2,7 +2,7 @@
 
 中文横屏农场经营游戏。参考 Hay Day 的播种、喂养、库存、加工排队、交订单和路边摊循环，代码与场景美术独立原创。打开先进入斜角俯视的原创农场地图，田地、牧场、工坊、河塘与小镇相连；小镇建筑保留真实天气、本机图文 AI、官方资讯和实际农场记录。
 
-[下载 Android v0.6.0 试玩版](https://github.com/schlapiadeziel-rgb/weather-farm-mobile/releases/tag/v0.6.0) · [版本与安装包](https://github.com/schlapiadeziel-rgb/weather-farm-mobile/releases)
+[下载 Android v0.7.0 试玩版](https://github.com/schlapiadeziel-rgb/weather-farm-mobile/releases/tag/v0.7.0) · [版本与安装包](https://github.com/schlapiadeziel-rgb/weather-farm-mobile/releases)
 
 ![横屏农田](docs/planting.png)
 ![横屏牧场](docs/livestock.png)
@@ -13,8 +13,9 @@
 ![连续播种工具](docs/field-tools.png)
 ![农场新手手册](docs/farm-guide.png)
 ![农场看板](docs/farm-activity.png)
+![现场观察文字草稿](docs/clinic-draft.png)
 
-截图为开发预览；天气与资讯以各自来源、地区和时间为准。游戏产量和收益不代表现实生产。
+截图为开发预览；观察文字为演示输入，未展示真实模型诊断。天气与资讯以各自来源、地区和时间为准。游戏产量和收益不代表现实生产。
 
 ## 农场经营玩法
 
@@ -46,6 +47,7 @@
 - **本机记录**：农场资料、待办与完成状态、带采样位置/时间/仪器的实测记录；包括空气、土壤与养殖水质。支持 JSON 导出和备份合并。
 - **田间问诊**：作物和动物名称不限于游戏品种。输入异常、发生时间、数量、阶段与管理变化，可拍照、录制/选择不超过 30 秒的视频，或使用本机离线中文语音转文字。每次最多三张照片或视频关键帧；原视频动作和声音不参与模型推理。
 - **本地 AI**：Android ARM64 原生 llama.cpp + libmtmd CPU 推理，Qwen3.5 图文模型。用户选择下载或导入，按固定版本的大小与 SHA-256 校验；模型就绪后图文推理不联网。JSON 语法约束只保证字段结构，内容还需通过风险与措辞校验。浏览器预览没有该引擎。
+- **问诊草稿与恢复**：不完整的表单文字、实测勾选及语音核对状态自动保存到本机，失败时明确提示并可导出草稿。同次运行切页保留临时媒体、说明与完成结果，离开时停止推理/语音；冷启照片需重选或明确选择仅文字。新推理失败/停止后仍保留上份结果；模型出错且仍占内存时可手动卸载再加载，不自动重新分析。
 - **可追溯的问诊记录**：整理观察、可能原因、证据不足、低风险检查及求助条件；独立危险症状规则先提醒。格式错误、用药剂量、确诊和准确率承诺不会变成有效结构化建议。最多保存 20 个本机案例，保留模型版本与耗时；原照片、视频和音轨不写入案例备份。
 - **新闻与科普**：读取农业农村部官方列表和原文节选，显示发布日期并链接原文；正文失败不生成摘要。另有标明日期与适用范围的官方季节性指导，以及 FAO、WOAH 等参考资料。
 - **经营参考**：农业农村部全国批发均价，保留“元/公斤”、统计范围、报价时点和来源。结合用户核实的当地采购询价、已确认订单及单位成本，提醒交付与销售核查；询价与订单分开，价格上涨不推断需求上涨或自动建议扩产。
@@ -101,7 +103,7 @@ cd android
 
 ## 结构与许可
 
-`src/components/` 为游戏视觉、小镇与真实服务，`src/lib/` 为天气、信息解析、实际记录、问诊校验和游戏规则，`android/app/src/main/java/com/fieldletter/farm/ai/` 与 `src/main/cpp/` 为本机媒体、模型管理与 JNI 推理。`tests/` 包括官方页面快照解析、日期/单位/缓存、位置、订单成本、危险症状、真实记录及玩法检查。本版验证状态见 [v0.6.0 验证范围](docs/validation-v0.6.md)。
+`src/components/` 为游戏视觉、小镇与真实服务，`src/lib/` 为天气、信息解析、实际记录、问诊校验和游戏规则，`android/app/src/main/java/com/fieldletter/farm/ai/` 与 `src/main/cpp/` 为本机媒体、模型管理与 JNI 推理。`tests/` 包括官方页面快照解析、日期/单位/缓存、位置、订单成本、危险症状、真实记录及玩法检查。本版验证状态见 [v0.7.0 验证范围](docs/validation-v0.7.md)。
 
 本项目原创源码和场景资产使用 MIT。游戏灵感参考 [Khet-Setu](https://github.com/rach-kanc/Khet-Setu) 和 [Atmospheric Harvester](https://github.com/feotro23/Atmospheric-Harvester)，没有复制其代码或资产。
 
