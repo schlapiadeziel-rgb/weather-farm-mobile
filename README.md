@@ -2,7 +2,7 @@
 
 中文横屏农场经营游戏。参考 Hay Day 的播种、喂养、库存、加工排队、交订单和路边摊循环，代码与场景美术独立原创。打开先进入斜角俯视的原创农场地图，田地、牧场、工坊、河塘与小镇相连；小镇建筑保留真实天气、本机图文 AI、官方资讯和实际农场记录。
 
-[下载 Android v0.8.0 试玩版](https://github.com/schlapiadeziel-rgb/weather-farm-mobile/releases/tag/v0.8.0) · [版本与安装包](https://github.com/schlapiadeziel-rgb/weather-farm-mobile/releases)
+[下载 Android v0.9.0 试玩版](https://github.com/schlapiadeziel-rgb/weather-farm-mobile/releases/tag/v0.9.0) · [版本与安装包](https://github.com/schlapiadeziel-rgb/weather-farm-mobile/releases)
 
 ![横屏农田](docs/planting.png)
 ![横屏牧场](docs/livestock.png)
@@ -15,6 +15,8 @@
 ![农场看板](docs/farm-activity.png)
 ![现场观察文字草稿](docs/clinic-draft.png)
 ![案例备份导入预览](docs/case-import.png)
+![连续照料牧场](docs/livestock-tools.png)
+![作物与动物加速确认](docs/speed-confirmation.png)
 
 截图为开发预览；观察文字为演示输入，未展示真实模型诊断。天气与资讯以各自来源、地区和时间为准。游戏产量和收益不代表现实生产。
 
@@ -26,6 +28,8 @@
 - **田地连续操作**：浏览、播种、收获三种方式；选种后划过田地，松手执行一次，经过的地块会预览高亮。资源不足只保留已经完成的部分；多指、失焦、弹窗和切换方式会取消，防止旧点击误操作。
 - **新手手册**：可选的五步图鉴串起留种、养殖、工坊、订单和小镇，包含来源导航和真实服务用途，不强制阻挡游戏。
 - **播种与留种**：12 种作物，每次播种用库存 1 份，成熟收获 2 份和经验；收成进入筒仓，金币来自销售与订单。按倒计时成熟，离线时间继续计算，作物不因天气或未浇水枯萎。
+- **牧场连续操作**：浏览、投喂、收集三种方式；划过畜舍预览，松手后一次执行，每栏只处理一次并使用各自饲料。饲料不足或仓满停止后续操作、保留已完成部分，收集后仍需主动投喂；多指、切页或弹窗会取消尚未执行的手势。就绪畜舍有金色提示，成功后短暂显示收集/投喂反馈。
+- **加速确认**：作物和动物加速先确认对象与游戏钻石费用；确认时重新核对批次、计时和库存，已完成或费用变高时阻止误扣，不自动收获、投喂或购买。
 - **动物与饲料**：鸡、奶牛、猪、绵羊、山羊；加工对应饲料，投喂后等待鸡蛋、牛奶、培根、羊毛或羊奶。产物进谷仓，再喂下一轮；可以扩建畜舍。
 - **加工与队列**：22 类生产建筑、57 个配方；入队时扣原料，机器串行加工，成品等待收取。可以用游戏钻石加速，扩充至 9 个生产位；未开始的任务消耗 1 钻石取消并退回原料。所有钻石动作先显示确认，缺料可直接前往来源。
 - **订单与销售**：卡车与船订单核对库存后交货，获得金币和经验；路边摊由明确标注的本机 NPC 模拟购买，倒计时结束后收款一次。没有实际支付或真钱收益。
@@ -105,7 +109,7 @@ cd android
 
 ## 结构与许可
 
-`src/components/` 为游戏视觉、小镇与真实服务，`src/lib/` 为天气、信息解析、实际记录、问诊校验和游戏规则，`android/app/src/main/java/com/fieldletter/farm/ai/` 与 `src/main/cpp/` 为本机媒体、模型管理与 JNI 推理。`tests/` 包括官方页面快照解析、日期/单位/缓存、位置、订单成本、危险症状、真实记录及玩法检查。本版验证状态见 [v0.8.0 验证范围](docs/validation-v0.8.md)。
+`src/components/` 为游戏视觉、小镇与真实服务，`src/lib/` 为天气、信息解析、实际记录、问诊校验和游戏规则，`android/app/src/main/java/com/fieldletter/farm/ai/` 与 `src/main/cpp/` 为本机媒体、模型管理与 JNI 推理。`tests/` 包括官方页面快照解析、日期/单位/缓存、位置、订单成本、危险症状、真实记录及玩法检查。本版验证状态见 [v0.9.0 验证范围](docs/validation-v0.9.md)。
 
 本项目原创源码和场景资产使用 MIT。游戏灵感参考 [Khet-Setu](https://github.com/rach-kanc/Khet-Setu) 和 [Atmospheric Harvester](https://github.com/feotro23/Atmospheric-Harvester)，没有复制其代码或资产。
 

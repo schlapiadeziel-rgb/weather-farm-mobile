@@ -4,7 +4,7 @@ import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { ScreenOrientation } from '@capacitor/screen-orientation';
 import { StatusBar } from '@capacitor/status-bar';
 import { Sprout, CloudSun, MapPin, Droplets, Wind, Coins, Wheat, ChevronRight, X, LocateFixed, Search, RotateCcw, CalendarDays, Check, RefreshCw, Sun, Leaf, BookOpen, Volume2, VolumeX, PawPrint, Building2, ArrowLeft, Flag, Factory, ClipboardList, Warehouse, Compass, Diamond, Lock, Timer, Download, CircleHelp } from 'lucide-react';
-import { CROPS, LIVESTOCK, initialGame, tickGame, getLevel, plant, harvest, buyAnimal, feedAnimal, collectProduct, speedUpCrop, speedUpAnimal, buildPen } from './lib/game';
+import { CROPS, LIVESTOCK, initialGame, tickGame, getLevel, plant, harvest, buyAnimal, feedAnimal, collectProduct, buildPen } from './lib/game';
 import type { Game, CropId, AnimalId, ItemId, MachineId } from './lib/game';
 import { fetchWeather, searchLocations, PRESET_LOCATIONS, weatherLabel, weatherEmoji } from './lib/weather';
 import type { WeatherBundle, Location } from './lib/weather';
@@ -14,6 +14,13 @@ import FarmLandscape from './components/FarmLandscape';
 import FarmViewport from './components/FarmViewport';
 import FieldInteraction from './components/FieldInteraction';
 import FieldTools from './components/FieldTools';
+import AnimalInteraction from './components/AnimalInteraction';
+import AnimalTools from './components/AnimalTools';
+import AnimalActionFeedback from './components/AnimalActionFeedback';
+import GemConfirmation from './components/GemConfirmation';
+import { prepareGameSpeedUp, readGameSpeedQuote, confirmGameSpeedUp } from './lib/gameSpeedUp';
+import type { GameSpeedRequest, SpeedUpKind } from './lib/gameSpeedUp';
+import type { AnimalMode } from './lib/animalStroke';
 import FarmGuide from './components/FarmGuide';
 import FarmActivityBoard from './components/FarmActivityBoard';
 import GameBackupControls from './components/GameBackupControls';
@@ -69,6 +76,11 @@ export default function App() {
   const [selected, setSelected] = useState(1);
   const [seed, setSeed] = useState<CropId>('wheat');
   const [fieldMode, setFieldMode] = useState<FieldMode>('browse');
+  const [animalMode, setAnimalMode] = useState<AnimalMode>('browse');
+  const [penFeedback, setPenFeedback] = useState<Record<number, { key: number; action: 'feed' | 'collect'; product?: string }>>({});
+  const penFeedbackSerial = useRef(0);
+  const [speedRequest, setSpeedRequest] = useState<GameSpeedRequest | null>(null);
+  const speedRequestRef = useRef<GameSpeedRequest | null>(null);
   const [guideOpen, setGuideOpen] = useState(false);
   const [activityOpen, setActivityOpen] = useState(false);
   const [productionFocus, setProductionFocus] = useState<{ machineId?: MachineId; item?: ItemId; requestId: number }>();
@@ -119,6 +131,7 @@ export default function App() {
   const levelBase = 20 * (level - 1) ** 2, nextLevelXp = 20 * level ** 2;
   const cropRemaining = Math.max(0, (plot.readyAt ?? clock) - clock);
   const animalRemaining = Math.max(0, (pen.readyAt ?? clock) - clock);
+  const speedQuote = speedRequest ? readGameSpeedQuote(game, speedRequest, clock) : null;
   const serviceWeather = locationChosen ? bundle : null;
   const serviceWeatherError = locationChosen ? weatherError : '先设置真实农场位置，再获取当地天气与农事提醒。';
   const activity = getFarmActivity(game, clock);
@@ -127,10 +140,10 @@ export default function App() {
   function navigate(next: Tab) {
     if (next === 'clinic') setClinicVisited(true);
     if (PLAY_TABS.includes(next)) { setLastPlayTab(next as PlayTab); if (next !== tab) setDetailsOpen(false); }
-    setTab(next); setTownOpen(false); setActivityOpen(false); setFieldMode('browse');
+    setTab(next); setTownOpen(false); setActivityOpen(false); setFieldMode('browse'); setAnimalMode('browse'); setPenFeedback({}); closeSpeedRequest();
   }
-  function openGuide() { setFieldMode('browse'); setDetailsOpen(false); setGuideOpen(true); }
-  function openActivity() { setFieldMode('browse'); setDetailsOpen(false); setTownOpen(false); setActivityOpen(true); }
+  function openGuide() { setAnimalMode('browse'); closeSpeedRequest(); setFieldMode('browse'); setDetailsOpen(false); setGuideOpen(true); }
+  function openActivity() { setAnimalMode('browse'); closeSpeedRequest(); setFieldMode('browse'); setDetailsOpen(false); setTownOpen(false); setActivityOpen(true); }
   function focusProduction(focus: { machineId?: MachineId; item?: ItemId }) { setProductionFocus({ ...focus, requestId: ++navigationRequest.current }); navigate('production'); }
   function visitActivity(target: FarmActivityTarget) {
     if (target.tab === 'farm') { navigate('farm'); setSelected(target.plotId); setDetailsOpen(true); }
@@ -244,21 +257,43 @@ export default function App() {
     } catch (error) { showNotice(error instanceof Error ? error.message : '游戏备份导出失败，请重试。'); }
     finally { backupBusy.current = false; setExportingGame(false); }
   }
-  function animalAct(action: 'buy' | 'feed' | 'collect' | 'speed', target = selectedPen) {
+  function closeSpeedRequest() { speedRequestRef.current = null; setSpeedRequest(null); }
+  function requestSpeed(kind: SpeedUpKind, target: number) {
     try {
-      const next = action === 'buy' ? buyAnimal(game, target, animalSeed) : action === 'feed' ? feedAnimal(game, target) : action === 'collect' ? collectProduct(game, target) : speedUpAnimal(game, target);
+      const request = prepareGameSpeedUp(gameRef.current, kind, target);
+      speedRequestRef.current = request; setSpeedRequest(request);
+    } catch (error) { showNotice(error instanceof Error ? error.message : '暂时不能加速。'); }
+  }
+  function confirmSpeed(approvedCost: number) {
+    const request = speedRequestRef.current;
+    if (!request) return;
+    closeSpeedRequest();
+    try { commitGame(confirmGameSpeedUp(gameRef.current, request, approvedCost)); }
+    catch (error) { showNotice(error instanceof Error ? error.message : '本次加速未完成。'); }
+  }
+  function showPenFeedback(ids: number[], action: 'feed' | 'collect') {
+    const next: typeof penFeedback = {};
+    for (const id of ids) {
+      const pen = gameRef.current.animals.find(item => item.id === id);
+      next[id] = { key: ++penFeedbackSerial.current, action, product: LIVESTOCK.find(item => item.id === pen?.animal)?.productName };
+    }
+    setPenFeedback(previous => ({ ...previous, ...next }));
+  }
+  function chooseAnimalMode(mode: AnimalMode) { setAnimalMode(mode); setDetailsOpen(false); }
+  function animalAct(action: 'buy' | 'feed' | 'collect' | 'speed', target = selectedPen) {
+    if (action === 'speed') { requestSpeed('animal', target); return; }
+    try {
+      const latest = gameRef.current;
+      const next = action === 'buy' ? buyAnimal(latest, target, animalSeed) : action === 'feed' ? feedAnimal(latest, target) : collectProduct(latest, target);
       commitGame(next);
+      if (action !== 'buy') showPenFeedback([target], action);
       if (action === 'collect') { setSelectedPen(target); setDetailsOpen(true); }
     } catch (error) { showNotice(error instanceof Error ? error.message : '操作未完成'); }
   }
   function act(action: 'plant' | 'harvest' | 'speed', target = selected) {
-    try {
-      let next: Game;
-      if (action === 'plant') next = plant(game, target, seed);
-      else if (action === 'harvest') next = harvest(game, target);
-      else next = speedUpCrop(game, target);
-      commitGame(next);
-    } catch (error) { showNotice(error instanceof Error ? error.message : '操作未完成'); }
+    if (action === 'speed') { requestSpeed('crop', target); return; }
+    try { commitGame(action === 'plant' ? plant(gameRef.current, target, seed) : harvest(gameRef.current, target)); }
+    catch (error) { showNotice(error instanceof Error ? error.message : '操作未完成'); }
   }
   async function chooseLocation(place: Location) {
     ++locationAttempt.current; setLocating(false); setPendingPosition(null);
@@ -329,7 +364,7 @@ export default function App() {
           <FieldTools game={game} mode={fieldMode} seed={seed} onModeChange={chooseFieldMode} onSeedChange={next => { setSeed(next); chooseFieldMode('plant'); }} onHelp={openGuide} />
           <FarmViewport>
           <FarmLandscape onVisit={area => area === 'town' ? setTownOpen(true) : navigate(area)} /><div className="scene-shade" />
-          <FieldInteraction game={game} mode={activeFieldMode} seed={seed} blocked={guideOpen || activityOpen || updateOpen || locationOpen || townOpen || resetOpen} onChange={commitGame} onNotice={showNotice}>
+          <FieldInteraction game={game} mode={activeFieldMode} seed={seed} blocked={guideOpen || activityOpen || updateOpen || locationOpen || townOpen || resetOpen || !!speedRequest} onChange={commitGame} onNotice={showNotice}>
           <div className="field-wrap"><div className="plot-grid">{game.plots.map(p => {
             const c = CROPS.find(s => s.id === p.crop), ready = p.growth >= 100 && !!c, locked = p.id > game.unlockedPlots;
             return <button key={p.id} data-plot-id={p.id} className={`plot ${p.id === selected ? 'selected' : ''} ${c ? 'planted' : 'empty'} ${ready ? 'ripe' : ''} ${locked ? 'locked' : ''}`} onClick={() => { if (locked) { navigate('storage'); return; } setSelected(p.id); if (ready) act('harvest', p.id); else { setDetailsOpen(true); feedback(); } }} aria-label={`${p.id}号地块，${locked ? '未解锁，前往扩建' : c ? `${c.name}，${ready ? '轻触收获2份' : `生长${Math.round(p.growth)}%`}` : '空地，可播种'}`} aria-pressed={p.id === selected}>
@@ -355,12 +390,15 @@ export default function App() {
         <main className="farm-scene livestock-scene map-scene">
           <FarmViewport><FarmLandscape onVisit={area => area === 'town' ? setTownOpen(true) : navigate(area)} /><div className="scene-shade" /></FarmViewport>
           <div className="scene-top"><div className="day-pill"><PawPrint size={17} /><strong>我的牧场</strong><span>饲料换产物</span></div><button className="quest-sign" onClick={() => requestItem(animal?.feedItem ?? selectedAnimal.feedItem)}><Factory size={17} /><span><strong>先备好动物的口粮</strong><small>饲料厂里加工饲料</small></span><ChevronRight size={15} /></button></div>
+          <AnimalTools game={game} mode={animalMode} onModeChange={chooseAnimalMode} />
+          <AnimalInteraction game={game} mode={detailsOpen ? 'browse' : animalMode} blocked={guideOpen || activityOpen || updateOpen || locationOpen || townOpen || resetOpen || !!speedRequest} onChange={commitGame} onNotice={showNotice} onApplied={showPenFeedback}>
           <div className="livestock-field"><div className="pen-grid">{game.animals.map(p => {
             const a = LIVESTOCK.find(v => v.id === p.animal), ready = p.progress >= 100 && !!a;
-            return <button key={p.id} className={`animal-pen ${p.id === selectedPen ? 'selected' : ''} ${a ? 'occupied' : ''}`} onClick={() => { setSelectedPen(p.id); if (ready) animalAct('collect', p.id); else { setDetailsOpen(true); feedback(); } }} aria-pressed={p.id === selectedPen} aria-label={`${p.id}号畜舍，${a ? `${a.name}，${ready ? `轻触收集${a.productName}` : p.readyAt ? `剩余${timerText(p.readyAt-clock)}` : '等待喂食'}` : '空畜舍，可购买动物'}`}>
-              <span className="pen-label">畜舍 {String(p.id).padStart(2, '0')}</span><span className="animal-sprite"><AnimalVisual animal={p.animal} healthy /></span><strong>{a ? a.name : '等待新伙伴'}</strong><span className="animal-product">{a ? ready ? `${a.productEmoji} ${a.productName}可收集` : p.readyAt ? timerText(p.readyAt-clock) : '需要一份饲料' : '点击选择动物'}</span>{ready && <span className="ready-mark"><Check size={13} /></span>}
+            return <button key={p.id} data-pen-id={p.id} className={`animal-pen ${p.id === selectedPen ? 'selected' : ''} ${a ? 'occupied' : ''} ${ready ? 'ready' : ''}`} onClick={() => { setSelectedPen(p.id); if (ready) animalAct('collect', p.id); else { setDetailsOpen(true); feedback(); } }} aria-pressed={p.id === selectedPen} aria-label={`${p.id}号畜舍，${a ? `${a.name}，${ready ? `轻触收集${a.productName}` : p.readyAt ? `剩余${timerText(p.readyAt-clock)}` : '等待喂食'}` : '空畜舍，可购买动物'}`}>
+              {penFeedback[p.id] && <AnimalActionFeedback key={penFeedback[p.id].key} action={penFeedback[p.id].action} product={penFeedback[p.id].product} />}<span className="pen-label">畜舍 {String(p.id).padStart(2, '0')}</span><span className="animal-sprite"><AnimalVisual animal={p.animal} healthy /></span><strong>{a ? a.name : '等待新伙伴'}</strong><span className="animal-product">{a ? ready ? `${a.productEmoji} ${a.productName}可收集` : p.readyAt ? timerText(p.readyAt-clock) : '需要一份饲料' : '点击选择动物'}</span>{ready && <span className="ready-mark"><Check size={13} /></span>}
             </button>;
           })}</div><span className="field-caption">投喂一份饲料，等待产物 · 收集后再投喂下一轮</span></div>
+          </AnimalInteraction>
           <div className="farm-bottom"><div className="farm-level"><span className="level-emblem"><PawPrint size={21} /></span><div><strong>已收集 {game.productsCollected} 份产物</strong><span>动物安心等待，不会饿死</span></div></div><button className="advance-button" onClick={() => { try { commitGame(buildPen(game)); } catch(error) { showNotice(error instanceof Error ? error.message : '暂时无法扩建'); } }}><Building2 size={19} /><span>扩建畜舍</span></button></div>
 
         </main>
@@ -388,6 +426,7 @@ export default function App() {
       <div className={`game-notice ${notice ? 'is-visible' : ''}`} role="status" aria-atomic="true">{notice && <><Sprout size={17} aria-hidden="true" /><span>{notice}</span></>}</div>
     </div>
     <footer className="statusbar"><span><Leaf size={13} />{simulation ? '我的农场 · 播种，照料，等待丰收' : '小镇服务 · 真实农场资料独立保存'}</span><span>{!locationChosen ? '当前为示例城市天气，请设置你的农场位置' : bundle ? `${bundle.location.name} · ${stale || weatherError ? '上次获取' : '区域模型'} · ${bundle.timezone}` : weatherError || '正在连接 Open-Meteo…'}</span><button onClick={() => simulation ? setTownOpen(true) : navigate(lastPlayTab)}>{simulation ? '逛逛小镇' : '返回农场'}<ChevronRight size={12} /></button></footer>
+    {speedRequest && speedQuote && <GemConfirmation cost={speedQuote.cost} heading={`加速${speedRequest.label}？`} description={speedRequest.kind === 'crop' ? `${speedRequest.id} 号田的${speedRequest.label}将立即成熟，之后仍需手动收获。` : `${speedRequest.id} 号畜舍的${speedRequest.label}将立即完成产出，之后仍需手动收集。`} cancelLabel="继续等待" confirmLabel="确认使用钻石" blockedReason={speedQuote.blockedReason} onCancel={closeSpeedRequest} onConfirm={() => confirmSpeed(speedQuote.cost)} />}
     {activityOpen && <FarmActivityBoard game={game} now={clock} onClose={() => setActivityOpen(false)} onVisit={visitActivity} onJournal={() => navigate('journal')} />}
     {guideOpen && <FarmGuide game={game} onClose={() => setGuideOpen(false)} onNavigate={next => { setGuideOpen(false); setFieldMode('browse'); if (next === 'town') setTownOpen(true); else navigate(next); }} />}
     {updateOpen && <UpdatePanel onClose={() => setUpdateOpen(false)} initialUpdate={availableUpdate} beforeInstall={() => saveCurrentGame()} onBackup={() => void backupGame()} />}

@@ -1,0 +1,20 @@
+.animal-interaction{position:absolute;inset:0;pointer-events:none;z-index:2}
+.animal-interaction>.livestock-field{pointer-events:auto;touch-action:pan-y}
+.animal-interaction:not(.animal-mode-browse)>.livestock-field{touch-action:none;user-select:none;-webkit-user-select:none}
+.animal-interaction:not(.animal-mode-browse) [data-pen-id]{touch-action:none}
+.animal-interaction:not(.animal-mode-browse) [data-pen-id]:active{transform:none}
+.animal-interaction [data-animal-preview="feed"]{outline:3px solid #d9ffac!important;outline-offset:2px;box-shadow:0 4px 0 #7b5c37,0 0 0 6px #95ca665c!important}
+.animal-interaction [data-animal-preview="collect"]{outline:3px solid #ffec95!important;outline-offset:2px;box-shadow:0 4px 0 #7b5c37,0 0 0 6px #f0c95366!important}
+.animal-tools{position:absolute;top:78px;left:16px;z-index:5;width:158px;padding:5px;border:1px solid #fff1b8;border-radius:13px;background:#fff4dbef;box-shadow:0 4px 0 #8d794c88,0 6px 15px #294b3425;color:#4b6138;pointer-events:auto}
+.animal-tool-modes{display:grid;grid-template-columns:repeat(3,minmax(44px,1fr));gap:2px}
+.animal-tool-modes>button{display:flex;min-width:44px;min-height:44px;align-items:center;justify-content:center;flex-direction:column;gap:2px;padding:3px 1px;border-radius:9px;background:transparent;color:#71805c;font-size:10px;line-height:1.1;touch-action:manipulation}
+.animal-tool-modes>button.active{background:#426e43;color:#fff2cc;box-shadow:0 2px 0 #2e5133}
+.animal-tool-modes>button:hover:not(.active){background:#e6e8c6;color:#48673c}
+.animal-tool-modes>button>span{display:flex;align-items:center;gap:2px;white-space:nowrap}
+.animal-tool-modes small{min-width:12px;padding:0 2px;border-radius:4px;background:#e1dfac;color:#566b3e;font-size:8px;line-height:12px;text-align:center}
+.animal-tool-modes>button.active small{background:#fff1b8;color:#375733}
+.animal-tool-hint{padding:5px 1px 1px;text-align:center;font-size:9px;line-height:1.5;white-space:nowrap}
+@media(max-height:550px){.animal-tools{top:69px;left:12px}}
+@media(max-height:400px){.animal-tools{top:54px;left:10px;width:154px}.animal-tool-hint{font-size:8px;padding-top:4px}}
+@media(max-width:720px){.animal-tools{left:8px}}
+@media(prefers-reduced-motion:reduce){.animal-interaction [data-pen-id],.animal-tools button{transition:none!important}}

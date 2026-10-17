@@ -1,10 +1,10 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { Apple, ArrowRight, Check, ChefHat, Clock3, Coins, CookingPot, Diamond, Droplets, Factory, Flame, Hammer, IceCreamBowl, Leaf, LockKeyhole, Package, Plus, Scissors, Sparkles, Sprout, Wheat, X } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { Game, ItemId, MachineDefinition, MachineId, ProductionJob, RecipeDefinition } from '../lib/farmTypes';
 import { MACHINES, RECIPES, getItem } from '../lib/farmContent';
 import { cancelQueuedProduction, collectProduction, expandProductionSlots, getLevel, productionSlotCost, queueProduction, speedUpMachine, storageUsed, unlockMachine } from '../lib/game';
+import GemConfirmation from './GemConfirmation';
 import './farm-production.css';
 
 type SupplyTab = 'farm' | 'livestock' | 'explore' | 'storage';
@@ -64,46 +64,6 @@ function ProductArt({ item, Icon }: { item: ItemId; Icon: LucideIcon }) {
   return <svg className="fp-product-vector" viewBox="0 0 48 48" aria-hidden="true" focusable="false" strokeLinejoin="round" strokeLinecap="round">{art}</svg>;
 }
 
-function GemConfirmation({ cost, heading, description, cancelLabel, confirmLabel, blockedReason, onCancel, onConfirm }: {
-  cost: number; heading: string; description: string; cancelLabel: string; confirmLabel: string;
-  blockedReason: string; onCancel(): void; onConfirm(): void;
-}) {
-  const title = useId(), costLabel = useId(), note = useId();
-  const overlayRef = useRef<HTMLDivElement>(null), dialogRef = useRef<HTMLDivElement>(null), cancelRef = useRef<HTMLButtonElement>(null);
-  const cancelCallback = useRef(onCancel);
-  useEffect(() => { cancelCallback.current = onCancel; }, [onCancel]);
-  useEffect(() => {
-    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const siblings = Array.from(document.body.children).filter((element): element is HTMLElement => element instanceof HTMLElement && element !== overlayRef.current);
-    const inertStates = siblings.map(element => ({ element, inert: element.inert }));
-    siblings.forEach(element => { element.inert = true; });
-    cancelRef.current?.focus();
-    const handler = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); cancelCallback.current(); }
-      if (event.key === 'Tab') {
-        event.preventDefault();
-        const buttons = Array.from(dialogRef.current?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)') ?? []);
-        const index = buttons.findIndex(button => button === document.activeElement);
-        const next = index < 0 ? event.shiftKey ? buttons.length - 1 : 0 : (index + (event.shiftKey ? -1 : 1) + buttons.length) % buttons.length;
-        buttons[next]?.focus();
-      }
-    };
-    const keepFocus = (event: FocusEvent) => { if (event.target instanceof Node && !dialogRef.current?.contains(event.target)) cancelRef.current?.focus(); };
-    document.addEventListener('keydown', handler, true);
-    document.addEventListener('focusin', keepFocus);
-    return () => {
-      document.removeEventListener('keydown', handler, true); document.removeEventListener('focusin', keepFocus);
-      inertStates.forEach(({ element, inert }) => { element.inert = inert; });
-      if (previous?.isConnected) previous.focus({ preventScroll: true });
-    };
-  }, []);
-  return createPortal(<div className="fp-confirm-overlay" ref={overlayRef}><div className="fp-confirm" ref={dialogRef} role="alertdialog" aria-modal="true" aria-labelledby={title} aria-describedby={`${costLabel} ${note}`}>
-    <span className="fp-confirm-gem"><Diamond size={30} aria-hidden="true" /></span><h3 id={title}>{heading}</h3>
-    <p className="fp-confirm-cost" id={costLabel}>消耗 <strong>{cost} 颗游戏钻石</strong></p><p id={note}>{description}</p>
-    {blockedReason && <p className="fp-confirm-blocked" role="status">{blockedReason}</p>}<small>仅使用游戏内钻石，不涉及真实付款。</small>
-    <div><button ref={cancelRef} onClick={onCancel}>{cancelLabel}</button><button className="fp-confirm-yes" disabled={Boolean(blockedReason)} onClick={onConfirm}><Diamond size={16} />{confirmLabel} · {cost} 颗</button></div>
-  </div></div>, document.body);
-}
 
 type Confirmation = { kind: 'expand'; machine: MachineId } | { kind: 'speed' | 'cancel'; machine: MachineId; job: string };
 function ingredientSource(id: ItemId): { label: string; tab?: SupplyTab; machine?: MachineId } {
@@ -138,7 +98,12 @@ export function ProductionPanel({ game, onChange, notify, now, onNavigate, onReq
   const expandCost = owned && owned.slots < 9 ? productionSlotCost(game, machine.id) : 0;
   const { Icon } = workshopLooks[machine.id];
   const apply = (action: () => Game, message: string) => { try { const next = action(); const saved = onChange(next); notify(saved === false ? `${message}本机未能保存，请在农场日记导出游戏备份。` : message); } catch (error) { notify(error instanceof Error ? error.message : '这次操作没有完成，请稍后再试。'); } };
-  const selectMachine = (id: MachineId) => { setSelected(id); setConfirmation(null); setFocusedItem(null); setPendingFocus(null); setWorkbenchView('recipes'); };
+  const selectMachine = (id: MachineId) => {
+    const selectedAt = Date.now();
+    const hasReadyProduct = game.machines.find(item => item.id === id)?.queue.some(job => job.readyAt <= selectedAt);
+    setSelected(id); setConfirmation(null); setFocusedItem(null); setPendingFocus(null);
+    setWorkbenchView(hasReadyProduct ? 'queue' : 'recipes');
+  };
   useEffect(() => {
     if (!focus || lastFocusRequest.current === focus.requestId) return;
     lastFocusRequest.current = focus.requestId;

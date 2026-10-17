@@ -120,12 +120,17 @@ export function FieldInteraction({ children, game, mode, seed, blocked = false, 
     };
     const cancel = () => { blockedPointers.current.clear(); cancelStroke(); };
     const hidden = () => { if (document.hidden) cancel(); };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || !stroke.current) return;
+      event.preventDefault(); event.stopPropagation(); cancelStroke();
+    };
     window.addEventListener('pointerdown', down, true);
     window.addEventListener('pointerup', release, true);
     window.addEventListener('pointercancel', release, true);
     window.addEventListener('pointerup', end);
     window.addEventListener('pointercancel', end);
     window.addEventListener('blur', cancel);
+    window.addEventListener('keydown', escape, true);
     document.addEventListener('visibilitychange', hidden);
     return () => {
       window.removeEventListener('pointerdown', down, true);
@@ -134,6 +139,7 @@ export function FieldInteraction({ children, game, mode, seed, blocked = false, 
       window.removeEventListener('pointerup', end);
       window.removeEventListener('pointercancel', end);
       window.removeEventListener('blur', cancel);
+      window.removeEventListener('keydown', escape, true);
       document.removeEventListener('visibilitychange', hidden);
       const active = stroke.current;
       stroke.current = null;

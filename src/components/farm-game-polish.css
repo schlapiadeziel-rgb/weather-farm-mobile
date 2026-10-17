@@ -1,0 +1,90 @@
+/* Original livestock lighting and success cues. These never own an interaction. */
+.animal-pen.ready {
+  background: linear-gradient(155deg, #fff9df 0%, #f9edbf 62%, #e9e7b6 100%);
+  border-color: #e2b956;
+  box-shadow: 0 6px 0 #8c723b, 0 9px 16px #294e3438, inset 0 0 0 2px #fff6cf;
+}
+.animal-pen.ready.selected {
+  border-color: #ffdc78;
+  box-shadow: 0 6px 0 #8c723b, 0 0 0 3px #ffeda580, 0 9px 16px #294e3438, inset 0 0 0 2px #fff6cf;
+}
+.animal-pen.ready .fv-animal {
+  filter: drop-shadow(0 2px 3px #f8d87b66);
+}
+.animal-pen.ready .animal-product { color: #71572e; font-weight: 700; }
+.animal-pen.ready .ready-mark {
+  color: #fff7d6;
+  background: #668b45;
+  border: 1px solid #fff3b6;
+  box-shadow: 0 2px 0 #4b6637;
+}
+.animal-action-feedback {
+  position: absolute;
+  z-index: 3;
+  top: 48%;
+  left: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: max-content;
+  max-width: calc(100% - 12px);
+  min-height: 30px;
+  padding: 5px 9px;
+  border: 1px solid #fff5c7;
+  border-radius: 20px;
+  background: #3f6b43f5;
+  box-shadow: 0 3px 0 #264b3380, 0 5px 13px #27482f33;
+  color: #fff6d2;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.3;
+  pointer-events: none;
+  user-select: none;
+  transform: translate(-50%, -50%);
+  animation: animal-action-appear 1600ms ease-out both;
+}
+.animal-action-feedback > svg { flex-shrink: 0; }
+.animal-action-feedback > span { overflow-wrap: anywhere; }
+.animal-action-feedback-collect { background: #fcdfa0f7; color: #5b512e; border-color: #fff4c6; }
+
+/* The top bar can fit full touch targets without changing its height. */
+.topbar .icon-button { width: 44px; height: 44px; flex-shrink: 0; }
+.topbar .location-button { min-height: 44px; }
+
+@keyframes animal-action-appear {
+  0% { opacity: 0; transform: translate(-50%, -30%) scale(.9); }
+  12%, 75% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -75%) scale(1); }
+}
+
+@media (max-height: 400px) {
+  /* All seven game controls fit above the footer, including restart. */
+  .play-workspace .game-rail { gap: 0; padding: 2px 3px; }
+  .play-workspace .game-rail .rail-button { flex-shrink: 0; height: 44px; min-height: 44px; min-width: 44px; }
+  .play-workspace .game-rail .town-map-button { margin-top: 0; padding-top: 0; }
+  .play-workspace .game-rail .rail-spacer { display: none; }
+  .play-workspace .game-rail .reset-button { height: 36px; min-height: 36px; gap: 0; }
+  /* Keep the animals clear of the tools and camera on landscape phones. */
+  .play-workspace:not(:has(.plot-panel)) .livestock-field {
+    left: 176px;
+    right: 68px;
+    width: auto;
+    max-width: none;
+    max-height: calc(75% - 78px);
+    transform: none;
+  }
+  .play-workspace .livestock-scene .field-caption { display: none; }
+  /* The detail panel temporarily uses browse mode; close it to resume the brush. */
+  .play-workspace:has(.plot-panel) .animal-tools { display: none; }
+  .animal-action-feedback { min-height: 27px; padding: 4px 7px; font-size: 11px; }
+}
+@media (max-height: 375px) {
+  .play-workspace .game-rail .rail-button { height: 40px; min-height: 40px; }
+  .play-workspace .game-rail .reset-button { height: 36px; min-height: 36px; }
+  /* The same seed-cycle guidance is available in the plot panel and handbook. */
+  .play-workspace .map-scene:not(.livestock-scene) .field-caption { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .animal-action-feedback { animation: none; }
+}
