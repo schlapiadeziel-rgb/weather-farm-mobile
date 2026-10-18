@@ -136,7 +136,7 @@ export function FarmActivityBoard({ game, now, onClose, onVisit, onJournal }: Fa
         </div>
         <p className="fa-board-order-note"><Info size={15} aria-hidden="true" /><span>订单按每份需求分别核对当前库存；多单可能需要同一批货，交付一单后其余就绪数会变化。</span></p>
       </div>
-      <footer className="fa-board-footer"><p>仅查看游戏经营状态，真实农业资料请到小镇。</p><button onClick={onJournal}><NotebookPen size={18} aria-hidden="true" />农场日记与备份<ArrowRight size={16} aria-hidden="true" /></button></footer>
+      <footer className="fa-board-footer"><p>仅查看游戏经营状态，真实农业资料请切换农场助手。</p><button onClick={onJournal}><NotebookPen size={18} aria-hidden="true" />农场日记与备份<ArrowRight size={16} aria-hidden="true" /></button></footer>
     </div>
   </div>, document.body);
 }

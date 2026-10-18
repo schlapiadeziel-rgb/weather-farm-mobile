@@ -1,11 +1,11 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowRight, BookOpen, Check, ChevronLeft, ChevronRight, Factory, MapPin, PackageCheck, ShoppingBasket, Sprout, Tractor, Wheat, X } from 'lucide-react';
+import { ArrowRight, BookOpen, Check, ChevronLeft, ChevronRight, Factory, MapPin, PackageCheck, ShoppingBasket, Sprout, Tractor, TrainFront, Wheat, X } from 'lucide-react';
 import type { Game } from '../lib/farmTypes';
 import { AnimalVisual, CropVisual } from './FarmVisual';
 import './farm-guide.css';
 
-export type FarmGuideTab = 'farm' | 'livestock' | 'production' | 'orders' | 'storage' | 'town';
+export type FarmGuideTab = 'farm' | 'livestock' | 'production' | 'orders' | 'storage' | 'town' | 'assistant';
 export type FarmGuideProps = { game: Game; onNavigate(tab: FarmGuideTab): void; onClose(): void };
 
 const chapters = [
@@ -13,7 +13,8 @@ const chapters = [
   { tab: 'livestock', title: '照料动物', subtitle: '饲料换来好收成', Icon: Tractor, action: '去牧场看看' },
   { tab: 'production', title: '开动工坊', subtitle: '原料变成新产品', Icon: Factory, action: '打开生产工坊' },
   { tab: 'orders', title: '送出订单', subtitle: '把收成换成金币', Icon: ShoppingBasket, action: '查看订单板' },
-  { tab: 'town', title: '走进小镇', subtitle: '为真实农场服务', Icon: MapPin, action: '进入服务小镇' },
+  { tab: 'town', title: '招待来客', subtitle: '把收成带进小镇', Icon: TrainFront, action: '去小镇接待' },
+  { tab: 'assistant', title: '农场助手', subtitle: '切换到真实农场', Icon: MapPin, action: '打开农场助手' },
 ] as const;
 
 function GuideMap() {
@@ -32,7 +33,7 @@ function GuideMap() {
 }
 
 function GuideIllustration({ chapter }: { chapter: number }) {
-  return <div className={`fg-illustration fg-illustration-${chapter}`} aria-hidden="true">
+  return <div className={`fg-illustration fg-illustration-${chapter >= 4 ? 4 : chapter}`} aria-hidden="true">
     <span className="fg-art-sun" />
     <span className="fg-art-cloud fg-art-cloud-one" /><span className="fg-art-cloud fg-art-cloud-two" />
     <div className="fg-art-hill fg-art-hill-back" /><div className="fg-art-hill fg-art-hill-front" />
@@ -58,7 +59,7 @@ function GuideIllustration({ chapter }: { chapter: number }) {
     </> : chapter === 3 ? <>
       <div className="fg-order-board"><span>订单示例</span><span>🌾 × 4 <Check size={14} /></span><span>🥚 × 2 <Check size={14} /></span><span>🍞 × 1 <Check size={14} /></span></div>
       <span className="fg-art-basket">🧺</span><span className="fg-art-note">备齐货，再出发</span>
-    </> : <><GuideMap /><span className="fg-town-pin"><MapPin size={29} /></span><span className="fg-art-note">真实服务 · 随时可用</span></>}
+    </> : <><GuideMap /><span className="fg-town-pin">{chapter === 4 ? <TrainFront size={29} /> : <MapPin size={29} />}</span><span className="fg-art-note">{chapter === 4 ? '列车进站 · 小镇开张' : '独立助手 · 真实资料'}</span></>}
   </div>;
 }
 
@@ -74,7 +75,7 @@ function ChapterContent({ chapter, game }: { chapter: number; game: Game }) {
     <p className="fg-lead">动物吃饱后开始生产。先准备匹配的饲料，再等产物成熟；领取后记得喂下一餐。</p>
     <ol className="fg-instructions"><li>鸡吃鸡饲料，牛、猪、羊、山羊也各有自己的饲料。</li><li>在饲料厂制作饲料，或去仓库购买补给，再给动物喂食。</li><li>倒计时结束后领取鸡蛋、牛奶等产物，收入货仓。</li></ol>
     <div className="fg-field-tip"><span className="fg-tip-title"><PackageCheck size={17} /> 把饲料先备好</span><p>鸡饲料配方用到小麦和玉米。先留种，再拿多余的作物做饲料，种植与养殖就能接起来。</p></div>
-    <p className="fg-page-note">领取产物不会直接增加金币。真实动物出现异常时，请去小镇 AI 诊所提供实拍与症状信息。</p>
+    <p className="fg-page-note">领取产物不会直接增加金币。真实动物出现异常时，可切换到农场助手，在 AI 诊所提供实拍与症状信息。</p>
     <p className="fg-durable"><Check size={15} /> 已领取养殖产物 {game.productsCollected.toLocaleString('zh-CN')} 次</p>
   </>;
   if (chapter === 2) return <>
@@ -90,9 +91,15 @@ function ChapterContent({ chapter, game }: { chapter: number; game: Game }) {
     <p className="fg-page-note">订单与路边小店是单机游戏交易，使用游戏金币；不代表真实买家、真实需求或现实收入。</p>
     <p className="fg-durable"><Check size={15} /> 已交付订单 {game.ordersDelivered.toLocaleString('zh-CN')} 单</p>
   </>;
+  if (chapter === 4) return <>
+    <p className="fg-lead">列车带来游戏访客，杂货铺、咖啡馆和旅店等着你来经营。备好农场商品，接待来客，再把报酬带回农场。</p>
+    <ol className="fg-instructions"><li>在小镇查看列车状态，有空位时接待进站的访客。</li><li>查看访客想去的店铺与所需商品；备齐后开始服务，商品会从游戏仓库扣除。</li><li>服务倒计时结束后，手动领取报酬，再接待下一位来客。</li></ol>
+    <div className="fg-field-tip"><span className="fg-tip-title"><ShoppingBasket size={17} /> 给来客留一份收成</span><p>缺少商品时，顺着需求去农田、牧场或工坊备货。先看看留种、饲料和现有订单，别把下一轮经营所需的库存全用完。</p></div>
+    <p className="fg-page-note">小镇访客与店铺使用游戏商品和游戏货币。现实中的种养记录、天气、问诊和行情，请从顶部入口切换到独立的农场助手。</p>
+  </>;
   return <>
-    <p className="fg-lead">小镇服务真实农场主。气象、诊所、行情与记录随时开放，不需要游戏等级，也不扣游戏金币。</p>
-    <ol className="fg-instructions"><li>在气象站核对农场位置，再查看当地天气与农时参考。</li><li>在 AI 诊所提供真实照片、视频或症状描述，获得辅助研判；本地模型需先下载到支持的安卓设备。</li><li>去农场工作室记录真实地块、养殖与任务；到收购站、学堂和电台查看行情、知识与有来源的资讯。</li></ol>
+    <p className="fg-lead">农场助手是为真实农场主准备的独立界面。气象、诊所、行情与记录随时开放，不需要游戏等级，也不扣游戏金币。</p>
+    <ol className="fg-instructions"><li>从顶部“农场助手”切换界面，在气象站核对真实农场位置，再查看当地天气与农时参考。</li><li>在 AI 诊所提供真实照片、视频或症状描述，获得辅助研判；本地模型需先下载到支持的安卓设备。</li><li>在农场工作室记录真实地块、养殖与任务；查看行情、农技知识与有来源的农业资讯。</li></ol>
     <div className="fg-field-tip"><span className="fg-tip-title"><MapPin size={17} /> 先看清数据来源</span><p>天气定位要与真实农场一致，行情要核对地区、单位和时间。AI 建议是辅助参考，严重或快速扩散的病情应联系当地农技人员或兽医。</p></div>
     <p className="fg-page-note">游戏里的作物状态、库存、金币和订单不是真实生产数据；真实农场记录独立保存。</p>
   </>;
@@ -159,27 +166,27 @@ export function FarmGuide({ game, onNavigate, onClose }: FarmGuideProps) {
 
   if (typeof document === 'undefined') return null;
   const current = chapters[chapter];
-  const visits = [game.harvests > 0, game.productsCollected > 0, false, game.ordersDelivered > 0, false];
+  const visits = [game.harvests > 0, game.productsCollected > 0, false, game.ordersDelivered > 0, false, false];
   const visit = (tab: FarmGuideTab) => { onClose(); onNavigate(tab); };
   return createPortal(<div className="fg-overlay" ref={overlayRef} onClick={event => { if (event.target === event.currentTarget) onClose(); }}>
     <div className="fg-dialog" ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={descriptionId} tabIndex={-1}>
       <header className="fg-header">
         <span className="fg-book-seal" aria-hidden="true"><BookOpen size={27} /></span>
-        <div className="fg-heading"><span className="fg-eyebrow">田野来信 · 随身图鉴</span><h2 id={titleId}>农场手册</h2><p id={descriptionId}>从留种到交货，也把真实农场照顾好</p></div>
+        <div className="fg-heading"><span className="fg-eyebrow">田野来信 · 随身图鉴</span><h2 id={titleId}>农场手册</h2><p id={descriptionId}>从留种到交货，再到小镇接待</p></div>
         <button ref={closeRef} className="fg-close" onClick={onClose} aria-label="关闭农场手册"><X size={20} /><span>收起手册</span></button>
       </header>
       <div className="fg-body">
         <aside className="fg-index" ref={indexRef} aria-label="农场手册目录">
           <GuideMap /><span className="fg-index-title">一条农场小路</span>
           <nav>{chapters.map((item, index) => <button key={item.tab} className={`fg-chapter-link${index === chapter ? ' fg-selected' : ''}`} aria-current={index === chapter ? 'step' : undefined} aria-controls={pageId} onClick={() => setChapter(index)}>
-            <span className="fg-chapter-number" aria-hidden="true">{index + 1}</span><span className="fg-chapter-label"><strong>{item.title}</strong><small>{visits[index] ? <><Check size={12} /> {index === 3 ? '已有交货记录' : index === 1 ? '已有养殖记录' : '已有收获记录'}</> : index === 4 ? '随时可用' : item.subtitle}</small></span><item.Icon size={18} aria-hidden="true" />
+            <span className="fg-chapter-number" aria-hidden="true">{index + 1}</span><span className="fg-chapter-label"><strong>{item.title}</strong><small>{visits[index] ? <><Check size={12} /> {index === 3 ? '已有交货记录' : index === 1 ? '已有养殖记录' : '已有收获记录'}</> : item.subtitle}</small></span><item.Icon size={18} aria-hidden="true" />
           </button>)}</nav>
           <p className="fg-index-note">慢慢经营，随时翻阅。<br />手册不发奖励，也不扣费用。</p>
         </aside>
         <div className="fg-page" ref={pageRef} id={pageId} tabIndex={0} aria-label={`${current.title}玩法说明`}>
           <div className="fg-page-heading"><span className="fg-page-number">{String(chapter + 1).padStart(2, '0')}</span><div><span className="fg-page-kicker">{current.subtitle}</span><h3>{current.title}</h3></div><current.Icon size={27} aria-hidden="true" /></div>
           <div className="fg-page-layout"><GuideIllustration chapter={chapter} /><div className="fg-copy"><ChapterContent chapter={chapter} game={game} /></div></div>
-          <div className="fg-supply-note"><ShoppingBasket size={18} aria-hidden="true" /><span>找不到原料，先看看库存与补给。</span><button onClick={() => visit('storage')}>去仓库 <ArrowRight size={15} /></button></div>
+          {chapter === 5 ? <div className="fg-supply-note"><MapPin size={18} aria-hidden="true" /><span>真实资料独立保存，返回游戏可继续经营。</span><button onClick={() => visit('assistant')}>农场助手 <ArrowRight size={15} /></button></div> : <div className="fg-supply-note"><ShoppingBasket size={18} aria-hidden="true" /><span>找不到原料，先看看库存与补给。</span><button onClick={() => visit('storage')}>去仓库 <ArrowRight size={15} /></button></div>}
         </div>
       </div>
       <footer className="fg-footer">

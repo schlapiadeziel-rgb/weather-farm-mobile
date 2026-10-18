@@ -1,141 +1,136 @@
-import { useEffect, useId, useRef } from 'react';
-import { createPortal } from 'react-dom';
-import { ArrowLeft, ArrowUpRight, BookOpen, CloudSun, House, Radio, ShoppingBasket, Sprout, Stethoscope } from 'lucide-react';
+import { useId, useRef, useState } from 'react';
+import { ArrowRight, Award, Check, Clock3, Coffee, Coins, Hammer, House, LockKeyhole, PackageCheck, ShoppingBasket, Star, TrainFront, Users } from 'lucide-react';
+import type { Game, ItemId } from '../lib/farmTypes';
+import { getItem, MACHINES, RECIPES } from '../lib/farmContent';
+import { arriveTownTrain, buildTownFacility, collectTownVisitor, getTownFacilityCapacity, getTownUpgradeCost, getTownVisitorPhase, serveTownVisitor, TOWN_BUILDINGS, TOWN_MAX_VISITORS, TOWN_TRAIN_COOLDOWN_MS, upgradeTownFacility } from '../lib/townGame';
+import type { TownBuildingId, TownVisitor } from '../lib/townTypes';
 import './farm-town.css';
 
-export type FarmTownVisit = 'home' | 'clinic' | 'weather' | 'advice' | 'market' | 'news';
-export type FarmTownProps = { onVisit(id: FarmTownVisit): void; onClose(): void };
+export type FarmTownProps = { game: Game; now: number; onChange(game: Game): void | boolean; notify(text: string): void; onRequestItem?(item: ItemId): void; onNavigate?(tab: 'farm' | 'storage' | 'production' | 'orders'): void };
+const looks = { store: { color: '#5d9d92', Icon: ShoppingBasket }, cafe: { color: '#cc826d', Icon: Coffee }, inn: { color: '#8a8eaf', Icon: House } };
 
-const buildings = [
-  { id: 'weather', name: '气象站', description: '真实天气 · 农时参考', color: '#468b91', Icon: CloudSun },
-  { id: 'clinic', name: 'AI诊所', description: '实拍观察 · 辅助研判', color: '#ba7066', Icon: Stethoscope },
-  { id: 'advice', name: '农技学堂', description: '种养知识 · 田间参考', color: '#6c8860', Icon: BookOpen },
-  { id: 'market', name: '收购站', description: '市场行情 · 价格参考', color: '#b88439', Icon: ShoppingBasket },
-  { id: 'news', name: '农业电台', description: '农业资讯 · 来源可查', color: '#537e9d', Icon: Radio },
-  { id: 'home', name: '农场工作室', description: '现实农场记录 · 本机保存', color: '#977553', Icon: House },
-] as const;
+function remaining(milliseconds: number) {
+  const seconds = Math.max(0, Math.ceil(milliseconds / 1000));
+  const minutes = Math.floor(seconds / 60);
+  return `${minutes}:${String(seconds % 60).padStart(2, '0')}`;
+}
+function sourceLabel(id: ItemId) {
+  const item = getItem(id);
+  if (item.category === 'crop') return '农田';
+  if (item.category === 'animal') return '牧场';
+  const recipe = RECIPES.find(entry => entry.output === id);
+  if (recipe) return MACHINES.find(entry => entry.id === recipe.machine)?.name ?? '工坊';
+  return '仓库';
+}
 
-/** Original decorative buildings. Their services use real-world inputs, not game plots. */
-function TownBuilding({ building }: { building: typeof buildings[number] }) {
-  const paint = `ft-${useId().replace(/:/g, '')}`;
-  const { id, color, Icon } = building;
-  return <svg className="ft-building-art" viewBox="0 0 190 138" aria-hidden="true" focusable="false">
-    <defs>
-      <linearGradient id={`${paint}-wall`} x1="0" y1="0" x2="0.9" y2="1"><stop stopColor="#fffae6" /><stop offset="1" stopColor="#dfd3ae" /></linearGradient>
-      <linearGradient id={`${paint}-roof`} x1="0" y1="0" x2="0" y2="1"><stop stopColor={color} /><stop offset="1" stopColor={id === 'clinic' ? '#96564f' : id === 'market' ? '#90652d' : '#3f655d'} /></linearGradient>
-      <linearGradient id={`${paint}-glass`} x1="0" y1="0" x2="1" y2="1"><stop stopColor="#e8f3dc" /><stop offset="1" stopColor="#8eafb0" /></linearGradient>
-    </defs>
-    <ellipse cx="95" cy="122" rx="78" ry="13" fill="#507646" opacity=".16" />
-    <path d="M17 119 82 103 171 115 113 132Z" fill="#9fbe70" /><path d="m17 119 96 13 58-17v5l-58 15-96-12Z" fill="#7e9f58" />
-    <path d="m76 128 24-6 30 5-25 6Z" fill="#eadab3" />
-    <g stroke="#647a48" strokeWidth="1.3" strokeLinecap="round"><path d="M24 112v-20M167 115V94" /><path d="m18 105 6 7 5-9m-12-7 7 9 8-9m129 7 6 8 7-8" /></g>
-    <g fill="#6f9d55"><circle cx="24" cy="90" r="12" /><circle cx="19" cy="96" r="9" /><circle cx="30" cy="96" r="10" /><circle cx="166" cy="93" r="12" /><circle cx="172" cy="101" r="9" /><circle cx="160" cy="101" r="10" /></g>
-    <g fill="#a8c87b"><circle cx="20" cy="86" r="7" /><circle cx="163" cy="90" r="7" /></g>
-    {id === 'weather' ? <>
-      <path d="M52 53 116 41 144 57v54l-65 15-27-15Z" fill={`url(#${paint}-wall)`} stroke="#b7ae87" strokeWidth="1" /><path d="m116 41 28 16v54l-28-14Z" fill="#c6c6a2" />
-      <path d="m46 54 70-18 36 22-73 19Z" fill={`url(#${paint}-roof)`} /><path d="m46 54 33 23v6L46 61Z" fill="#426d68" />
-      <path d="M86 40V23l22-5 19 10v17l-22 7Z" fill="#e8e5c8" /><path d="m108 18 19 10v17l-19-9Z" fill="#bccbad" /><path d="M83 24c0-15 30-21 44 3l-20 7Z" fill="#7ca8a1" /><path d="M107 19V6m0 2 15 3-15 5" fill="#e1ab5b" stroke="#69836c" strokeWidth="1.3" />
-      <path d="m63 83 15 4v17l-15-4Zm69-16 7 3v17l-7-3Z" fill={`url(#${paint}-glass)`} stroke="#8ca29b" /><path d="M91 91 109 87v32l-18 4Z" fill="#7a8c71" /><path d="M61 114h19" stroke="#f7efd5" strokeWidth="3" />
-    </> : id === 'market' ? <>
-      <path d="M49 61 113 47 143 63v48l-62 15-32-16Z" fill={`url(#${paint}-wall)`} /><path d="m113 47 30 16v48l-30-14Z" fill="#ccb98e" />
-      <path d="m42 60 71-25 37 29-69 22Z" fill={`url(#${paint}-roof)`} /><path d="m42 60 39 26v5L42 67Z" fill="#946b34" /><path d="m58 83 66-15 22 14-64 17Z" fill="#dc9c64" /><path d="m66 81 9-2 23 17-9 2Zm19-4 9-2 22 17-9 2Zm19-4 9-2 22 16-9 3Z" fill="#fff0cc" />
-      <path d="m58 84 24 15v7L58 91Zm24 15 64-17v7l-64 17Z" fill="#bd784d" /><path d="m83 101 51-13v20l-51 13Z" fill="#638069" /><path d="m93 100 27-7v19l-27 7Z" fill="#7f6347" /><path d="m91 99 29-7 9 5-29 8Z" fill="#dabd78" />
-      <g fill="#dc9858"><circle cx="104" cy="96" r="4" /><circle cx="113" cy="94" r="4" /><circle cx="120" cy="94" r="3" /></g><path d="m103 92 3-4m7 3 3-4" stroke="#668c50" strokeWidth="2" />
-      <path d="m51 104 19 7v13l-19-8Z" fill="#b7965f" /><path d="m51 104 12-4 18 7-11 4Z" fill="#d6b97b" /><path d="m56 110 9 3" stroke="#7e6846" strokeWidth="2" />
-    </> : <>
-      <path d="M48 59 113 43 145 62v48l-66 17-31-18Z" fill={`url(#${paint}-wall)`} stroke="#bcae8a" strokeWidth=".8" /><path d="m113 43 32 19v48l-32-16Z" fill={id === 'clinic' ? '#ddc5b0' : '#cdbf98'} />
-      <path d="m41 59 72-32 40 36-74 25Z" fill={`url(#${paint}-roof)`} /><path d="m41 59 38 29v6L41 66Z" fill={id === 'clinic' ? '#985e53' : '#4a6c51'} /><path d="m60 53 53-23 24 23m-77 6 50-19 34 20" stroke="#fff4ce" strokeOpacity=".2" strokeWidth="1.1" fill="none" />
-      <path d="m61 88 13 6v16l-13-6Zm67-16 10 5v17l-10-5Z" fill={`url(#${paint}-glass)`} stroke="#8ca29b" /><path d="m67 91 1 16m-7-11 13 6m60-27v17" stroke="#fff5d7" strokeWidth="1.2" />
-      <path d="m93 95 18-5v30l-18 5Z" fill={id === 'clinic' ? '#81948a' : '#858b69'} /><path d="m95 96 14-4v11l-14 4Z" fill={`url(#${paint}-glass)`} /><circle cx="106" cy="113" r="1.2" fill="#f7d385" />
-      {id === 'advice' && <><path d="M58 32V18l12-3 8 6v13" fill="#ceb78a" /><path d="m53 18 18-7 12 10-18 7Z" fill="#7d9866" /><path d="m44 112 30 16 4-2-31-17Z" fill="#9c8458" /><path d="M43 108v9m25 0v13" stroke="#866f4f" strokeWidth="2" /><path d="m55 113 10 5m-10-8 11 6" stroke="#d3bd87" strokeWidth="2" /></>}
-      {id === 'clinic' && <><path d="m48 113 32 17 66-17" fill="none" stroke="#f6e5c2" strokeWidth="4" /><g fill="#c38d85"><circle cx="51" cy="104" r="3" /><circle cx="55" cy="110" r="2.8" /></g><path d="m50 116 2-8 4 6" stroke="#719551" strokeWidth="2" fill="none" /></>}
-      {id === 'news' && <><path d="M122 47V11m-5 35 5-21 6 22m-9-8h7m-5-8h4" stroke="#637d7e" strokeWidth="1.7" fill="none" /><circle cx="122" cy="12" r="3" fill="#ddb86b" /><path className="ft-radio-signal" d="M113 8a13 13 0 0 0 0 10m18-10a13 13 0 0 1 0 10m-23-14a20 20 0 0 0 0 18m27-18a20 20 0 0 1 0 18" stroke="#94b6a0" strokeWidth="1.7" fill="none" /><path d="m57 110 16 8v8l-16-8Z" fill="#b99b67" /></>}
-      {id === 'home' && <><path d="m49 96 31 16 66-18v5l-66 18-31-16Z" fill="#b59b69" /><path d="M51 99v18m28-3v15m62-29v13" stroke="#9c855d" strokeWidth="2" /><path d="M57 35V21l11-2 9 5v15" fill="#cdb283" /><path d="m55 20 13-5 12 9-14 4Z" fill="#9d8058" /><path d="m128 106 16 7-2 12-15-8Z" fill="#b69768" /><path d="m130 104 13 6-1 9-13-6Z" fill="#eddfb3" /><path d="m132 113 5-5 5 7" stroke="#86a064" strokeWidth="1.3" fill="none" /></>}
-    </>}
-    <g transform={id === 'weather' ? 'translate(91 69)' : id === 'market' ? 'translate(88 50)' : 'translate(89 68)'}>
-      <rect width="24" height="22" rx="4" fill="#fff8df" stroke={color} strokeWidth="1" /><Icon x="4" y="3" width="16" height="16" color={color} strokeWidth="1.6" />
-    </g>
-    <g fill="#ead28c"><circle cx="36" cy="119" r="1.6" /><circle cx="156" cy="118" r="1.6" /><circle cx="153" cy="123" r="1.4" /></g>
+/** Original miniature architecture and inhabitants, drawn for this game's town. */
+function TownBuildingArt({ id }: { id: TownBuildingId }) {
+  const paint = `town-${useId().replace(/:/g, '')}`;
+  const { color, Icon } = looks[id];
+  const upper = id === 'inn';
+  return <svg className="ft-building-art" viewBox="0 0 200 164" aria-hidden="true" focusable="false">
+    <defs><linearGradient id={`${paint}-wall`} x1="0" y1="0" x2=".8" y2="1"><stop stopColor="#fff6da" /><stop offset="1" stopColor="#e0caa4" /></linearGradient><linearGradient id={`${paint}-roof`} x1="0" y1="0" x2=".7" y2="1"><stop stopColor={color} /><stop offset="1" stopColor={id === 'store' ? '#437a72' : id === 'cafe' ? '#a66155' : '#5c6487'} /></linearGradient></defs>
+    <ellipse cx="100" cy="142" rx="83" ry="15" fill="#5a784e" opacity=".17" /><path d="m18 137 77-20 88 19-81 23Z" fill="#a7c579" /><path d="m18 137 84 22 81-23v5l-81 22-84-21Z" fill="#81a15a" />
+    <path d="M29 132v-20m143 22v-22" stroke="#8d9862" strokeWidth="2" /><g fill="#6d9d58"><circle cx="29" cy="109" r="14" /><circle cx="20" cy="117" r="9" /><circle cx="40" cy="118" r="10" /><circle cx="170" cy="112" r="13" /><circle cx="179" cy="120" r="9" /></g><g fill="#a5c875"><circle cx="25" cy="104" r="8" /><circle cx="165" cy="107" r="7" /></g>
+    <path d={`M49 ${upper ? 47 : 64} 117 ${upper ? 31 : 48} 151 ${upper ? 52 : 69}v65l-70 18-32-18Z`} fill={`url(#${paint}-wall)`} stroke="#b8a27f" strokeWidth=".7" /><path d={`m117 ${upper ? 31 : 48} 34 21v65l-34-16Z`} fill="#cdb88f" />
+    <path d={upper ? 'm41 48 76-32 43 38-79 25Z' : 'm41 65 76-32 43 38-79 25Z'} fill={`url(#${paint}-roof)`} /><path d={upper ? 'm41 48 40 31v6L41 55Z' : 'm41 65 40 31v6L41 72Z'} fill={id === 'cafe' ? '#9c6054' : '#526d66'} />
+    <path d={upper ? 'm58 42 60-23 32 30m-83 1 49-19 35 22' : 'm58 59 60-23 32 30m-83 1 49-19 35 22'} stroke="#fff7d8" strokeOpacity=".18" strokeWidth="1.3" fill="none" />
+    {upper && <><path d="m61 63 14 6v18l-14-6Zm29 8 16-4v18l-16 4Zm40-17 12 7v18l-12-6Z" fill="#a8c5be" stroke="#8a9d97" /><path d="m68 67 1 16m29-13v17m37-30v18" stroke="#f5e9c9" strokeWidth="1.5" /><path d="m48 87 33 17 70-18v5l-70 18-33-17Z" fill="#b4a17a" /><path d="M52 89v13m12-8v14m24-6v13m13-17v13m14-17v14m14-18v14m13-18v14" stroke="#f6e5bc" strokeWidth="2" /><path d="M127 37V16l10-2 8 5v27" fill="#c3b08d" /><path d="m125 15 13-6 12 9-13 4Z" fill="#788099" /></>}
+    {id === 'cafe' ? <><path d="m51 91 67-17 32 18-70 21Z" fill="#d68f77" /><path d="m60 89 10-3 31 21-10 3Zm22-6 10-2 31 20-11 3Zm22-5 10-3 31 20-11 4Z" fill="#fff0d0" /><path d="m51 91 29 22v7L51 98Zm29 22 70-21v7l-70 21Z" fill="#b16b59" /><path d="M58 120v17m80-32v22" stroke="#ad8c63" strokeWidth="2" /><path d="m140 136 18-5 9 5-18 5Z" fill="#f8e4b8" /><path d="M149 141v10m-7-1 7-3 8 2" stroke="#8c9469" strokeWidth="2" /><ellipse cx="151" cy="132" rx="3" ry="2" fill="#f8f2d7" /><path d="M150 132v-4h3v4" fill="#fff7df" /><path d="m29 138 16-4 8 4-16 4Z" fill="#bc9567" /><path d="M36 141v8m10-10v8" stroke="#8f7f54" strokeWidth="2" /></> : <><path d="m58 95 16 7v25l-16-7Zm76-15 9 4v22l-9-4Z" fill="#acc8bf" stroke="#829d93" /><path d="M66 99v24m-8-13 16 7m64-35v21" stroke="#fff4d6" strokeWidth="1.5" /></>}
+    <path d="m94 111 20-5v32l-20 5Z" fill={id === 'inn' ? '#8e91a1' : '#729289'} /><path d="m97 113 14-4v12l-14 4Z" fill="#bfd3c6" /><circle cx="108" cy="130" r="1.3" fill="#f2d282" />
+    <path d="m83 146 20-5 21 4-21 6Z" fill="#f1dfb8" /><g transform={upper ? 'translate(94 92)' : 'translate(93 78)'}><rect width="26" height="23" rx="4" fill="#fff3d2" stroke={color} /><Icon x="5" y="4" width="16" height="16" color={color} strokeWidth="1.7" /></g>
+    {id === 'store' && <><path d="m50 131 23 9v13l-23-9Z" fill="#b89a66" /><path d="m50 131 13-4 23 9-13 4Z" fill="#ddc085" /><g fill="#d6945c"><circle cx="59" cy="130" r="4" /><circle cx="66" cy="132" r="4" /><circle cx="72" cy="132" r="3" /></g><path d="m64 128 1-5m7 7 3-5" stroke="#749450" strokeWidth="2" /><path d="m139 128 14 7v13l-14-7Z" fill="#ae9268" /><path d="m140 126 14 7-1 11-14-7Z" fill="#f1dca9" /><path d="m142 135 4-4 5 6" fill="none" stroke="#8f9b62" /></>}
+    <g stroke="#8caa61" strokeWidth="1.5"><path d="M34 137v-7m127 16v-8m9 3v-7" /></g><g fill="#e8bb83"><circle cx="34" cy="130" r="3" /><circle cx="161" cy="137" r="3" /><circle cx="170" cy="134" r="3" /></g>
   </svg>;
 }
 
 function TownLandscape() {
-  return <svg className="ft-landscape" viewBox="0 0 1100 560" preserveAspectRatio="none" aria-hidden="true" focusable="false">
-    <defs><linearGradient id="ft-town-sky" x1="0" y1="0" x2="0" y2="1"><stop stopColor="#c5e0de" /><stop offset="1" stopColor="#eaf0d0" /></linearGradient></defs>
-    <rect width="1100" height="560" fill="url(#ft-town-sky)" /><circle cx="962" cy="56" r="29" fill="#fff2bf" />
-    <g fill="#f7f7df" opacity=".7"><path d="M66 56c0-17 22-21 32-11 8-22 44-20 52 2 21-4 37 8 35 20H66Z" /><path d="M733 45c3-14 19-18 30-10 11-20 39-17 47 4 18-4 33 7 30 16H733Z" /></g>
-    <path d="M0 144 125 60l108 73 121-58 109 65 109-54 107 68 115-70 139 62 100-45 67 57v230H0Z" fill="#93b7a2" />
-    <path d="M0 173c127-80 253-8 337-4 132 7 169-77 300-43s257 81 463 14v420H0Z" fill="#b5cb93" />
-    <path d="M0 240c157-73 297-43 430-29 137 14 315-61 670-13v362H0Z" fill="#c8d89b" />
-    <path d="M0 307c156-20 221 27 375 21 232-8 434-95 725-41v273H0Z" fill="#bfd394" />
-    <path d="M541 172c-34 69-43 142 14 181s34 131 4 207" fill="none" stroke="#b8b681" strokeWidth="32" /><path d="M541 172c-34 69-43 142 14 181s34 131 4 207M155 291c235-8 624-19 804-13" fill="none" stroke="#e8dab1" strokeWidth="26" />
-    <path d="M95 515c266-60 555-60 920-9" stroke="#b9c486" strokeWidth="3" fill="none" />
-    <g fill="#86a565" opacity=".7"><ellipse cx="46" cy="260" rx="40" ry="22" /><ellipse cx="1068" cy="255" rx="45" ry="29" /><ellipse cx="37" cy="470" rx="39" ry="23" /><ellipse cx="1088" cy="453" rx="53" ry="30" /></g>
-  </svg>;
+  return <svg className="ft-landscape" viewBox="0 0 620 480" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false"><defs><linearGradient id="ft-sky" x1="0" y1="0" x2="0" y2="1"><stop stopColor="#b9dcdf" /><stop offset="1" stopColor="#f3edd0" /></linearGradient></defs><rect width="620" height="480" fill="url(#ft-sky)" /><circle cx="535" cy="43" r="24" fill="#fff3bc" /><g fill="#fff7e3" opacity=".6"><path d="M35 44c0-12 17-17 26-9 9-17 35-17 43 5 17-3 27 6 26 18H35Z" /><path d="M360 33c2-12 16-15 25-8 9-17 33-13 38 3 16-3 26 5 25 16h-88Z" /></g><path d="M0 119 82 49l90 72 94-45 91 50 109-52 94 58 60-30v378H0Z" fill="#91b69c" /><path d="M0 149c95-57 167 0 262-16s161-24 358 3v344H0Z" fill="#b4cd93" /><path d="M0 213c174-63 290 28 620-28v295H0Z" fill="#c3d69b" /><path d="M0 353c176-72 344-21 620-66v193H0Z" fill="#bad090" /><path d="M0 177h620" stroke="#8c9772" strokeWidth="16" /><path d="M0 171h620m-620 12h620" stroke="#cdd1b3" strokeWidth="2" /><path d="M0 177h620" stroke="#9a8062" strokeWidth="12" strokeDasharray="3 12" /><path d="M311 190v118c-49 16-133 24-211 10m211-10c67-14 130-8 209 6m-209-6v172" fill="none" stroke="#aeb57f" strokeWidth="25" /><path d="M311 190v118c-49 16-133 24-211 10m211-10c67-14 130-8 209 6m-209-6v172" fill="none" stroke="#ebdcb5" strokeWidth="21" /><g fill="#86a967"><ellipse cx="26" cy="315" rx="38" ry="27" /><ellipse cx="611" cy="371" rx="39" ry="24" /><ellipse cx="22" cy="445" rx="31" ry="20" /></g><g fill="#f4dea1" opacity=".7"><circle cx="44" cy="369" r="2" /><circle cx="574" cy="411" r="2" /><circle cx="95" cy="420" r="2" /><circle cx="542" cy="241" r="2" /></g></svg>;
 }
 
-export function FarmTown({ onVisit, onClose }: FarmTownProps) {
-  const titleId = useId();
-  const descriptionId = useId();
-  const overlayRef = useRef<HTMLDivElement>(null);
-  const dialogRef = useRef<HTMLDivElement>(null);
-  const closeRef = useRef<HTMLButtonElement>(null);
-  const onCloseRef = useRef(onClose);
-  useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    const overlay = overlayRef.current;
-    if (!dialog || !overlay) return;
-    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const previousOverflow = document.body.style.overflow;
-    const siblings = Array.from(document.body.children).filter((node): node is HTMLElement => node instanceof HTMLElement && node !== overlay && !node.contains(overlay));
-    const previousInert = siblings.map(node => node.inert);
-    siblings.forEach(node => { node.inert = true; });
-    document.body.style.overflow = 'hidden';
-    closeRef.current?.focus({ preventScroll: true });
-    const focusable = () => Array.from(dialog.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], input:not([disabled]), [tabindex]:not([tabindex="-1"])')).filter(node => node.getClientRects().length > 0);
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); onCloseRef.current(); return; }
-      if (event.key !== 'Tab') return;
-      const controls = focusable();
-      const first = controls[0];
-      const last = controls[controls.length - 1];
-      if (!first || !last) { event.preventDefault(); dialog.focus(); return; }
-      if (event.shiftKey && (document.activeElement === first || !dialog.contains(document.activeElement))) { event.preventDefault(); last.focus(); }
-      else if (!event.shiftKey && (document.activeElement === last || !dialog.contains(document.activeElement))) { event.preventDefault(); first.focus(); }
-    };
-    const onFocusIn = (event: FocusEvent) => { if (event.target instanceof Node && !dialog.contains(event.target)) closeRef.current?.focus({ preventScroll: true }); };
-    document.addEventListener('keydown', onKeyDown, true);
-    document.addEventListener('focusin', onFocusIn);
-    return () => {
-      document.removeEventListener('keydown', onKeyDown, true);
-      document.removeEventListener('focusin', onFocusIn);
-      siblings.forEach((node, index) => { node.inert = previousInert[index]; });
-      document.body.style.overflow = previousOverflow;
-      if (previousFocus?.isConnected) previousFocus.focus({ preventScroll: true });
-    };
-  }, []);
-  if (typeof document === 'undefined') return null;
-  return createPortal(<div className="ft-overlay" ref={overlayRef} onClick={event => { if (event.target === event.currentTarget) onClose(); }}>
-    <div className="ft-dialog" ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={descriptionId} tabIndex={-1}>
-      <header className="ft-header">
-        <span className="ft-town-seal" aria-hidden="true"><Sprout size={26} /></span>
-        <div className="ft-heading"><span className="ft-eyebrow">田野里的服务驿站</span><h2 id={titleId}>农场小镇</h2><p id={descriptionId}>把真实农业服务带进你的农场</p></div>
-        <button className="ft-close" ref={closeRef} onClick={onClose}><ArrowLeft size={17} /><span>回农场</span></button>
-      </header>
-      <div className="ft-town-map">
-        <TownLandscape />
-        <span className="ft-map-note"><span aria-hidden="true" />真实农业服务</span>
-        <div className="ft-buildings">
-          {buildings.map(building => <button className={`ft-building ft-building-${building.id}`} key={building.id} onClick={() => onVisit(building.id)} aria-label={`${building.name}，${building.description}`}>
-            <TownBuilding building={building} />
-            <span className="ft-building-label"><strong>{building.name}</strong><ArrowUpRight size={14} aria-hidden="true" /><small>{building.description}</small></span>
-          </button>)}
+function TrainArt() {
+  return <svg className="ft-train-art" viewBox="0 0 300 94" aria-hidden="true" focusable="false"><ellipse cx="151" cy="80" rx="136" ry="9" fill="#6c8956" opacity=".16" /><path d="M14 78h274m-274 7h274" stroke="#84917a" strokeWidth="3" /><path d="M17 81h269" stroke="#a6926c" strokeWidth="7" strokeDasharray="4 13" /><g fill="#d3c199" stroke="#9a997b" strokeWidth="1"><rect x="130" y="29" width="67" height="43" rx="4" /><rect x="208" y="29" width="67" height="43" rx="4" /></g><g fill="#91b6aa" stroke="#638c81"><path d="M137 37h14v18h-14zm20 0h14v18h-14zm20 0h13v18h-13zm38 0h14v18h-14zm20 0h14v18h-14zm20 0h13v18h-13Z" /></g><path d="M127 29h72m6 0h73" stroke="#6b8c76" strokeWidth="7" strokeLinecap="round" /><path d="M28 55h89v19H27Zm43-22h40v24H71Z" fill="#5f9d8e" stroke="#3e7d71" /><path d="M41 45h31v25H41Z" fill="#78aa88" /><path d="M32 69h84v7H23Z" fill="#b16f56" /><path d="M79 37h23v17H79Z" fill="#b9d5c1" stroke="#51867a" /><path d="M66 32h50" stroke="#46796c" strokeWidth="6" strokeLinecap="round" /><path d="M39 44V27h13v18" fill="#527b69" /><path d="M36 27h19" stroke="#567f6c" strokeWidth="5" /><path className="ft-steam" d="M44 18C27 8 57 4 45-7" stroke="#fff8df" strokeWidth="7" strokeLinecap="round" fill="none" opacity=".6" /><path d="M115 67h16m65 0h13" stroke="#7d8166" strokeWidth="3" /><g fill="#57746b" stroke="#cfceb0" strokeWidth="3"><circle cx="43" cy="74" r="10" /><circle cx="72" cy="74" r="10" /><circle cx="102" cy="74" r="10" /><circle cx="145" cy="74" r="8" /><circle cx="182" cy="74" r="8" /><circle cx="223" cy="74" r="8" /><circle cx="261" cy="74" r="8" /></g><path d="M43 74h59" stroke="#d6c291" strokeWidth="3" /><circle cx="27" cy="57" r="5" fill="#f0ce80" /></svg>;
+}
+function VisitorAvatar({ visitor, index = 0 }: { visitor: TownVisitor; index?: number }) {
+  const palette = ['#809e9b', '#b18479', '#a49b6b', '#8594b2', '#9aa97b', '#b18d9b'];
+  const tint = palette[index % palette.length];
+  return <svg className="ft-visitor-avatar" viewBox="0 0 52 60" aria-hidden="true" focusable="false"><ellipse cx="26" cy="55" rx="20" ry="4" fill="#677f4b" opacity=".14" /><path d="M9 54c0-15 6-22 17-22s17 7 17 22" fill={tint} /><path d="m17 35 9 8 9-8" fill="#ece7c9" /><rect x="22" y="28" width="8" height="11" rx="3" fill="#e4be96" /><ellipse cx="26" cy="21" rx="12" ry="14" fill="#edcca5" /><path d="M14 21C11 4 31 1 37 13l2 9-6-7c-4 4-10 3-15 1l-3 6Z" fill={index % 2 ? '#735c4c' : '#8d7355'} /><path d="M22 28q4 3 8 0" fill="none" stroke="#bd876b" strokeWidth="1.2" strokeLinecap="round" /><circle cx="21" cy="22" r="1" fill="#695e4c" /><circle cx="31" cy="22" r="1" fill="#695e4c" />{visitor.id.length % 2 === 0 && <><path d="M11 14q2-16 16-13 13 3 12 13Z" fill={tint} /><path d="M9 14h32" stroke="#e3cc91" strokeWidth="3" strokeLinecap="round" /></>}</svg>;
+}
+
+export function FarmTown({ game, now, onChange, notify, onRequestItem, onNavigate }: FarmTownProps) {
+  const [selected, setSelected] = useState<TownBuildingId>('store');
+  const gameRef = useRef(game);
+  const lastPropRef = useRef(game);
+  // Keep successful actions current even when a second tap precedes React's next paint.
+  if (lastPropRef.current !== game) { lastPropRef.current = game; gameRef.current = game; }
+  const town = game.town;
+  const building = TOWN_BUILDINGS.find(entry => entry.id === selected) ?? TOWN_BUILDINGS[0];
+  const owned = town.buildings.find(entry => entry.id === selected);
+  const level = owned?.level ?? 0;
+  const capacity = getTownFacilityCapacity(level);
+  const visitors = town.visitors.filter(entry => entry.buildingId === selected);
+  const occupied = visitors.filter(entry => getTownVisitorPhase(entry, now) !== 'waiting').length;
+  const upgradeCost = getTownUpgradeCost(level);
+  const readyCount = town.visitors.filter(entry => getTownVisitorPhase(entry, now) === 'ready').length;
+  const trainRemaining = Math.max(0, town.nextTrainAt - now);
+  const trainFull = town.visitors.length >= TOWN_MAX_VISITORS;
+  const locked = town.reputation < building.unlockReputation;
+  const { Icon } = looks[selected];
+  const apply = (action: (current: Game) => Game, summary: string | ((next: Game, previous: Game) => string)) => {
+    try {
+      const previous = gameRef.current;
+      const next = action(previous);
+      gameRef.current = next;
+      const saved = onChange(next);
+      const message = typeof summary === 'string' ? summary : summary(next, previous);
+      notify(saved === false ? `${message}本机未能保存，请在农场日记导出游戏备份。` : message);
+    } catch (error) { notify(error instanceof Error ? error.message : '这次操作没有完成，请稍后再试。'); }
+  };
+  const callTrain = () => apply(current => arriveTownTrain(current, Date.now()), (next, previous) => `火车到站，${next.town.visitors.length - previous.town.visitors.length} 位模拟访客来到小镇。`);
+  const requestItem = (id: ItemId) => {
+    if (onRequestItem) { onRequestItem(id); return; }
+    if (!onNavigate) return;
+    const category = getItem(id).category;
+    onNavigate(category === 'crop' ? 'farm' : RECIPES.some(entry => entry.output === id) ? 'production' : 'storage');
+  };
+  return <section className="farm-town-panel" aria-label="游戏访客小镇">
+    <header className="ft-header"><span className="ft-town-seal"><TrainFront size={23} aria-hidden="true" /></span><div className="ft-heading"><h2>风禾小镇</h2><p>本机模拟访客 · 把农场的好东西带进小镇</p></div><div className="ft-town-stats"><span><Award size={16} aria-hidden="true" />声望 <b>{town.reputation}</b></span><span><Coins size={16} aria-hidden="true" />游戏金币 <b>{game.coins.toLocaleString()}</b></span></div></header>
+    <div className="ft-layout">
+      <aside className="ft-map" aria-label="小镇建筑地图"><div className="ft-map-canvas"><TownLandscape />
+        <div className="ft-station"><div className="ft-station-sign"><TrainFront size={14} aria-hidden="true" /><strong>风禾车站</strong><span>{town.visitors.length}/{TOWN_MAX_VISITORS} 位访客在镇</span></div><TrainArt /><div className="ft-train-controls"><button className="ft-primary ft-arrive" disabled={trainRemaining > 0 || trainFull} onClick={callTrain} data-town-action="arrive"><TrainFront size={16} aria-hidden="true" />{trainFull ? '小镇已满，先接待访客' : trainRemaining > 0 ? `下一班 ${remaining(trainRemaining)}` : '让火车到站'}</button><small>{trainFull ? '领取接待报酬后，访客会离开小镇。' : trainRemaining > 0 ? `火车每 ${TOWN_TRAIN_COOLDOWN_MS / 60000} 分钟可到站一次，需手动迎接。` : '轻触迎接最多 3 位新访客，不会自动扣货。'}</small></div></div>
+        <div className="ft-buildings" role="group" aria-label="选择接待建筑">{TOWN_BUILDINGS.map(entry => {
+          const builtLevel = town.buildings.find(built => built.id === entry.id)?.level ?? 0;
+          const guests = town.visitors.filter(visitor => visitor.buildingId === entry.id);
+          const ready = guests.filter(visitor => getTownVisitorPhase(visitor, now) === 'ready').length;
+          return <button className={`ft-building ${selected === entry.id ? 'is-selected' : ''} ${!builtLevel ? 'is-unbuilt' : ''}`} key={entry.id} data-town-building={entry.id} aria-pressed={selected === entry.id} aria-label={`${entry.name}，${builtLevel ? `${builtLevel}级，${guests.length}位访客${ready ? `，${ready}份报酬可领取` : ''}` : `待建造，声望${entry.unlockReputation}解锁，${entry.buildCost}游戏金币`}`} onClick={() => setSelected(entry.id)}>
+            {ready > 0 && <span className="ft-ready-bubble"><PackageCheck size={15} aria-hidden="true" />{ready}</span>}<TownBuildingArt id={entry.id} /><span className="ft-building-label"><strong>{entry.name}</strong><small>{builtLevel ? `${builtLevel}级 · ${guests.length} 位访客` : <><LockKeyhole size={10} aria-hidden="true" />声望 {entry.unlockReputation} 解锁</>}</small></span>
+          </button>;
+        })}</div>
+        <div className="ft-map-footer"><Users size={14} aria-hidden="true" /><span>{readyCount ? `${readyCount} 份接待报酬等你领取` : '选中建筑，查看访客与接待需求'}</span></div>
+      </div></aside>
+      <div className="ft-reception" data-town-selected={selected}>
+        <div className="ft-reception-heading"><span className="ft-facility-icon"><Icon size={21} aria-hidden="true" /></span><div><h3>{building.name}</h3><p>{building.description}</p></div><span className="ft-facility-level">{level ? `Lv.${level}` : '待建造'}</span></div>
+        <div className="ft-facility-tabs" role="group" aria-label="接待建筑">{TOWN_BUILDINGS.map(entry => <button key={entry.id} aria-pressed={selected === entry.id} onClick={() => setSelected(entry.id)}>{entry.name}{town.visitors.some(visitor => visitor.buildingId === entry.id && getTownVisitorPhase(visitor, now) === 'ready') && <span className="ft-tab-ready" aria-label="有报酬可领取" />}</button>)}</div>
+        <div className="ft-reception-scroll">
+          {!level ? <div className="ft-build-site"><TownBuildingArt id={selected} /><h4>{locked ? `声望 ${building.unlockReputation} 解锁` : '给小镇添一座新建筑'}</h4><p>{locked ? `接待访客并领取报酬可以获得声望，当前 ${town.reputation} / ${building.unlockReputation}。` : `建造后可同时接待 ${getTownFacilityCapacity(1)} 位访客，每次服务约 ${Math.round(building.serviceMs / 60000 * 10) / 10} 分钟。`}</p>{locked && <progress max={building.unlockReputation} value={town.reputation} aria-label={`${building.name}解锁声望进度`} />}<button className="ft-primary" disabled={locked || game.coins < building.buildCost} data-town-action="build" onClick={() => apply(current => buildTownFacility(current, selected, Date.now()), `${building.name}建成了！下一班火车可以带来新访客。`)}><Hammer size={16} aria-hidden="true" />建造 · <Coins size={15} aria-hidden="true" />{building.buildCost.toLocaleString()}</button>{!locked && game.coins < building.buildCost && <small>还差 {(building.buildCost - game.coins).toLocaleString()} 游戏金币，可通过交货和售货赚取。</small>}</div> : <>
+            <div className="ft-facility-summary"><div><strong><Users size={15} aria-hidden="true" />接待位 {occupied}/{capacity}</strong><small>服务约 {Math.round(building.serviceMs / 60000 * 10) / 10} 分钟 · 完成后手动领取</small></div>{upgradeCost !== null ? <button className="ft-upgrade" disabled={game.coins < upgradeCost} data-town-action="upgrade" onClick={() => apply(current => upgradeTownFacility(current, selected, Date.now()), `${building.name}已升级，新增一个接待位。`)} aria-label={`升级${building.name}至${level + 1}级，需要${upgradeCost}游戏金币${game.coins < upgradeCost ? `，还差${upgradeCost - game.coins}` : ''}`}><Hammer size={14} aria-hidden="true" />升级 <Coins size={13} aria-hidden="true" />{upgradeCost}</button> : <span className="ft-max-level"><Check size={13} aria-hidden="true" />已满级</span>}</div>
+            {visitors.length === 0 ? <div className="ft-empty-visitors"><Users size={35} aria-hidden="true" /><h4>等一班载着故事的火车</h4><p>{town.visitors.length ? '这座建筑暂时没有访客。先到其他建筑完成接待，再迎接下一班火车。' : trainRemaining > 0 ? `车站正在准备下一班火车，${remaining(trainRemaining)} 后可手动迎接。` : '去车站迎接火车，新的模拟访客会带来农产品需求。'}</p>{!trainFull && trainRemaining <= 0 && <button className="ft-primary" onClick={callTrain}><TrainFront size={16} aria-hidden="true" />迎接新访客</button>}</div> : <div className="ft-visitor-list" aria-label={`${building.name}访客`}>{visitors.map(visitor => {
+              const phase = getTownVisitorPhase(visitor, now);
+              const entries = Object.entries(visitor.requirements) as [ItemId, number][];
+              const missing = entries.filter(([id, quantity]) => (game.inventory[id] ?? 0) < quantity);
+              const full = occupied >= capacity;
+              const progress = visitor.startedAt !== undefined && visitor.readyAt !== undefined ? Math.max(0, Math.min(100, (now - visitor.startedAt) / Math.max(1, visitor.readyAt - visitor.startedAt) * 100)) : 0;
+              return <article className={`ft-visitor ft-visitor-${phase}`} key={visitor.id} data-town-visitor={visitor.id}><div className="ft-visitor-heading"><VisitorAvatar visitor={visitor} index={town.visitors.findIndex(entry => entry.id === visitor.id)} /><div><h4>{visitor.name}</h4><span>{phase === 'waiting' ? '等候接待' : phase === 'serving' ? '正在享受小镇时光' : '接待完成'}</span></div><span className={`ft-visitor-phase ${phase}`}>{phase === 'ready' ? <><Check size={13} aria-hidden="true" />可领取</> : phase === 'serving' ? <><Clock3 size={12} aria-hidden="true" />{remaining((visitor.readyAt ?? now) - now)}</> : <><Users size={12} aria-hidden="true" />等候中</>}</span></div>
+                {phase === 'waiting' ? <><div className="ft-requirements">{entries.map(([id, quantity]) => <div key={id} className={(game.inventory[id] ?? 0) < quantity ? 'is-short' : ''}><span>{getItem(id).icon}<b>{getItem(id).name}</b></span><span><small>库存</small> {game.inventory[id] ?? 0}<i>/</i><strong>{quantity}</strong></span></div>)}</div>{missing.length > 0 && <div className="ft-missing-items">{missing.map(([id, quantity]) => <div key={id}><span>还缺{getItem(id).name} ×{quantity - (game.inventory[id] ?? 0)}</span>{onRequestItem || onNavigate ? <button onClick={() => requestItem(id)}>去{onRequestItem ? sourceLabel(id) : getItem(id).category === 'crop' ? '农田' : RECIPES.some(entry => entry.output === id) ? '工坊' : '仓库'}<ArrowRight size={12} aria-hidden="true" /></button> : <small>来自{sourceLabel(id)}</small>}</div>)}</div>}</> : <p className="ft-consumed-note">接待用品已交付：{entries.map(([id, quantity]) => `${getItem(id).name} ×${quantity}`).join('、')}</p>}
+                {phase === 'serving' && <div className="ft-service-progress" role="progressbar" aria-label={`${visitor.name}接待进度`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.floor(progress)}><span style={{ width: `${progress}%` }} /></div>}
+                <div className="ft-visitor-bottom"><div className="ft-rewards" aria-label={`报酬：${visitor.coins}游戏金币，${visitor.xp}经验，${visitor.reputation}声望`}><span><Coins size={13} aria-hidden="true" />{visitor.coins}</span><span><Star size={12} aria-hidden="true" />{visitor.xp} XP</span><span><Award size={12} aria-hidden="true" />+{visitor.reputation}</span></div>{phase === 'waiting' ? <button className="ft-primary ft-serve" disabled={missing.length > 0 || full} data-town-action="serve" onClick={() => apply(current => serveTownVisitor(current, visitor.id, Date.now()), `已交付接待用品，${visitor.name}开始在${building.name}享受小镇时光。`)}>{missing.length ? '补齐货物后接待' : full ? '接待位已满' : '交付并接待'}</button> : phase === 'ready' ? <button className="ft-primary ft-collect" data-town-action="collect" onClick={() => apply(current => collectTownVisitor(current, visitor.id, Date.now()), `已领取 ${visitor.coins} 游戏金币、${visitor.xp} 经验和 ${visitor.reputation} 声望。${visitor.name}满意离开了小镇。`)}><PackageCheck size={15} aria-hidden="true" />领取报酬</button> : <span className="ft-service-time"><Clock3 size={13} aria-hidden="true" />剩余 {remaining((visitor.readyAt ?? now) - now)}</span>}</div>{phase === 'waiting' && full && <p className="ft-capacity-note">先领取已完成的接待报酬，或升级建筑增加接待位。</p>}
+              </article>;
+            })}</div>}
+          </>}
         </div>
+        <footer className="ft-reception-footer"><span><Coins size={12} aria-hidden="true" />小镇经营使用游戏库存与游戏金币</span>{onNavigate && <button onClick={() => onNavigate('farm')}>回农场<ArrowRight size={13} aria-hidden="true" /></button>}</footer>
       </div>
-      <footer className="ft-footer"><Sprout size={15} aria-hidden="true" /><p>真实服务与现实农场记录，和游戏经营分开保存。</p><span>轻触建筑，进镇看看</span></footer>
     </div>
-  </div>, document.body);
+  </section>;
 }
-
 export default FarmTown;

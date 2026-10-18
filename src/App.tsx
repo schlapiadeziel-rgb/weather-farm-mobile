@@ -3,7 +3,7 @@ import { Capacitor } from '@capacitor/core';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { ScreenOrientation } from '@capacitor/screen-orientation';
 import { StatusBar } from '@capacitor/status-bar';
-import { Sprout, CloudSun, MapPin, Droplets, Wind, Coins, Wheat, ChevronRight, X, LocateFixed, Search, RotateCcw, CalendarDays, Check, RefreshCw, Sun, Leaf, BookOpen, Volume2, VolumeX, PawPrint, Building2, ArrowLeft, Flag, Factory, ClipboardList, Warehouse, Compass, Diamond, Lock, Timer, Download, CircleHelp } from 'lucide-react';
+import { Sprout, CloudSun, MapPin, Droplets, Wind, Coins, Wheat, ChevronRight, X, LocateFixed, Search, RotateCcw, CalendarDays, Check, RefreshCw, Sun, Leaf, BookOpen, Volume2, VolumeX, PawPrint, Building2, ArrowLeft, Flag, Factory, ClipboardList, Warehouse, Compass, Diamond, Lock, Timer, Download, CircleHelp, Cpu, Newspaper, ChartNoAxesCombined } from 'lucide-react';
 import { CROPS, LIVESTOCK, initialGame, tickGame, getLevel, plant, harvest, buyAnimal, feedAnimal, collectProduct, buildPen } from './lib/game';
 import type { Game, CropId, AnimalId, ItemId, MachineId } from './lib/game';
 import { fetchWeather, searchLocations, PRESET_LOCATIONS, weatherLabel, weatherEmoji } from './lib/weather';
@@ -26,6 +26,7 @@ import FarmActivityBoard from './components/FarmActivityBoard';
 import GameBackupControls from './components/GameBackupControls';
 import UpdatePanel from './components/UpdatePanel';
 import FarmTown from './components/FarmTown';
+import FarmAssistantPortal from './components/FarmAssistantPortal';
 import ProductionPanel from './components/ProductionPanel';
 import { OrdersPanel, StoragePanel, ExplorationPanel } from './components/EconomyPanels';
 import { getItem, RECIPES } from './lib/farmContent';
@@ -44,9 +45,9 @@ const NewsPanel = lazy(() => import('./components/NewsPanel'));
 const MarketPanel = lazy(() => import('./components/MarketPanel'));
 const FieldAdvicePanel = lazy(() => import('./components/FieldAdvicePanel'));
 
-type PlayTab = 'farm' | 'livestock' | 'production' | 'orders' | 'storage' | 'explore' | 'journal';
-type Tab = 'home' | 'clinic' | 'news' | 'market' | 'advice' | 'weather' | PlayTab;
-const PLAY_TABS: readonly Tab[] = ['farm', 'livestock', 'production', 'orders', 'storage', 'explore', 'journal'];
+type PlayTab = 'farm' | 'livestock' | 'production' | 'orders' | 'storage' | 'explore' | 'journal' | 'town';
+type Tab = 'assistant' | 'home' | 'clinic' | 'news' | 'market' | 'advice' | 'weather' | PlayTab;
+const PLAY_TABS: readonly Tab[] = ['farm', 'livestock', 'production', 'orders', 'storage', 'explore', 'journal', 'town'];
 function sameCoordinates(a: Location, b: Location) { return a.latitude === b.latitude && a.longitude === b.longitude; }
 
 const WEATHER_KEY = 'fieldletter.weather.v1';
@@ -71,7 +72,6 @@ export default function App() {
   const [tab, setTab] = useState<Tab>('farm');
   const [clinicVisited, setClinicVisited] = useState(false);
   const [lastPlayTab, setLastPlayTab] = useState<PlayTab>('farm');
-  const [townOpen, setTownOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [selected, setSelected] = useState(1);
   const [seed, setSeed] = useState<CropId>('wheat');
@@ -138,12 +138,15 @@ export default function App() {
   const readyCounts = Object.fromEntries(activity.sections.map(section => [section.id, section.count]));
   const readyTotal = activity.sections.reduce((sum, section) => sum + section.count, 0);
   function navigate(next: Tab) {
+    if (PLAY_TABS.includes(next) !== simulation) { clearTimeout(timeout.current); setNotice(''); }
+    if (locationOpen || locating || searching) closeLocation();
+    setGuideOpen(false); setResetOpen(false);
     if (next === 'clinic') setClinicVisited(true);
     if (PLAY_TABS.includes(next)) { setLastPlayTab(next as PlayTab); if (next !== tab) setDetailsOpen(false); }
-    setTab(next); setTownOpen(false); setActivityOpen(false); setFieldMode('browse'); setAnimalMode('browse'); setPenFeedback({}); closeSpeedRequest();
+    setTab(next); setActivityOpen(false); setFieldMode('browse'); setAnimalMode('browse'); setPenFeedback({}); closeSpeedRequest();
   }
   function openGuide() { setAnimalMode('browse'); closeSpeedRequest(); setFieldMode('browse'); setDetailsOpen(false); setGuideOpen(true); }
-  function openActivity() { setAnimalMode('browse'); closeSpeedRequest(); setFieldMode('browse'); setDetailsOpen(false); setTownOpen(false); setActivityOpen(true); }
+  function openActivity() { setAnimalMode('browse'); closeSpeedRequest(); setFieldMode('browse'); setDetailsOpen(false); setActivityOpen(true); }
   function focusProduction(focus: { machineId?: MachineId; item?: ItemId }) { setProductionFocus({ ...focus, requestId: ++navigationRequest.current }); navigate('production'); }
   function visitActivity(target: FarmActivityTarget) {
     if (target.tab === 'farm') { navigate('farm'); setSelected(target.plotId); setDetailsOpen(true); }
@@ -168,7 +171,7 @@ export default function App() {
     else { setStorageView({ section: 'inventory', requestId: ++navigationRequest.current }); navigate('storage'); }
   }
   function chooseFieldMode(mode: FieldMode) { setFieldMode(mode); if (mode !== 'browse') setDetailsOpen(false); }
-  const activeFieldMode = guideOpen || activityOpen || updateOpen || locationOpen || townOpen || resetOpen ? 'browse' : fieldMode;
+  const activeFieldMode = guideOpen || activityOpen || updateOpen || locationOpen || resetOpen ? 'browse' : fieldMode;
   const goal = game.harvests === 0 ? { title: '第一份收成', detail: '收获作物，留种再播', action: () => { navigate('farm'); setSelected(game.plots.find(p => p.crop && p.growth >= 100)?.id || 1); } }
     : game.productsCollected === 0 ? { title: '牧场的馈赠', detail: '去牧场收集鸡蛋', action: () => { navigate('livestock'); setSelectedPen(1); } }
     : game.ordersDelivered === 0 ? { title: '装满第一辆货车', detail: '加工、备货，完成订单', action: () => navigate('orders') }
@@ -191,7 +194,12 @@ export default function App() {
       if (id === requestId.current) setWeatherError(error instanceof Error ? error.message : '暂时无法连接天气服务，请重试。');
     } finally { if (id === requestId.current) setLoading(false); }
   }, []);
-  useEffect(() => { void loadWeather(location); }, []); // Refresh at launch; a foreground timer keeps regional weather current.
+  useEffect(() => {
+    if (simulation || !locationChosen) return;
+    const now = Date.now();
+    const due = !bundle || now - Date.parse(bundle.fetchedAt) >= 900000 || Date.parse(bundle.fetchedAt) > now + 300000;
+    if (!loading && due) void loadWeather(location);
+  }, [simulation, locationChosen, location, loadWeather]);
   useEffect(() => {
     const advance = () => { if (document.visibilityState === 'visible') { const now = Date.now(); setClock(now); setGame(previous => tickGame(previous, now)); } };
     const timer = setInterval(advance, 1000);
@@ -199,6 +207,7 @@ export default function App() {
     return () => { clearInterval(timer); document.removeEventListener('visibilitychange', advance); };
   }, []);
   useEffect(() => {
+    if (simulation || !locationChosen) return;
     const refresh = () => {
       const now = Date.now(); setClock(now);
       const due = bundle ? now - Date.parse(bundle.fetchedAt) >= 900000 : now - weatherAttemptAt.current >= 60000;
@@ -207,7 +216,7 @@ export default function App() {
     const timer = setInterval(refresh, 60000);
     document.addEventListener('visibilitychange', refresh);
     return () => { clearInterval(timer); document.removeEventListener('visibilitychange', refresh); };
-  }, [bundle, loading, location, loadWeather]);
+  }, [bundle, loading, location, loadWeather, simulation, locationChosen]);
   const saveCurrentGame = useCallback((next = gameRef.current) => {
     const saved = writeGameSave(next);
     if (!saved && !saveWarning.current) showNotice('本机存档暂时无法保存，请在农场日记导出游戏备份。');
@@ -338,33 +347,32 @@ export default function App() {
     finally { if (attempt === searchAttempt.current) setSearching(false); }
   }
 
-  return <div className="game-shell">
-    <header className="topbar">
-      <div className="brand"><span className="brand-icon"><Sprout size={25} /></span><div><h1>田野来信</h1><span>WEATHER FARM</span></div></div>
-      <button className="location-button" onClick={() => { setSearchError(''); setLocationOpen(true); }} aria-label={`设置农场位置：${location.name}${!locationChosen ? '，示例城市' : ''}`}><MapPin size={15} /><span>{location.name}{!locationChosen && ' · 示例'}</span><ChevronRight size={13} /></button>
-      <div className="live-status"><span className={loading ? 'pulse-dot pending' : bundle ? 'pulse-dot' : 'pulse-dot error'} />{loading ? '连接天气中' : bundle ? stale || weatherError ? '上次天气' : '区域天气' : '天气未连接'}</div>
-      <div className="top-weather"><CloudSun size={20} /><strong>{bundle ? `${Math.round(bundle.current.temp)}°` : '—'}</strong><span>{bundle ? weatherLabel(bundle.current.code) : '等待数据'}</span><i /><Droplets size={16} /><span>{bundle ? `${Math.round(bundle.current.humidity)}%` : '—'}</span><i /><Wind size={16} /><span>{bundle ? `${Math.round(bundle.current.wind)} km/h` : '—'}</span></div>
+  return <div className={`game-shell ${simulation ? 'game-mode' : 'assistant-shell'}`}>
+    <header className={`topbar ${simulation ? 'game-topbar' : 'assistant-topbar'}`}>
+      <div className="brand"><span className="brand-icon"><Sprout size={26} /></span><div><h1>{simulation ? '田野来信' : '农场助手'}</h1><span>{simulation ? 'WEATHER FARM' : 'REAL FARM SERVICES'}</span></div></div>
+      {!simulation && <><button className="location-button" onClick={() => { setSearchError(''); setLocationOpen(true); }} aria-label={`设置农场位置：${locationChosen ? location.name : '尚未设置'}`}><MapPin size={15} /><span>{locationChosen ? location.name : '设置农场位置'}</span><ChevronRight size={13} /></button><div className="live-status"><span className={loading ? 'pulse-dot pending' : bundle && locationChosen ? 'pulse-dot' : 'pulse-dot error'} />{loading ? '连接天气中' : !locationChosen ? '请选择真实位置' : bundle ? stale || weatherError ? '上次天气' : '区域天气' : '天气未连接'}</div></>}
       {simulation && <><div className="wallet"><Coins size={20} /><strong>{game.coins}</strong><span>金币</span><Diamond size={17} /><strong>{game.gems}</strong><span>钻石</span></div><button className="icon-button" aria-label="打开谷仓与筒仓" onClick={() => navigate('storage')}><Warehouse size={21} /></button><button className="icon-button activity-button" aria-label="打开农场看板" aria-haspopup="dialog" onClick={openActivity}><BookOpen size={19} />{readyTotal > 0 && <span className="activity-dot" />}</button></>}
-      <button className={`icon-button update-button ${availableUpdate ? 'has-update' : ''}`} aria-label={availableUpdate ? '游戏更新：发现新版本' : '游戏更新'} aria-haspopup="dialog" onClick={() => setUpdateOpen(true)}><Download size={19} />{availableUpdate && <span className="update-dot" />}</button>
-      <button className="icon-button sound-button" aria-label={sound ? '关闭音效' : '打开音效'} onClick={() => setSound(!sound)}>{sound ? <Volume2 size={19} /> : <VolumeX size={19} />}</button>
+      <button className={`icon-button update-button ${availableUpdate ? 'has-update' : ''}`} aria-label={availableUpdate ? '应用更新：发现新版本' : '应用更新'} aria-haspopup="dialog" onClick={() => setUpdateOpen(true)}><Download size={19} />{availableUpdate && <span className="update-dot" />}</button>
+      {simulation && <button className="icon-button sound-button" aria-label={sound ? '关闭音效' : '打开音效'} onClick={() => setSound(!sound)}>{sound ? <Volume2 size={19} /> : <VolumeX size={19} />}</button>}
+      <button className="app-mode-switch" aria-label={simulation ? '进入农场助手' : '返回农场游戏'} onClick={() => navigate(simulation ? 'assistant' : lastPlayTab)}>{simulation ? <Leaf size={18} /> : <ArrowLeft size={18} />}<span>{simulation ? '农场助手' : '返回游戏'}</span></button>
     </header>
 
     <div className={`workspace ${simulation ? 'play-workspace' : 'town-service-workspace'}`}>
-      <nav className="rail game-rail" aria-label="农场游戏地图">
+      {simulation ? <nav className="rail game-rail" aria-label="农场游戏地图">
         {([{ id: 'farm', label: '农田', Icon: Sprout }, { id: 'livestock', label: '牧场', Icon: PawPrint }, { id: 'production', label: '工坊', Icon: Factory }, { id: 'orders', label: '订单', Icon: ClipboardList }, { id: 'explore', label: '探索', Icon: Compass }] as const).map(({ id, label, Icon }) => <button key={id} className={tab === id ? 'rail-button active' : 'rail-button'} onClick={() => navigate(id)} aria-pressed={tab === id} aria-label={label} aria-describedby={readyCounts[id] ? `ready-count-${id}` : undefined}><Icon size={22} /><span>{label}</span>{!!readyCounts[id] && <span className="rail-ready-count" id={`ready-count-${id}`} aria-label={`已就绪 ${readyCounts[id]} ${id === 'production' ? '批' : id === 'farm' ? '块' : id === 'livestock' ? '栏' : '份'}`}>{readyCounts[id] > 99 ? '99+' : readyCounts[id]}</span>}</button>)}
-        <button className={`rail-button town-map-button ${!simulation || townOpen ? 'active' : ''}`} aria-label="进入农场小镇" aria-haspopup="dialog" onClick={() => setTownOpen(true)}><Building2 size={23} /><span>小镇</span></button>
-        {!simulation && <button className="rail-button return-farm-button" onClick={() => navigate(lastPlayTab)}><ArrowLeft size={20} /><span>回农场</span></button>}
-        <div className="rail-spacer" />{simulation && <button className="rail-button reset-button" aria-label="重置模拟农场" onClick={() => setResetOpen(true)}><RotateCcw size={19} /><span>重开</span></button>}
-      </nav>
+        <button className={`rail-button town-map-button ${tab === 'town' ? 'active' : ''}`} aria-label="进入农场小镇" aria-pressed={tab === 'town'} onClick={() => navigate('town')}><Building2 size={23} /><span>小镇</span></button>
+        <div className="rail-spacer" /><button className="rail-button reset-button" aria-label="重置模拟农场" onClick={() => setResetOpen(true)}><RotateCcw size={19} /><span>重开</span></button>
+      </nav> : <nav className="rail assistant-rail" aria-label="真实农场服务导航">{([{ id: 'assistant', label: '首页', Icon: Building2 }, { id: 'home', label: '工作台', Icon: ClipboardList }, { id: 'weather', label: '天气', Icon: CloudSun }, { id: 'clinic', label: 'AI诊所', Icon: Cpu }, { id: 'news', label: '资讯', Icon: Newspaper }, { id: 'market', label: '市场', Icon: ChartNoAxesCombined }, { id: 'advice', label: '农事', Icon: Leaf }] as const).map(({ id, label, Icon }) => <button key={id} className={`rail-button ${tab === id ? 'active' : ''}`} aria-label={label} aria-pressed={tab === id} onClick={() => navigate(id)}><Icon size={21} /><span>{label}</span></button>)}</nav>}
 
-      <Suspense fallback={<main className="content-view service-loading" role="status"><span className="brand-icon"><Building2 size={26} /></span><h2>正在打开小镇服务…</h2><p>准备好之后，继续照顾今天的农场。</p></main>}>
-      {tab === 'home' ? <FarmDashboard weather={serviceWeather} loading={loading} weatherError={serviceWeatherError} refresh={() => locationChosen ? void loadWeather(location) : setLocationOpen(true)} navigate={navigate} /> : tab === 'clinic' ? null : tab === 'news' ? <NewsPanel /> : tab === 'market' ? <MarketPanel locationName={locationChosen ? location.name : '请先设置真实农场位置'} /> : tab === 'advice' ? <FieldAdvicePanel weather={serviceWeather} weatherError={serviceWeatherError} navigate={() => navigate('clinic')} /> : tab === 'production' ? <ProductionPanel game={game} now={clock} onChange={commitGame} notify={showNotice} onNavigate={navigate} focus={productionFocus} onRequestItem={requestItem} /> : tab === 'orders' ? <OrdersPanel requestId={orderView.requestId} game={game} now={clock} onChange={commitGame} notify={showNotice} onRequestItem={requestItem} initialKind={orderView.kind} /> : tab === 'storage' ? <StoragePanel requestId={storageView.requestId} game={game} now={clock} onChange={commitGame} notify={showNotice} initialTab={storageView.section} /> : tab === 'explore' ? <ExplorationPanel requestId={exploreView.requestId} game={game} now={clock} onChange={commitGame} notify={showNotice} initialTab={exploreView.section} /> : tab === 'farm' ? <>
+
+      <Suspense fallback={<main className="content-view service-loading" role="status"><span className="brand-icon"><Building2 size={26} /></span><h2>{simulation ? '正在准备农场…' : '正在打开农场助手…'}</h2><p>{simulation ? '继续今天的经营。' : '真实现场资料独立保存。'}</p></main>}>
+      {tab === 'assistant' ? <FarmAssistantPortal weather={serviceWeather} loading={loading} weatherError={weatherError || (stale ? '天气数据已过时，请刷新后核对。' : '')} locationName={location.name} locationChosen={locationChosen} onNavigate={navigate} onChooseLocation={() => { setSearchError(''); setLocationOpen(true); }} /> : tab === 'town' ? <FarmTown game={game} now={clock} onChange={commitGame} notify={showNotice} onRequestItem={requestItem} onNavigate={navigate} /> : tab === 'home' ? <FarmDashboard weather={serviceWeather} loading={loading} weatherError={serviceWeatherError} refresh={() => locationChosen ? void loadWeather(location) : setLocationOpen(true)} navigate={navigate} /> : tab === 'clinic' ? null : tab === 'news' ? <NewsPanel /> : tab === 'market' ? <MarketPanel locationName={locationChosen ? location.name : '请先设置真实农场位置'} /> : tab === 'advice' ? <FieldAdvicePanel weather={serviceWeather} weatherError={serviceWeatherError} navigate={() => navigate('clinic')} /> : tab === 'production' ? <ProductionPanel game={game} now={clock} onChange={commitGame} notify={showNotice} onNavigate={navigate} focus={productionFocus} onRequestItem={requestItem} /> : tab === 'orders' ? <OrdersPanel requestId={orderView.requestId} game={game} now={clock} onChange={commitGame} notify={showNotice} onRequestItem={requestItem} initialKind={orderView.kind} /> : tab === 'storage' ? <StoragePanel requestId={storageView.requestId} game={game} now={clock} onChange={commitGame} notify={showNotice} initialTab={storageView.section} /> : tab === 'explore' ? <ExplorationPanel requestId={exploreView.requestId} game={game} now={clock} onChange={commitGame} notify={showNotice} initialTab={exploreView.section} /> : tab === 'farm' ? <>
         <main className={`farm-scene map-scene ${activeFieldMode !== 'browse' ? 'field-mode-active' : ''}`}>
           <div className="scene-top"><div className="day-pill"><Sun size={17} /><strong>我的农田</strong><span>{game.unlockedPlots} 块耕地</span></div><button className="quest-sign" onClick={goal.action}><Flag size={17} /><span><strong>{goal.title}</strong><small>{goal.detail}</small></span><ChevronRight size={15} /></button></div>
           <FieldTools game={game} mode={fieldMode} seed={seed} onModeChange={chooseFieldMode} onSeedChange={next => { setSeed(next); chooseFieldMode('plant'); }} onHelp={openGuide} />
           <FarmViewport>
-          <FarmLandscape onVisit={area => area === 'town' ? setTownOpen(true) : navigate(area)} /><div className="scene-shade" />
-          <FieldInteraction game={game} mode={activeFieldMode} seed={seed} blocked={guideOpen || activityOpen || updateOpen || locationOpen || townOpen || resetOpen || !!speedRequest} onChange={commitGame} onNotice={showNotice}>
+          <FarmLandscape onVisit={area => area === 'town' ? navigate('town') : navigate(area)} /><div className="scene-shade" />
+          <FieldInteraction game={game} mode={activeFieldMode} seed={seed} blocked={guideOpen || activityOpen || updateOpen || locationOpen || resetOpen || !!speedRequest} onChange={commitGame} onNotice={showNotice}>
           <div className="field-wrap"><div className="plot-grid">{game.plots.map(p => {
             const c = CROPS.find(s => s.id === p.crop), ready = p.growth >= 100 && !!c, locked = p.id > game.unlockedPlots;
             return <button key={p.id} data-plot-id={p.id} className={`plot ${p.id === selected ? 'selected' : ''} ${c ? 'planted' : 'empty'} ${ready ? 'ripe' : ''} ${locked ? 'locked' : ''}`} onClick={() => { if (locked) { navigate('storage'); return; } setSelected(p.id); if (ready) act('harvest', p.id); else { setDetailsOpen(true); feedback(); } }} aria-label={`${p.id}号地块，${locked ? '未解锁，前往扩建' : c ? `${c.name}，${ready ? '轻触收获2份' : `生长${Math.round(p.growth)}%`}` : '空地，可播种'}`} aria-pressed={p.id === selected}>
@@ -388,10 +396,10 @@ export default function App() {
         </aside>}
       </> : tab === 'livestock' ? <>
         <main className="farm-scene livestock-scene map-scene">
-          <FarmViewport><FarmLandscape onVisit={area => area === 'town' ? setTownOpen(true) : navigate(area)} /><div className="scene-shade" /></FarmViewport>
+          <FarmViewport><FarmLandscape onVisit={area => area === 'town' ? navigate('town') : navigate(area)} /><div className="scene-shade" /></FarmViewport>
           <div className="scene-top"><div className="day-pill"><PawPrint size={17} /><strong>我的牧场</strong><span>饲料换产物</span></div><button className="quest-sign" onClick={() => requestItem(animal?.feedItem ?? selectedAnimal.feedItem)}><Factory size={17} /><span><strong>先备好动物的口粮</strong><small>饲料厂里加工饲料</small></span><ChevronRight size={15} /></button></div>
           <AnimalTools game={game} mode={animalMode} onModeChange={chooseAnimalMode} />
-          <AnimalInteraction game={game} mode={detailsOpen ? 'browse' : animalMode} blocked={guideOpen || activityOpen || updateOpen || locationOpen || townOpen || resetOpen || !!speedRequest} onChange={commitGame} onNotice={showNotice} onApplied={showPenFeedback}>
+          <AnimalInteraction game={game} mode={detailsOpen ? 'browse' : animalMode} blocked={guideOpen || activityOpen || updateOpen || locationOpen || resetOpen || !!speedRequest} onChange={commitGame} onNotice={showNotice} onApplied={showPenFeedback}>
           <div className="livestock-field"><div className="pen-grid">{game.animals.map(p => {
             const a = LIVESTOCK.find(v => v.id === p.animal), ready = p.progress >= 100 && !!a;
             return <button key={p.id} data-pen-id={p.id} className={`animal-pen ${p.id === selectedPen ? 'selected' : ''} ${a ? 'occupied' : ''} ${ready ? 'ready' : ''}`} onClick={() => { setSelectedPen(p.id); if (ready) animalAct('collect', p.id); else { setDetailsOpen(true); feedback(); } }} aria-pressed={p.id === selectedPen} aria-label={`${p.id}号畜舍，${a ? `${a.name}，${ready ? `轻触收集${a.productName}` : p.readyAt ? `剩余${timerText(p.readyAt-clock)}` : '等待喂食'}` : '空畜舍，可购买动物'}`}>
@@ -411,9 +419,9 @@ export default function App() {
           <div className="tiny-note">产物进入谷仓，可加工或交订单</div>
         </aside>}
       </> : <main className="content-view">
-        <div className="view-heading"><div><span className="eyebrow">{tab === 'weather' ? 'WEATHER STATION' : 'SIMULATION JOURNAL'}</span><h2>{tab === 'weather' ? '农场天气站' : '每一份耕耘，都有回响'}</h2></div>{tab !== 'journal' && <button className="refresh-button" onClick={() => void loadWeather(location)} disabled={loading}><RefreshCw size={16} className={loading ? 'spin' : ''} />刷新天气</button>}</div>
-        {weatherError && <div className="error-banner" role="alert">{weatherError}{bundle && ' 当前显示上次成功获取的数据。'}</div>}
-        {tab === 'weather' && <><div className="weather-stats"><article><span>当前气温</span><strong>{bundle ? Math.round(bundle.current.temp) : '—'}<small>°C</small></strong><Sun size={28} /></article><article><span>空气湿度</span><strong>{bundle ? Math.round(bundle.current.humidity) : '—'}<small>%</small></strong><Droplets size={28} /></article><article><span>当前风速</span><strong>{bundle ? Math.round(bundle.current.wind) : '—'}<small>km/h</small></strong><Wind size={28} /></article><article><span>今日降水预报</span><strong>{bundle ? bundle.forecast[0].rain.toFixed(1) : '—'}<small>mm</small></strong><CloudSun size={28} /></article></div><div className="forecast-heading"><h3>未来 7 天天气</h3><span>日最低 / 最高气温</span></div><div className="forecast-grid">{bundle?.forecast.map((w, i) => <article key={w.date} className={i === 0 ? 'forecast-day today' : 'forecast-day'}><span>{i === 0 ? '今天' : i === 1 ? '明天' : shortDate(w.date)}</span><b>{weatherEmoji(w.code)}</b><strong>{Math.round(w.minTemp)}° / {Math.round(w.maxTemp)}°</strong><small>{weatherLabel(w.code)}</small><span className="rain-value"><Droplets size={12} />{Math.round(w.rainChance)}%</span></article>)}</div><p className="weather-attribution">数据：<a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo</a> · {bundle ? `更新于 ${new Date(bundle.fetchedAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })} · ${bundle.timezone}` : '尚未连接'}。预报会随气象条件变化。</p></>}
+        <div className="view-heading"><div><span className="eyebrow">{tab === 'weather' ? 'WEATHER STATION' : 'SIMULATION JOURNAL'}</span><h2>{tab === 'weather' ? '农场天气站' : '每一份耕耘，都有回响'}</h2></div>{tab !== 'journal' && <button className="refresh-button" onClick={() => locationChosen ? void loadWeather(location) : setLocationOpen(true)} disabled={loading}><RefreshCw size={16} className={loading ? 'spin' : ''} />刷新天气</button>}</div>
+        {tab === 'weather' && locationChosen && weatherError && <div className="error-banner" role="alert">{weatherError}{bundle && ' 当前显示上次成功获取的数据。'}</div>}
+        {tab === 'weather' && (!locationChosen ? <div className="service-empty assistant-location-required"><MapPin size={30} /><h3>先设置真实农场位置</h3><p>城市示例和旧缓存不作为你的农场天气。请选择所在城市、现场定位或农场坐标。</p><button className="solid-button" onClick={() => { setSearchError(''); setLocationOpen(true); }}>设置真实农场位置</button></div> : <><div className="weather-stats"><article><span>当前气温</span><strong>{bundle ? Math.round(bundle.current.temp) : '—'}<small>°C</small></strong><Sun size={28} /></article><article><span>空气湿度</span><strong>{bundle ? Math.round(bundle.current.humidity) : '—'}<small>%</small></strong><Droplets size={28} /></article><article><span>当前风速</span><strong>{bundle ? Math.round(bundle.current.wind) : '—'}<small>km/h</small></strong><Wind size={28} /></article><article><span>今日降水预报</span><strong>{bundle ? bundle.forecast[0].rain.toFixed(1) : '—'}<small>mm</small></strong><CloudSun size={28} /></article></div><div className="forecast-heading"><h3>未来 7 天天气</h3><span>日最低 / 最高气温</span></div><div className="forecast-grid">{bundle?.forecast.map((w, i) => <article key={w.date} className={i === 0 ? 'forecast-day today' : 'forecast-day'}><span>{i === 0 ? '今天' : i === 1 ? '明天' : shortDate(w.date)}</span><b>{weatherEmoji(w.code)}</b><strong>{Math.round(w.minTemp)}° / {Math.round(w.maxTemp)}°</strong><small>{weatherLabel(w.code)}</small><span className="rain-value"><Droplets size={12} />{Math.round(w.rainChance)}%</span></article>)}</div><p className="weather-attribution">数据：<a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo</a> · {bundle ? `更新于 ${new Date(bundle.fetchedAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })} · ${bundle.timezone}` : '尚未连接'}。预报会随气象条件变化。</p></>)}
         {tab === 'journal' && <><GameBackupControls onExport={backupGame} exporting={exportingGame} notify={showNotice} onRestore={next => { const saved = commitGame(next); setSelected(1); setSelectedPen(1); setSeed('wheat'); setAnimalSeed('chicken'); setFieldMode('browse'); setDetailsOpen(false); showNotice(saved ? '已恢复并保存游戏进度。真实农场记录和位置设置保留。' : '本次已恢复，但本机存档无法保存。请立即导出游戏备份，再处理存储问题。'); }} /><button className="journal-update-link" onClick={() => setUpdateOpen(true)}><Download size={17} />游戏版本与更新</button><button className="journal-update-link" onClick={openActivity}><ClipboardList size={17} />农场看板</button><button className="journal-update-link" onClick={openGuide}><CircleHelp size={17} />农场新手手册</button><button className="journal-update-link" onClick={() => setSound(!sound)}>{sound ? <Volume2 size={17} /> : <VolumeX size={17} />}{sound ? '关闭音效' : '打开音效'}</button><div className="journal-stats"><article><Wheat size={26} /><strong>{game.harvests}</strong><span>农作物收获</span></article><article><CalendarDays size={26} /><strong>{game.ordersDelivered}</strong><span>完成订单</span></article><article><PawPrint size={26} /><strong>{game.productsCollected}</strong><span>养殖产物</span></article><article><Sprout size={26} /><strong>{game.xp}</strong><span>累计经验</span></article></div><div className="journal-list">{game.log.map((line, i) => <div key={`${game.day}-${i}`}><span className="journal-dot" /><p>{line}</p>{i === 0 && <span className="new-label">最新</span>}</div>)}</div><p className="journal-footnote">作物、动物和加工按真实倒计时推进。游戏库存与金币不参与真实农场建议。</p></>}
 
       </main>}
@@ -425,12 +433,11 @@ export default function App() {
       </div>}
       <div className={`game-notice ${notice ? 'is-visible' : ''}`} role="status" aria-atomic="true">{notice && <><Sprout size={17} aria-hidden="true" /><span>{notice}</span></>}</div>
     </div>
-    <footer className="statusbar"><span><Leaf size={13} />{simulation ? '我的农场 · 播种，照料，等待丰收' : '小镇服务 · 真实农场资料独立保存'}</span><span>{!locationChosen ? '当前为示例城市天气，请设置你的农场位置' : bundle ? `${bundle.location.name} · ${stale || weatherError ? '上次获取' : '区域模型'} · ${bundle.timezone}` : weatherError || '正在连接 Open-Meteo…'}</span><button onClick={() => simulation ? setTownOpen(true) : navigate(lastPlayTab)}>{simulation ? '逛逛小镇' : '返回农场'}<ChevronRight size={12} /></button></footer>
+    <footer className="statusbar"><span><Leaf size={13} />{simulation ? '我的农场 · 按你的节奏经营' : '农场助手 · 真实现场资料'}</span><span>{simulation ? '收获、加工、订单与小镇访客' : !locationChosen ? '先设置真实农场位置' : bundle ? `${bundle.location.name} · ${stale || weatherError ? '上次获取的天气' : '区域气象模型'}` : weatherError || '真实资料与游戏进度分别保存'}</span><button onClick={() => navigate(simulation ? tab === 'town' ? 'farm' : 'town' : lastPlayTab)}>{simulation ? tab === 'town' ? '返回农田' : '逛逛小镇' : '返回游戏'}<ChevronRight size={12} /></button></footer>
     {speedRequest && speedQuote && <GemConfirmation cost={speedQuote.cost} heading={`加速${speedRequest.label}？`} description={speedRequest.kind === 'crop' ? `${speedRequest.id} 号田的${speedRequest.label}将立即成熟，之后仍需手动收获。` : `${speedRequest.id} 号畜舍的${speedRequest.label}将立即完成产出，之后仍需手动收集。`} cancelLabel="继续等待" confirmLabel="确认使用钻石" blockedReason={speedQuote.blockedReason} onCancel={closeSpeedRequest} onConfirm={() => confirmSpeed(speedQuote.cost)} />}
     {activityOpen && <FarmActivityBoard game={game} now={clock} onClose={() => setActivityOpen(false)} onVisit={visitActivity} onJournal={() => navigate('journal')} />}
-    {guideOpen && <FarmGuide game={game} onClose={() => setGuideOpen(false)} onNavigate={next => { setGuideOpen(false); setFieldMode('browse'); if (next === 'town') setTownOpen(true); else navigate(next); }} />}
+    {guideOpen && <FarmGuide game={game} onClose={() => setGuideOpen(false)} onNavigate={next => { setGuideOpen(false); setFieldMode('browse'); navigate(next); }} />}
     {updateOpen && <UpdatePanel onClose={() => setUpdateOpen(false)} initialUpdate={availableUpdate} beforeInstall={() => saveCurrentGame()} onBackup={() => void backupGame()} />}
-    {townOpen && <FarmTown onVisit={navigate} onClose={() => setTownOpen(false)} />}
 
     {locationOpen && <div className="modal-backdrop" onClick={closeLocation}>
       <section className="location-modal farm-location-modal" role="dialog" aria-modal="true" aria-labelledby="location-title" onClick={e => e.stopPropagation()}>
@@ -449,7 +456,7 @@ export default function App() {
         <p className="modal-note">位置仅用于天气查询。切换位置会移除上一地区的天气；查询失败时不会换回其他城市。</p>
       </section>
     </div>}
-    {resetOpen && <div className="modal-backdrop"><section className="reset-modal" role="alertdialog" aria-modal="true" aria-labelledby="reset-title"><Sprout size={30} /><h2 id="reset-title">重置模拟农场？</h2><p>游戏金币、钻石、库存、地块、动物、工坊、订单、果园和日记将恢复初始状态。真实农场记录、问诊和位置设置单独保存。</p><div><button className="secondary-action" onClick={() => setResetOpen(false)}>继续耕耘</button><button className="primary-action" onClick={() => { const saved = commitGame(initialGame()); setSelected(1); setSelectedPen(1); setSeed('wheat'); setAnimalSeed('chicken'); setFieldMode('browse'); setDetailsOpen(false); setResetOpen(false); showNotice(saved ? '新一季开始了，种下第一份期待。' : '本次已重新开始，但本机存档无法保存。请导出游戏备份，避免重启丢失进度。'); }}>重新开始</button></div></section></div>}
+    {resetOpen && <div className="modal-backdrop"><section className="reset-modal" role="alertdialog" aria-modal="true" aria-labelledby="reset-title"><Sprout size={30} /><h2 id="reset-title">重置模拟农场？</h2><p>游戏金币、钻石、库存、地块、动物、工坊、订单、果园、小镇设施、访客和日记将恢复初始状态。真实农场记录、问诊和位置设置单独保存。</p><div><button className="secondary-action" onClick={() => setResetOpen(false)}>继续耕耘</button><button className="primary-action" onClick={() => { const saved = commitGame(initialGame()); setSelected(1); setSelectedPen(1); setSeed('wheat'); setAnimalSeed('chicken'); setFieldMode('browse'); setDetailsOpen(false); setResetOpen(false); showNotice(saved ? '新一季开始了，种下第一份期待。' : '本次已重新开始，但本机存档无法保存。请导出游戏备份，避免重启丢失进度。'); }}>重新开始</button></div></section></div>}
     {!portraitDismissed && <div className="rotate-overlay"><div>📱</div><h2>横过来，田野更宽阔</h2><p>这款游戏为横屏触控设计</p><button onClick={() => setPortraitDismissed(true)}>先用竖屏试玩</button></div>}
   </div>;
 }

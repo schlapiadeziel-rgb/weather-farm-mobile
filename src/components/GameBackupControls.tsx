@@ -42,7 +42,7 @@ export default function GameBackupControls({ onRestore, onExport, exporting, not
     finally { setReading(false); if (input.current) input.current.value = ''; }
   }
   return <section className="game-backup-controls" aria-label="游戏进度备份">
-    <div><strong>把这一季好好保存</strong><p>备份包含游戏进度。真实农场记录请在小镇的农场工作室另行导出。</p></div>
+    <div><strong>把这一季好好保存</strong><p>备份包含游戏进度。真实农场记录请在农场助手的农场工作室另行导出。</p></div>
     <div className="game-backup-actions">
       <button disabled={exporting} onClick={() => void onExport()}><Download size={17} />{exporting ? '正在导出…' : '导出游戏备份'}</button>
       <button disabled={reading} onClick={() => input.current?.click()}><Upload size={17} />{reading ? '读取中…' : '导入游戏备份'}</button>

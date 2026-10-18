@@ -99,7 +99,7 @@ export function FarmLandscape({ onVisit, className = '' }: FarmLandscapeProps) {
       <g transform="translate(350 475)"><ellipse rx="19" ry="7" cy="14" fill="#739d57" opacity=".2" /><path d="M-12 3c0-13 20-16 27-4 5 14-24 18-27 4Z" fill="#fff2d6" /><circle cx="16" cy="-8" r="7" fill="#fff4db" /><path d="m22-8 8 3-8 2" fill="#dfa84c" /><path d="m12-15 1-5 4 3 3-2 2 6" fill="#d87953" /><circle cx="17" cy="-9" r="1.3" fill="#4c6240" /><path d="m-5 12-2 6m12-7 2 6" stroke="#bd9a51" strokeWidth="2" /></g>
       <Sign x={335} y={535} label="牧场" />
     </MapPlace>
-    <MapPlace area="town" label="进入农场小镇，查看真实农业服务" hit="M1029 232 1175 205 1200 339 1080 384 1004 333Z" onVisit={onVisit}>
+    <MapPlace area="town" label="进入农场小镇，接待游戏访客" hit="M1029 232 1175 205 1200 339 1080 384 1004 333Z" onVisit={onVisit}>
       <path d="m1040 307 107-39 53 52-102 43Z" fill="#c9cf91" /><Cottage x={1036} y={229} scale={.57} roof="#d0945d" /><Cottage x={1108} y={216} scale={.53} roof="#90aaa2" /><Cottage x={1080} y={280} scale={.5} roof="#b78384" /><Sign x={1113} y={355} label="小镇" />
     </MapPlace>
     <MapPlace area="explore" label="前往水塘，探索钓鱼与果园" hit="M911 376 1128 374 1200 477 1125 563 940 581 886 498Z" onVisit={onVisit}>
