@@ -1,9 +1,75 @@
 import { useId } from 'react';
 import type { ReactNode } from 'react';
+import { getFarmLayoutItem, initialFarmLayout } from '../lib/farmLayout';
+import type { FarmLayout, FarmLayoutItemId, FarmLayoutPlacement } from '../lib/farmLayoutTypes';
 import './farm-landscape.css';
 
 export type FarmMapArea = 'livestock' | 'production' | 'explore' | 'town';
-export type FarmLandscapeProps = { onVisit?(area: FarmMapArea): void; className?: string };
+export type FarmLandscapeProps = {
+  onVisit?(area: FarmMapArea): void;
+  className?: string;
+  layout?: FarmLayout;
+  fit?: 'cover' | 'contain';
+  children?: ReactNode;
+  selectedItem?: FarmLayoutItemId;
+  editing?: boolean;
+};
+
+/** Ground anchors are saved independently of the original illustration's origin. */
+function LayoutItem({ item, selected, children }: { item: FarmLayoutPlacement; selected?: FarmLayoutItemId; children: ReactNode }) {
+  if (!item.placed) return null;
+  const definition = getFarmLayoutItem(item.id);
+  return <g className="fl-layout-item" data-layout-item={item.id} data-layout-selected={selected === item.id ? 'true' : undefined} transform={`translate(${item.x - definition.defaultX} ${item.y - definition.defaultY})`}>
+    <rect className="fl-layout-footprint" x={definition.defaultX} y={definition.defaultY} width={definition.width} height={definition.height} rx="8" fill="transparent" />
+    {children}
+  </g>;
+}
+
+function Flowerbed({ alternate = false }: { alternate?: boolean }) {
+  const flowers = alternate ? ['#f4d987', '#fff3d1', '#e8ad84'] : ['#d5b9e7', '#efd6ee', '#ac9acb'];
+  return <g className="fl-flowerbed" aria-hidden="true">
+    <ellipse cx="52" cy="42" rx="46" ry="12" fill="#385c3a" opacity=".16" />
+    <path d="m2 24 49-24 47 23-49 26Z" fill="#e8d5ab" stroke="#b5a074" strokeWidth="1.8" />
+    <path d="m2 24 47 25v8L2 33Z" fill="#c8ac7d" /><path d="m49 49 49-26v9L49 57Z" fill="#aa8e63" />
+    <path d="m12 24 39-18 36 17-38 19Z" fill="#896a47" /><path d="m16 24 35-15 30 14-32 15Z" fill="#66834a" />
+    {[{ x: 27, y: 24, color: flowers[0] }, { x: 49, y: 15, color: flowers[1] }, { x: 69, y: 24, color: flowers[2] }, { x: 48, y: 32, color: flowers[0] }].map(({ x, y, color }) => <g key={`${x}-${y}`} transform={`translate(${x} ${y})`}>
+      <path d="M0 4V-14m0 10-9-6m9 1 9-8" stroke="#477946" strokeWidth="2.4" fill="none" strokeLinecap="round" /><path d="M-1-5c-8 2-12-2-12-7 7-2 12 2 12 7Zm3-5c7 0 10-4 10-9-7 0-11 4-10 9Z" fill="#77a859" />
+      <g transform="translate(0 -18)" fill={color}><circle cx="-4" cy="-3" r="4.2" /><circle cx="3" cy="-4" r="4.2" /><circle cx="5" cy="3" r="4.2" /><circle cx="-2" cy="5" r="4.2" /><circle cx="-6" cy="2" r="4.2" /></g><circle cy="-18" r="2.6" fill="#f7d787" /><path d="m-3-23 2-1" stroke="#fff7df" strokeWidth="1.6" strokeLinecap="round" />
+    </g>)}
+    <path d="m8 29 34 18m15-3 33-17" stroke="#f9e7bf" strokeWidth="2" opacity=".7" fill="none" />
+  </g>;
+}
+
+function Hedge({ alternate = false }: { alternate?: boolean }) {
+  return <g className="fl-hedge" aria-hidden="true">
+    <ellipse cx="52" cy="38" rx="47" ry="12" fill="#385c3a" opacity=".18" />
+    <path d="m6 29 47-23 43 24-48 23Z" fill="#8f9f64" /><path d="m6 29 42 24 48-23v5L48 59 6 35Z" fill="#759159" />
+    {[{ x: 20, y: 21 }, { x: 46, y: 9 }, { x: 73, y: 22 }].map(({ x, y }) => <g key={x} transform={`translate(${x} ${y})`}>
+      <path d="M-15 10c-9-6-9-20-2-24 0-12 18-19 27-10 12-2 21 11 17 21 5 10-4 19-14 18-8 8-24 5-28-5Z" fill={alternate ? '#658f61' : '#5d9250'} />
+      <path d="M-13-4c-3-9 4-17 13-16 6-7 16-2 17 6 7 4 7 11 4 15-8 4-15 2-19-3-5 5-11 5-15-2Z" fill={alternate ? '#99b879' : '#95ba67'} />
+      <path d="m-7-12 4-3m11 2 4 3m-16 8 3 2" stroke="#c5d99b" strokeWidth="2.5" strokeLinecap="round" opacity=".65" />
+      {alternate && <g fill="#f7e5b7"><circle cx="-8" cy="-4" r="2.1" /><circle cx="9" cy="-10" r="2.1" /><circle cx="10" cy="5" r="1.8" /></g>}
+    </g>)}
+  </g>;
+}
+
+function DecorativeFence({ alternate = false }: { alternate?: boolean }) {
+  return <g className="fl-decorative-fence" aria-hidden="true">
+    <ellipse cx="52" cy="34" rx="46" ry="11" fill="#385c3a" opacity=".14" />
+    <Fence points={[[7, 20], [29, 31], [51, 42], [73, 31], [95, 20]]} />
+    <path d="m14 33 2-8m69 9 2-8" stroke="#739d51" strokeWidth="2.5" fill="none" />
+    <g fill={alternate ? '#d9b4cd' : '#f5df9d'}><circle cx="16" cy="24" r="3.5" /><circle cx="87" cy="25" r="3" /></g>
+    {alternate && <path d="m28 20 23 12 22-12" stroke="#8eaf6e" strokeWidth="3" strokeLinecap="round" fill="none" />}
+  </g>;
+}
+
+function Decoration({ item }: { item: FarmLayoutPlacement }) {
+  const kind = getFarmLayoutItem(item.id).kind;
+  const alternate = item.id.endsWith('-2');
+  return <g transform={`translate(${getFarmLayoutItem(item.id).defaultX} ${getFarmLayoutItem(item.id).defaultY})`}>
+    {kind === 'flowerbed' ? <Flowerbed alternate={alternate} /> : kind === 'hedge' ? <Hedge alternate={alternate} /> : <DecorativeFence alternate={alternate} />}
+  </g>;
+}
 
 function Tree({ x, y, size = 1, autumn = false }: { x: number; y: number; size?: number; autumn?: boolean }) {
   return <g transform={`translate(${x} ${y}) scale(${size})`}>
@@ -63,9 +129,12 @@ function MapPlace({ area, label, hit, onVisit, children }: { area: FarmMapArea; 
 }
 
 /** A continuous original game world. The central clearing remains free for live plot controls. */
-export function FarmLandscape({ onVisit, className = '' }: FarmLandscapeProps) {
+export function FarmLandscape({ onVisit, className = '', layout, fit = 'cover', children, selectedItem, editing = false }: FarmLandscapeProps) {
   const paint = `fl-${useId().replace(/:/g, '')}`;
-  return <div className={`farm-landscape ${className}`}><svg viewBox="0 0 1200 700" preserveAspectRatio="xMidYMid slice" aria-label="农场地图，田地中央，建筑与水塘分布在四周">
+  const placements = (layout ?? initialFarmLayout()).placements;
+  const placement = (id: FarmLayoutItemId) => placements.find(item => item.id === id)!;
+  const decorations = placements.filter(item => !['house', 'production', 'livestock'].includes(item.id) && item.placed).sort((first, second) => first.y - second.y || first.x - second.x);
+  return <div className={`farm-landscape ${className}`} data-layout-fit={fit} data-layout-editing={editing ? 'true' : undefined}><svg viewBox="0 0 1200 700" preserveAspectRatio={`xMidYMid ${fit === 'contain' ? 'meet' : 'slice'}`} aria-label="农场地图，田地中央，建筑与水塘分布在四周">
     <defs>
       <linearGradient id={`${paint}-grass`} x1="0" y1="0" x2=".8" y2="1"><stop stopColor="#b7d985" /><stop offset=".5" stopColor="#a7ce73" /><stop offset="1" stopColor="#8fbb66" /></linearGradient>
       <linearGradient id={`${paint}-water`} x1="0" y1="0" x2=".7" y2="1"><stop stopColor="#a0dfdf" /><stop offset=".55" stopColor="#70bfcf" /><stop offset="1" stopColor="#4c9dbb" /></linearGradient>
@@ -81,15 +150,20 @@ export function FarmLandscape({ onVisit, className = '' }: FarmLandscapeProps) {
       <path d="M436 291 625 195q24-12 45 0l187 92q20 12 5 29L682 483q-24 22-49 9L434 391q-22-13-20-33Z" fill="#7b9e59" opacity=".35" transform="translate(0 10)" /><path d="M436 285 625 189q24-12 45 0l187 92q20 12 5 29L682 477q-24 22-49 9L434 385q-22-13-20-33Z" fill={`url(#${paint}-soil)`} stroke="#e1c696" strokeWidth="5" />
       <path d="m446 304 42-21m-55 54 32 17m235 102 39-31m63-125 30-17" stroke="#b99868" strokeWidth="3" opacity=".35" fill="none" /><g fill="#e7cf9e" opacity=".65"><ellipse cx="468" cy="369" rx="5" ry="2" /><ellipse cx="644" cy="205" rx="6" ry="2" /><ellipse cx="816" cy="322" rx="5" ry="2" /><ellipse cx="680" cy="457" rx="6" ry="2" /></g>
       <path d="m218 280 26-12 49 23-27 15Z" fill="#c6b88b" /><path d="m225 280 28-8m-10 18 29-12m-11 20 23-10" stroke="#f0e4ba" strokeWidth="6" />
+    </g>
+    <LayoutItem item={placement('house')} selected={selectedItem}>
       <Cottage x={136} y={147} scale={1.05} />
-      <Tree x={119} y={248} size={.83} /><Tree x={339} y={201} size={.85} /><Tree x={383} y={262} size={.7} /><Tree x={412} y={166} size={.68} /><Tree x={496} y={140} size={.7} /><Tree x={602} y={113} size={.84} /><Tree x={724} y={145} size={.78} /><Tree x={834} y={136} size={.86} /><Tree x={982} y={114} size={.8} />
       <Fence points={[[119,293],[151,308],[187,325],[223,343]]} />
       <path d="m128 339 3-11m12 16 2-12m226-55 3-12m9 18 3-14" stroke="#7eaa57" strokeWidth="3" /><g fill="#fff0ae"><circle cx="131" cy="326" r="4" /><circle cx="145" cy="332" r="3" /><circle cx="375" cy="263" r="4" /><circle cx="386" cy="269" r="3" /></g>
-    </g>
+    </LayoutItem>
+    <g aria-hidden="true"><Tree x={119} y={248} size={.83} /><Tree x={339} y={201} size={.85} /><Tree x={383} y={262} size={.7} /><Tree x={412} y={166} size={.68} /><Tree x={496} y={140} size={.7} /><Tree x={602} y={113} size={.84} /><Tree x={724} y={145} size={.78} /><Tree x={834} y={136} size={.86} /><Tree x={982} y={114} size={.8} /></g>
+    <LayoutItem item={placement('production')} selected={selectedItem}>
     <MapPlace area="production" label="前往工坊，制作农场产品" hit="M825 152 1018 119 1065 292 889 342 811 256Z" onVisit={onVisit}>
       <Windmill x={845} y={148} /><Sign x={949} y={318} label="工坊" />
     </MapPlace>
+    </LayoutItem>
     <g aria-hidden="true"><Tree x={1082} y={209} size={.82} /><Tree x={840} y={341} size={.67} /><path d="m998 334 36-19 30 13-36 19Z" fill="#ded2a4" /><path d="m1007 334 28-14m-18 22 28-14" stroke="#f1e5b5" strokeWidth="4" /></g>
+    <LayoutItem item={placement('livestock')} selected={selectedItem}>
     <MapPlace area="livestock" label="前往牧场，照料农场动物" hit="M142 341 364 324 466 429 383 523 142 548 91 462Z" onVisit={onVisit}>
       <path d="m239 396 145-58 72 49-142 71Z" fill="#a4c56f" stroke="#91b561" strokeWidth="4" /><Fence points={[[244,397],[282,381],[320,365],[359,349],[388,344],[415,362],[443,380],[455,391]]} />
       <Cow x={322} y={393} /><Cow x={386} y={386} flip />
@@ -99,6 +173,7 @@ export function FarmLandscape({ onVisit, className = '' }: FarmLandscapeProps) {
       <g transform="translate(350 475)"><ellipse rx="19" ry="7" cy="14" fill="#739d57" opacity=".2" /><path d="M-12 3c0-13 20-16 27-4 5 14-24 18-27 4Z" fill="#fff2d6" /><circle cx="16" cy="-8" r="7" fill="#fff4db" /><path d="m22-8 8 3-8 2" fill="#dfa84c" /><path d="m12-15 1-5 4 3 3-2 2 6" fill="#d87953" /><circle cx="17" cy="-9" r="1.3" fill="#4c6240" /><path d="m-5 12-2 6m12-7 2 6" stroke="#bd9a51" strokeWidth="2" /></g>
       <Sign x={335} y={535} label="牧场" />
     </MapPlace>
+    </LayoutItem>
     <MapPlace area="town" label="进入农场小镇，接待游戏访客" hit="M1029 232 1175 205 1200 339 1080 384 1004 333Z" onVisit={onVisit}>
       <path d="m1040 307 107-39 53 52-102 43Z" fill="#c9cf91" /><Cottage x={1036} y={229} scale={.57} roof="#d0945d" /><Cottage x={1108} y={216} scale={.53} roof="#90aaa2" /><Cottage x={1080} y={280} scale={.5} roof="#b78384" /><Sign x={1113} y={355} label="小镇" />
     </MapPlace>
@@ -111,9 +186,11 @@ export function FarmLandscape({ onVisit, className = '' }: FarmLandscapeProps) {
       <g className="fl-pond-reeds"><path d="M918 509v-21m7 18 5-22m201-93-3-25m12 31 5-23m-12 128 4-18m6 12 4-21" stroke="#729d65" strokeWidth="3" fill="none" /><path d="M918 490v-9m12 4v-8m198-111-1-8m18 16 1-9m-9 119 2-8" stroke="#aa9a53" strokeWidth="5" strokeLinecap="round" /></g>
       <Sign x={967} y={548} label="探索" />
     </MapPlace>
+    {decorations.map(item => <LayoutItem key={item.id} item={item} selected={selectedItem}><Decoration item={item} /></LayoutItem>)}
     <g aria-hidden="true"><Tree x={1180} y={384} size={.74} /><Tree x={880} y={429} size={.56} /><Tree x={860} y={540} size={.8} /><Tree x={1162} y={594} size={.93} /><Tree x={86} y={425} size={.95} /><Tree x={127} y={568} size={.74} /><Tree x={409} y={573} size={.8} autumn /><Tree x={308} y={634} size={.87} /><Tree x={699} y={636} size={.85} /><Tree x={952} y={664} size={.74} />
       <path d="m454 557 77 34m-57-41 2 28m35-13 1 26m44 2 7-15" stroke="#d8c79a" strokeWidth="5" fill="none" /><g fill="#fff0b1"><circle cx="735" cy="547" r="4" /><circle cx="749" cy="554" r="3" /><circle cx="778" cy="566" r="4" /><circle cx="787" cy="554" r="3" /></g><g fill="#d6a37c"><circle cx="735" cy="547" r="1.6" /><circle cx="778" cy="566" r="1.6" /></g>
     </g>
+    {children}
   </svg></div>;
 }
 

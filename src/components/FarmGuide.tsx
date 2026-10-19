@@ -68,7 +68,8 @@ function ChapterContent({ chapter, game }: { chapter: number; game: Game }) {
     <p className="fg-lead">播种消耗 1 份作物，成熟后收获 2 份。把下一轮的种子留在粮仓里，田地就能一季接一季。</p>
     <ol className="fg-instructions"><li>选择已解锁的空地，挑选库存中还有的种子。</li><li>等倒计时结束，再收获成熟作物；收成进入粮仓。</li><li>留下一些作物种子，余下的送去加工或交订单。</li></ol>
     <div className="fg-field-tip"><span className="fg-tip-title"><Sprout size={17} /> 一只手也能打理田地</span><p>浏览模式拖动地图，双指可以缩放。切到播种或收获模式，划过地块后松手操作；轻点地块也可以。只会处理符合条件的地块。</p></div>
-    <p className="fg-page-note">粮仓满了，先交货或扩容再收获。种子用完时，可以去仓库购买补给。</p>
+    <div className="fg-field-tip"><span className="fg-tip-title"><Tractor size={17} /> 给农场换个布置</span><p>收起手册，点游戏顶部“整理农场”，选中农舍、工坊或牧场区域后移动，也可以摆放免费的花坛、树篱和木栅，各有两件。点“保存布置”才会应用，取消就保留原样；恢复默认也要保存才生效。耕地、水塘和小镇的位置固定，布置不扣金币、钻石或库存。</p></div>
+    <p className="fg-page-note">粮仓满了，先交货或扩容再收获。种子用完时，可以去仓库购买补给。农场布置移动的是整片区域，不能逐台移动机器或逐块移动田地。</p>
     <p className="fg-durable"><Check size={15} /> 已收获作物 {game.harvests.toLocaleString('zh-CN')} 次</p>
   </>;
   if (chapter === 1) return <>

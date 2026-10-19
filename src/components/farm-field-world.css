@@ -1,0 +1,61 @@
+/* Match the live HTML plots to the SVG's canonical 1200 × 700 clearing.
+   Screen size and the details panel only change the common world scale. */
+.farm-scene.map-scene .farm-viewport-world .field-interaction > .field-wrap {
+  position:absolute;
+  left:53.75%;
+  top:49.2857142857%;
+  width:390px!important;
+  max-width:none;
+  margin:0;
+  transform:translate(-50%,-50%) scale(var(--farm-world-base,1));
+  transform-origin:center center;
+}
+.farm-scene.map-scene .farm-viewport-world .field-wrap > .field-caption {
+  display:none;
+}
+.farm-scene.map-scene .farm-viewport-world .field-wrap > .plot-grid {
+  width:100%;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:7px;
+  transform:rotateX(44deg) rotateZ(-30deg);
+  transform-origin:center center;
+}
+.farm-scene.map-scene .farm-viewport-world .plot-grid > .plot {
+  min-width:0;
+  min-height:0;
+  height:auto;
+  aspect-ratio:1.28;
+  padding:0;
+}
+/* Art and labels cannot contribute an intrinsic minimum height to the cells. */
+.farm-scene.map-scene .farm-viewport-world .plot > .crop-sprite {
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:72px;
+  height:67.2px;
+  margin:0;
+  font-size:48px;
+  transform:translate(-50%,-50%) translateZ(15px) rotateZ(30deg) rotateX(-44deg);
+}
+.farm-scene.map-scene .farm-viewport-world .plot .fv-crop {
+  width:72px;
+  max-width:none;
+  height:67.2px;
+}
+.farm-scene.map-scene .farm-viewport-world .plot > .plot-label {
+  font-size:clamp(11px,calc(9px / var(--farm-world-base,1)),18px);
+  padding:1px 4px;
+  bottom:-4px;
+}
+/* Keep the compact details view's top plots clear of the toolbar hint row.
+   The mode controls and help button retain their 44px touch targets. */
+@media(max-height:400px) {
+  .play-workspace:has(.plot-panel) .farm-scene.map-scene .field-tools .field-tool-hint {
+    min-height:0;
+    padding:0;
+  }
+  .play-workspace:has(.plot-panel) .farm-scene.map-scene .field-tools .field-tool-hint > p {
+    display:none;
+  }
+}

@@ -1,4 +1,5 @@
 import type { TownState } from './townTypes';
+import type { FarmLayout } from './farmLayoutTypes';
 
 /** Independent game data. None of this describes a real farm or medical evidence. */
 export type CropId = 'wheat'|'corn'|'carrot'|'soybean'|'sugarcane'|'indigo'|'pumpkin'|'cotton'|'tomato'|'potato'|'strawberry'|'radish';
@@ -22,5 +23,5 @@ export interface Game {
  version:2; day:number;coins:number;gems:number;xp:number;harvests:number;waterUsed:number;productsCollected:number;
  plots:Plot[];animals:AnimalPen[];log:string[];inventory:Partial<Record<ItemId,number>>;siloCapacity:number;barnCapacity:number;
  unlockedPlots:number;machines:FarmMachine[];orders:GameOrder[];ordersDelivered:number;orderSerial:number;shopListings:RoadsideSlot[];
- orchard:OrchardPlot[];fishingReadyAt:number;mineReadyAt:number;beehiveBuilt:boolean;beehiveReadyAt:number;achievements:string[];town:TownState;
+ orchard:OrchardPlot[];fishingReadyAt:number;mineReadyAt:number;beehiveBuilt:boolean;beehiveReadyAt:number;achievements:string[];town:TownState;layout:FarmLayout;
 }

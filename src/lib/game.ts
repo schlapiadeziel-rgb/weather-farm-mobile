@@ -1,6 +1,7 @@
 import { CROPS, LIVESTOCK, ITEMS, MACHINES, RECIPES } from './farmContent';
 import { generateOrders } from './farmEconomy';
 import { initialTown, normalizeTown } from './townState';
+import { initialFarmLayout, normalizeFarmLayout } from './farmLayout';
 import type { AnimalDefinition, AnimalId, AnimalPen, CropDefinition, CropId, FarmMachine, Game, GameOrder, ItemId, MachineId, OrchardPlot, Plot, ProductionJob, RoadsideSlot, StorageKind } from './farmTypes';
 import type { WeatherDay } from './weather';
 
@@ -31,7 +32,7 @@ const log = (game: Game, entry: string): void => { game.log = [entry, ...game.lo
 const clone = (game: Game): Game => ({
   ...game, plots: game.plots.map(item => ({ ...item })), animals: game.animals.map(item => ({ ...item })), inventory: { ...game.inventory }, log: [...game.log],
   machines: game.machines.map(item => ({ ...item, queue: item.queue.map(job => ({ ...job })) })), orders: game.orders.map(item => ({ ...item, requirements: { ...item.requirements } })),
-  shopListings: game.shopListings.map(item => ({ ...item })), orchard: game.orchard.map(item => ({ ...item })), achievements: [...game.achievements], town: normalizeTown(game.town),
+  shopListings: game.shopListings.map(item => ({ ...item })), orchard: game.orchard.map(item => ({ ...item })), achievements: [...game.achievements], town: normalizeTown(game.town), layout: normalizeFarmLayout(game.layout),
 });
 
 export function getLevel(game: Pick<Game, 'xp'>): number { return 1 + Math.floor(Math.sqrt(number(game.xp, '经验') / 20)); }
@@ -79,7 +80,7 @@ export function initialGame(now = Date.now()): Game {
     inventory: { wheat: 12, corn: 10, soybean: 6, radish: 4, chicken_feed: 4, cow_feed: 2, egg: 2, saw: 2, axe: 2, shovel: 2, dynamite: 2, plank: 2, screw: 2, bolt: 2, duct_tape: 2, nail: 2, wood_panel: 2, land_deed: 2, mallet: 2, marker_stake: 2 },
     siloCapacity: 100, barnCapacity: 100, unlockedPlots: 6,
     machines: [{ id: 'feed_mill', slots: 2, queue: [] }, { id: 'bakery', slots: 2, queue: [] }],
-    orders: generateOrders(1, 0, 'truck'), ordersDelivered: 0, orderSerial: 1, shopListings: [], orchard: [], fishingReadyAt: 0, mineReadyAt: 0, achievements: [], beehiveBuilt: false, beehiveReadyAt: 0, town: initialTown(),
+    orders: generateOrders(1, 0, 'truck'), ordersDelivered: 0, orderSerial: 1, shopListings: [], orchard: [], fishingReadyAt: 0, mineReadyAt: 0, achievements: [], beehiveBuilt: false, beehiveReadyAt: 0, town: initialTown(), layout: initialFarmLayout(),
   };
 }
 
@@ -249,6 +250,7 @@ export function restoreGame(saved: unknown, now = Date.now()): Game {
   game.plots = parsePlots(source.plots, legacy, now); game.animals = legacy && source.animals === undefined ? game.animals : parseAnimals(source.animals, legacy, now);
   game.log = array(source.log, '日记', 0, 100).map(entry => string(entry, '日记')).slice(0, 12);
   game.town = Object.hasOwn(source, 'town') ? normalizeTown(source.town) : initialTown();
+  game.layout = Object.hasOwn(source, 'layout') ? normalizeFarmLayout(source.layout) : initialFarmLayout();
   if (legacy) { game.unlockedPlots = game.plots.length; log(game, '旧农场已迁移：金币、经验、地块与动物保留，改为库存和真实计时，不再发生死亡。'); return tickGame(game, now); }
   game.gems = number(source.gems, '钻石'); game.inventory = stock(source.inventory); game.siloCapacity = number(source.siloCapacity, '粮仓容量', 1, 1000); game.barnCapacity = number(source.barnCapacity, '货仓容量', 1, 1000); game.unlockedPlots = number(source.unlockedPlots, '已解锁地块', 1, game.plots.length);
   game.machines = array(source.machines, '加工坊', 0, MACHINES.length).map(raw => {
