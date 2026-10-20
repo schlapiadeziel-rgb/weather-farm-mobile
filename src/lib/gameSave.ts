@@ -95,7 +95,7 @@ function validateBackupGameFields(value: unknown): Record<string, unknown> {
     'siloCapacity', 'barnCapacity', 'unlockedPlots', 'machines', 'orders', 'ordersDelivered', 'orderSerial', 'shopListings', 'orchard',
     'fishingReadyAt', 'mineReadyAt', 'beehiveBuilt', 'beehiveReadyAt', 'achievements',
   ];
-  const record = keys(value, [...required, 'town', 'layout'], required);
+  const record = keys(value, [...required, 'town', 'layout', 'farmVisitors'], required);
   if (record.version !== 2) throw new Error('游戏备份中的存档版本不受支持。');
   for (const plot of entries(record.plots)) keys(plot, ['id', 'crop', 'growth', 'health', 'moisture', 'plantedAt', 'readyAt'], ['id', 'crop', 'growth', 'health', 'moisture']);
   for (const pen of entries(record.animals)) keys(pen, ['id', 'animal', 'health', 'feed', 'progress', 'fedAt', 'readyAt'], ['id', 'animal', 'health', 'feed', 'progress']);

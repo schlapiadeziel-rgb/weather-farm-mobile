@@ -1,13 +1,12 @@
 .farm-viewport{position:absolute;inset:0;overflow:hidden;overflow:clip;isolation:isolate;user-select:none;-webkit-user-select:none}
 .farm-viewport-world{position:absolute;left:0;top:0;transform-origin:0 0;touch-action:none;will-change:transform;cursor:grab}
 .farm-viewport.fv-camera-moving,.farm-viewport.fv-camera-moving .farm-viewport-world,.farm-viewport.fv-camera-moving .farm-viewport-world *{cursor:grabbing!important}
-.farm-camera-controls{position:absolute;right:14px;bottom:86px;z-index:4;display:flex;gap:6px;pointer-events:auto;touch-action:manipulation}
-.farm-camera-controls>button{position:relative;display:grid;place-items:center;min-width:44px;min-height:44px;width:44px;height:44px;padding:0;border-radius:12px;border:1px solid #fff2c7;background:#fff4dbeF;box-shadow:0 3px 0 #98865766,0 4px 12px #294b3430;color:#4b6138;touch-action:manipulation}
-.farm-camera-controls>button:hover:not(:disabled){background:#fff9e9;color:#264b30}
-.farm-camera-controls>button:focus-visible{outline:3px solid #ffe895;outline-offset:3px}
-.farm-camera-controls>button:disabled{opacity:.5;cursor:default}
-.farm-camera-controls>button:nth-child(2){padding-bottom:10px}
+.farm-camera-controls{position:absolute;right:14px;bottom:80px;z-index:4;display:flex;align-items:center;gap:6px;pointer-events:auto;touch-action:manipulation}
+.farm-camera-options{display:flex;gap:6px;align-items:center}.farm-camera-options[hidden]{display:none}
+.farm-camera-controls button{position:relative;display:grid;place-items:center;min-width:44px;min-height:44px;width:44px;height:44px;padding:0;border-radius:50%;border:1px solid #fff2c7;background:#fff4dbeF;box-shadow:0 3px 0 #98865766,0 4px 12px #294b3430;color:#4b6138;touch-action:manipulation}
+.farm-camera-controls button:hover:not(:disabled){background:#fff9e9;color:#264b30}
+.farm-camera-controls button:focus-visible{outline:3px solid #ffe895;outline-offset:3px}
+.farm-camera-controls button:disabled{opacity:.5;cursor:default}
+.farm-camera-controls .farm-camera-reset{padding-bottom:10px}
 .farm-camera-zoom{position:absolute;bottom:5px;left:0;right:0;font-size:9px;line-height:1;font-weight:700;text-align:center;pointer-events:none}
-@media(max-height:550px){.farm-camera-controls{right:12px;top:70px;bottom:auto;flex-direction:column}}
-@media(max-height:400px){.farm-camera-controls{right:12px;top:64px;bottom:auto;gap:5px}}
-@media(prefers-reduced-motion:reduce){.farm-camera-controls>button{transition:none!important}}
+@media(prefers-reduced-motion:reduce){.farm-camera-controls button{transition:none!important}}

@@ -42,7 +42,7 @@ export default function GameBackupControls({ onRestore, onExport, exporting, not
     finally { setReading(false); if (input.current) input.current.value = ''; }
   }
   return <section className="game-backup-controls" aria-label="游戏进度备份">
-    <div><strong>把这一季好好保存</strong><p>备份包含游戏进度、小镇经营和已保存的农场布置。真实农场记录请在农场助手的农场工作室另行导出。</p></div>
+    <div><strong>把这一季好好保存</strong><p>备份包含游戏进度、小镇经营、门口来客和已保存的农场布置。真实农场记录请在农场助手的农场工作室另行导出。</p></div>
     <div className="game-backup-actions">
       <button disabled={exporting} onClick={() => void onExport()}><Download size={17} />{exporting ? '正在导出…' : '导出游戏备份'}</button>
       <button disabled={reading} onClick={() => input.current?.click()}><Upload size={17} />{reading ? '读取中…' : '导入游戏备份'}</button>
@@ -52,7 +52,7 @@ export default function GameBackupControls({ onRestore, onExport, exporting, not
       <button className="game-import-close" aria-label="取消导入游戏备份" onClick={() => setPending(null)}><X size={20} /></button>
       <h2 id="game-import-title">恢复这份游戏进度？</h2>
       <p>备份中的农场为 Lv. {getLevel(pending)}，拥有 {pending.coins} 金币、{pending.gems} 钻石，已完成 {pending.ordersDelivered} 个订单。</p>
-      <p>确认后会替换当前游戏进度、小镇经营和农场布置。旧备份缺少布置时使用默认布局。建议先导出当前游戏备份；真实农场记录和位置设置仍会保留。</p>
+      <p>确认后会替换当前游戏进度、小镇经营、门口来客和农场布置。旧备份缺少布置时使用默认布局，缺少门口来客时从空闲门口开始。建议先导出当前游戏备份；真实农场记录和位置设置仍会保留。</p>
       <div><button onClick={() => setPending(null)}>保留当前进度</button><button className="confirm" onClick={() => { onRestore(pending); setPending(null); }}>确认恢复游戏</button></div>
     </section></div>, document.body)}
   </section>;

@@ -57,3 +57,7 @@
 }
 @media(max-width:720px){.field-tools{left:8px}}
 @media(prefers-reduced-motion:reduce){.field-interaction [data-plot-id],.field-tools button{transition:none!important}}
+.field-tools-toggle{display:flex;align-items:center;justify-content:center;gap:6px;min-height:44px;min-width:44px;width:100%;padding:4px 5px;border-radius:9px;background:#fff4d8;color:#516d41;font-size:11px;grid-column:1/-1;grid-row:1;touch-action:manipulation}
+.field-tools-toggle>span{flex:1;white-space:nowrap}.field-tools-toggle[aria-expanded="true"]{margin-bottom:4px;background:#e7e9c7}.field-tools-toggle[aria-expanded="true"]>svg:last-child{transform:rotate(180deg)}
+.field-tools.field-tools-collapsed{width:126px!important;padding:3px;display:block}.field-tools-collapsed .field-tools-toggle{background:transparent}
+@media(max-height:400px){.field-tools:not(.field-tools-collapsed) .field-tool-modes{grid-row:2}.field-tools:not(.field-tools-collapsed) .field-seed-button{grid-row:2}.field-tools:not(.field-tools-collapsed) .field-tool-hint{grid-row:3}.field-tools:not(.field-tools-collapsed) .field-tool-hint>button{top:53px}.field-tools.field-tools-collapsed{top:57px}}

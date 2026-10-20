@@ -1,0 +1,71 @@
+import { useId } from 'react';
+import type { FarmVisitorProfileId } from '../lib/farmVisitorTypes';
+import './farm-visitors.css';
+
+export type FarmVisitorPortraitProps = { profileId: FarmVisitorProfileId; compact?: boolean };
+
+/** Four original neighbours, drawn for Field Letter with no borrowed character assets. */
+export function FarmVisitorPortrait({ profileId, compact = false }: FarmVisitorPortraitProps) {
+  const paint = `fvis-${useId().replace(/:/g, '')}`;
+  const post = profileId === 'seed_post';
+  const reed = profileId === 'reed_basket';
+  const kitchen = profileId === 'morning_kitchen';
+  const blue = profileId === 'blue_lantern';
+  const jacket = post ? '#638d74' : reed ? '#928052' : kitchen ? '#c18069' : '#728caa';
+  const shade = post ? '#385f53' : reed ? '#6a6344' : kitchen ? '#8e6155' : '#4f657d';
+  const hair = post ? '#8c573b' : reed ? '#e7dfc4' : kitchen ? '#5d5145' : '#514d49';
+  const skin = reed ? '#dca678' : kitchen ? '#e5b18c' : '#f0c39e';
+  const accent = post ? '#d9bc72' : reed ? '#aabd80' : kitchen ? '#e7cc86' : '#d4a981';
+  return <svg className={`fvis-portrait${compact ? ' fvis-portrait--compact' : ''}`} viewBox={compact ? '55 25 190 224' : '0 0 300 340'} aria-hidden="true" focusable="false">
+    <defs>
+      <linearGradient id={`${paint}-light`} x1="0" y1="0" x2="1" y2="1"><stop stopColor="#fff5d9" /><stop offset="1" stopColor={post ? '#c3d7ad' : reed ? '#d6d9aa' : kitchen ? '#e7c5a5' : '#bdcfdb'} /></linearGradient>
+      <linearGradient id={`${paint}-coat`} x1="0" y1="0" x2=".8" y2="1"><stop stopColor={jacket} /><stop offset="1" stopColor={shade} /></linearGradient>
+      <linearGradient id={`${paint}-skin`} x1="0" y1="0" x2="1" y2="1"><stop stopColor="#f7d0ac" /><stop offset="1" stopColor={skin} /></linearGradient>
+      <linearGradient id={`${paint}-hat`} x1="0" y1="0" x2="0" y2="1"><stop stopColor="#e9d49a" /><stop offset="1" stopColor="#bfa573" /></linearGradient>
+    </defs>
+    <circle cx="150" cy="163" r="120" fill={`url(#${paint}-light)`} />
+    {!compact && <g opacity=".6"><path d="M43 262c-27-66-5-78 14-22-8-58 19-73 19-17 20-46 34-28 3 26m159 22c33-65 10-74-10-23 8-53-17-71-20-14-18-41-34-25-7 24" fill="#9eb782" /><g fill="#fff5db"><circle cx="54" cy="96" r="4" /><circle cx="240" cy="91" r="3" /><circle cx="233" cy="227" r="3" /></g><path d="m67 62 6-9 6 9-6 9Zm165 95 4-6 4 6-4 6Z" fill="#e8c67e" /></g>}
+    <g className="fvis-portrait-character">
+      <ellipse cx="151" cy="315" rx="85" ry="12" fill="#655e4521" />
+      {/* Hands, shoulders and clothing have different silhouettes for each neighbour. */}
+      <path d="M110 176c-22 8-33 43-40 84l25 8 20-52m77-35c19 11 28 45 32 69l-24 8-17-42" fill={kitchen ? '#e9d5ae' : reed ? '#d5cca4' : '#e5dfbd'} stroke="#a48e6e" strokeWidth="1.6" />
+      <path d="M104 190c13-17 75-21 94 0l11 111c-22 18-96 18-119 1Z" fill={`url(#${paint}-coat)`} stroke={shade} strokeWidth="1.6" />
+      {post && <><path d="m118 182 11 19 20-8 22 8 13-20" fill="#f3e8c9" /><path d="M127 204v96m49-96v96" stroke="#b5c9a0" strokeWidth="3" /><path d="M144 211h17m-17 8h17m-17 8h17" stroke="#b2c9b1" strokeWidth="2" /><path d="m111 190 77 109" stroke="#d2b47d" strokeWidth="11" /><path d="m109 190 77 109" stroke="#aa875b" strokeWidth="1" /><path d="M159 250h56l3 46c-15 12-43 14-59 3Z" fill="#ae8355" stroke="#7e6546" strokeWidth="2" /><path d="M156 250h61l-5 22c-13 8-37 8-51 2Z" fill="#caa774" stroke="#8c704c" strokeWidth="1.5" /><path d="M184 265h10v13h-10Z" fill="#e7cf8b" /><path d="m173 244-5-23 37-8 6 30Z" fill="#fff6db" stroke="#c3b384" /><path d="m169 221 22 11 14-19" fill="none" stroke="#c3b384" /><path d="m196 216 6-1 1 5-6 1Z" fill="#8da98a" /></>}
+      {reed && <><path d="m121 179 29 19 31-19-8 102-22 12-28-12Z" fill="#e8ddba" /><path d="m121 180 10 120-27-5-5-91Zm58 0-9 120 29-5 2-92Z" fill="#a6b785" stroke="#6d8058" /><g fill="#d9d0a7"><circle cx="112" cy="221" r="3" /><circle cx="111" cy="240" r="3" /><circle cx="190" cy="221" r="3" /></g><path d="M93 256h83l-8 51c-23 13-47 11-68-1Z" fill="#c7aa70" stroke="#8e7950" strokeWidth="2" /><path d="M106 255c-4-56 57-58 58 0" fill="none" stroke="#967b4b" strokeWidth="6" /><path d="M106 255c-4-56 57-58 58 0" fill="none" stroke="#e0c58c" strokeWidth="2" /><path d="m101 268 68 0m-66 11h63m-62 11h61m-59 10h55m-50-43 5 49m11-49 2 52m12-52-1 53m14-53-5 51" stroke="#9f885b" strokeWidth="2" /><path d="m117 253-9-31m16 29 1-36m8 36 12-29" stroke="#72935f" strokeWidth="4" strokeLinecap="round" /></>}
+      {kitchen && <><path d="m115 185 13 19 22-6 23 6 15-19" fill="#f2e3ba" /><path d="M122 198h55l7 105c-15 9-48 9-66 0Z" fill="#e9d5aa" stroke="#b3a07b" strokeWidth="1.5" /><path d="M128 228h44v41c-12 7-31 7-44 0Z" fill="#d3b887" /><path d="m133 231 0 35m11-35v38m11-38v38m11-38v35m-35-26h40m-40 10h40" stroke="#ece0ba" strokeWidth="1.5" /><path d="m110 188 11 27 28-17 29 17 12-29-41 7Z" fill="#ceaa6a" stroke="#a58659" strokeWidth="1.2" /><path d="m146 196 4 30 10-26" fill="#bd8c60" /><path d="m179 272 21-8 21 22-36 15Z" fill="#b28b5b" stroke="#8b704c" /><path d="m184 264 20-10 20 23-21 10Z" fill="#ecd1a0" /><path d="m188 263 9 13m0-18 9 13m1-18 9 13" stroke="#bc9b65" strokeWidth="2" /><path d="m189 269-12-52 7-2 13 53" fill="#ad8156" stroke="#896340" /></>}
+      {blue && <><path d="m115 182 15 15 22-11 21 11 14-15" fill="#eee3c4" /><path d="m131 194-4 107m46-107 4 107" stroke="#a9bdc3" strokeWidth="2" /><g fill="#c5d2d0"><circle cx="151" cy="224" r="2.5" /><circle cx="151" cy="245" r="2.5" /></g><path d="m109 245 49 5-5 60-49-5Z" fill="#cdaf7a" stroke="#8f7e59" strokeWidth="2" /><path d="m115 244 49 5-5 59-49-5Z" fill="#f7edcf" stroke="#ad9e76" /><path d="m120 279 11-15 10 11 9-5 6 20-38-4Z" fill="#a8bc8e" /><path d="m122 281 11-13 7 9" fill="none" stroke="#78966d" strokeWidth="2" /><circle cx="146" cy="260" r="5" fill="#e4bd76" /><path d="m176 283 23-26 9 8-25 24Z" fill="#d3b687" stroke="#947c56" /><path d="m199 257 7-7 8 7-6 8Z" fill="#617c98" /><path d="m176 283 7 6-12 5Z" fill="#80694e" /></>}
+      <path d="M134 158v28c8 12 28 12 36-1v-27" fill={skin} stroke="#bd8d67" strokeWidth="1.2" /><path d="M134 162c11 9 25 9 36-1v10c-12 9-26 8-36 0Z" fill="#bd886748" />
+      {post && <path d="M180 109c28 10 37 35 25 44l-13-8 8 24-16 4c-8-27-9-40-4-64Z" fill={hair} stroke="#6e4734" strokeWidth="1.6" />}
+      {kitchen && <><circle cx="105" cy="105" r="20" fill={hair} /><circle cx="195" cy="105" r="20" fill={hair} /><path d="M106 88c20-30 72-29 90 1l-7 58h-75Z" fill={hair} /></>}
+      <ellipse cx="107" cy="132" rx="10" ry="16" fill={skin} stroke="#bc8d69" strokeWidth="1.4" /><ellipse cx="194" cy="132" rx="10" ry="16" fill={skin} stroke="#bc8d69" strokeWidth="1.4" />
+      <path d="M109 105c0-50 83-51 84 0l-3 35c-2 27-18 42-39 42-22 0-38-17-40-43Z" fill={`url(#${paint}-skin)`} stroke="#b98762" strokeWidth="1.5" />
+      {reed ? <><path d="M109 101c-4 11-3 31 5 42l7-11-3-33m66 0 0 30 9 15c5-14 7-33 1-45" fill={hair} /><path d="m117 111 18-5m31 0 18 4" stroke="#eee7cb" strokeWidth="5" strokeLinecap="round" /></> : post ? <path d="M108 112c-4-33 23-52 48-48 31-3 50 21 40 51l-14-28c-22 21-46 15-52 5l-13 27Z" fill={hair} /> : kitchen ? <path d="M109 112c-5-40 31-53 58-47 28 0 38 25 28 49l-15-24c-18 19-37 8-42 0l-21 28Z" fill={hair} /> : <path d="M109 113c-7-43 26-58 58-49 29 0 38 27 27 49l-11-23c-8 19-22 20-26 9-10 17-28 10-30 0l-10 23Z" fill={hair} />}
+      <g className="fvis-portrait-eyes"><ellipse cx="131" cy="131" rx="3.6" ry="5.2" fill="#514b3b" /><ellipse cx="171" cy="131" rx="3.6" ry="5.2" fill="#514b3b" /><circle cx="132" cy="129" r="1.1" fill="#fff8e4" /><circle cx="172" cy="129" r="1.1" fill="#fff8e4" /></g>
+      {!reed && <path d="m121 119 17-2m25 0 16 3" stroke={hair} strokeWidth="3" strokeLinecap="round" />}
+      <path d="m151 132-4 13 8 1" fill="none" stroke="#c38b65" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <ellipse cx="122" cy="146" rx="9" ry="5" fill="#d88d7466" /><ellipse cx="180" cy="146" rx="9" ry="5" fill="#d88d7466" />
+      {reed ? <><g fill="none" stroke="#78755d" strokeWidth="2"><rect x="117" y="122" width="27" height="19" rx="8" /><rect x="159" y="122" width="27" height="19" rx="8" /><path d="M144 128h15m-49-4 7 3m69 0 7-3" /></g><path d="M130 154c8-12 13-8 21-5 8-4 15-7 23 5-16 4-27 5-44 0" fill="#ece3c8" /><path d="M140 161q12 7 23-1" fill="none" stroke="#8a6550" strokeWidth="2" strokeLinecap="round" /></> : <path d="M139 156q13 12 26-1" fill="#fff2d8" stroke="#a67458" strokeWidth="1.7" strokeLinecap="round" />}
+      {post && <g fill="#ac7557"><circle cx="121" cy="142" r="1.2" /><circle cx="126" cy="145" r="1.1" /><circle cx="118" cy="146" r="1" /><circle cx="179" cy="142" r="1.2" /><circle cx="184" cy="146" r="1" /></g>}
+      {post && <><path d="M103 86c-1-38 30-50 55-47 30 0 48 18 43 46l-47 5Z" fill="#648b72" stroke="#416550" strokeWidth="2" /><path d="M106 76c22-4 63-5 89 3l-1 12-85-3Z" fill="#89a382" /><path d="M99 86c26-9 75-9 103 0l16 13c-30 2-75-1-115-7Z" fill="#486f59" stroke="#355944" strokeWidth="1.5" /><path d="m145 55 13-2 2 12-13 2Z" fill="#dfca8b" /><path d="m146 57 8 4 5-7" fill="none" stroke="#927e4e" /></>}
+      {reed && <><path d="M108 75c9-40 74-41 85 0l-6 14h-75Z" fill={`url(#${paint}-hat)`} stroke="#9f885e" strokeWidth="1.5" /><path d="m116 65 69 0m-66-8h60m-52-8h43" stroke="#b39b6c" strokeWidth="2" /><path d="m110 75-20 12c25 18 101 18 124 0l-23-13Z" fill="#dfc68d" stroke="#a28c5e" strokeWidth="2" /><path d="M110 74c24 9 57 9 82 0l-2 10c-23 10-54 9-77 1Z" fill="#829263" /><path d="M94 87q58 18 115 1" fill="none" stroke="#f0daa6" strokeWidth="2" /></>}
+      {kitchen && <><path d="M108 86c10-35 78-37 88 0l-10 9c-22-15-48-15-68 1Z" fill="#e1c78f" stroke="#b39561" strokeWidth="1.5" /><path d="m110 86 5 15m76-15-5 15" stroke="#c6a76f" strokeWidth="3" /><path d="m180 88 18-12 3 14 11 10-22 1Z" fill="#c98770" stroke="#a66e5e" /><circle cx="190" cy="90" r="5" fill="#e4b188" /></>}
+      {blue && <><path d="M107 82c-6-34 14-48 40-49 37-5 59 17 52 49l-44 11Z" fill="#7c9cae" stroke="#536e83" strokeWidth="2" /><path d="M108 76c25-6 62-4 88 4l-1 15c-26-12-60-11-86-4Z" fill="#97b6be" stroke="#627e91" strokeWidth="1.5" /><path d="m118 55 4 19m11-27 1 26m13-28-1 28m15-27-3 29m16-24-4 25m14-17-3 19" stroke="#c1d1d0" strokeWidth="2" opacity=".55" /><path d="M161 36q13-13 23-8" stroke="#6e8a9d" strokeWidth="6" strokeLinecap="round" fill="none" /></>}
+      <g className="fvis-portrait-wave"><path d="m199 229 14-33 18 8-8 37c-4 12-18 9-24-12Z" fill={jacket} stroke={shade} strokeWidth="1.5" /><path d="M213 200c-4-4-9-9-8-14 0-4 4-3 8 1l-5-23c-1-5 4-6 6-1l6 16-2-26c0-5 5-6 6 0l3 25 3-22c1-5 6-4 5 1l-2 25 6-14c2-4 7-2 5 2l-9 28c-4 10-15 12-22 2Z" fill={skin} stroke="#b98762" strokeWidth="1.4" strokeLinejoin="round" /><path d="m216 182 9 6m-3-5 1 13" stroke="#d29d76" strokeWidth="1.5" fill="none" /></g>
+      {!compact && <path d="M89 309c32 14 90 14 121-1" stroke={accent} strokeWidth="3" strokeLinecap="round" fill="none" opacity=".65" />}
+    </g>
+  </svg>;
+}
+
+export function FarmVisitorGateArt() {
+  const paint = `fvis-gate-${useId().replace(/:/g, '')}`;
+  return <svg className="fvis-gate-art" viewBox="0 0 420 300" aria-hidden="true" focusable="false">
+    <defs><linearGradient id={`${paint}-sky`} x1="0" y1="0" x2="0" y2="1"><stop stopColor="#e0eddf" /><stop offset="1" stopColor="#fff0c9" /></linearGradient><linearGradient id={`${paint}-wood`} x1="0" y1="0" x2="1" y2="1"><stop stopColor="#e3c38b" /><stop offset="1" stopColor="#ae8757" /></linearGradient></defs>
+    <ellipse cx="210" cy="146" rx="180" ry="126" fill={`url(#${paint}-sky)`} /><circle cx="315" cy="67" r="24" fill="#fff3bd" /><path d="M34 176c50-69 104-51 145-9 46-71 131-71 207 4v68H34Z" fill="#b7c994" /><path d="M28 211c82-55 107-26 175-30 55-3 119-40 191 16v48H28Z" fill="#94b07f" /><path d="M156 293c7-64 32-100 69-111l26 7c-39 27-39 64-19 104Z" fill="#e8d2a0" /><path d="m170 283 16 3m-6-28 14 3m-4-26 10 3m2-20 9 3" stroke="#cbb27c" strokeWidth="3" strokeLinecap="round" />
+    <g fill="#77986d"><circle cx="54" cy="202" r="35" /><circle cx="86" cy="211" r="37" /><circle cx="344" cy="211" r="39" /><circle cx="378" cy="210" r="27" /></g><g fill="#a2bb7f"><circle cx="48" cy="190" r="23" /><circle cx="83" cy="195" r="22" /><circle cx="342" cy="191" r="25" /><circle cx="372" cy="200" r="18" /></g>
+    <g fill={`url(#${paint}-wood)`} stroke="#a48157" strokeWidth="2" strokeLinejoin="round"><path d="M91 238V131l13-15 14 15v107Z" /><path d="M292 238V131l13-15 14 15v107Z" /><path d="M119 154h173v15H119Zm0 55h173v15H119Z" /><path d="m122 169 161 40v13l-161-40Z" /><path d="m122 209 161-40v13l-161 40Z" /></g><path d="M104 141v83m201-83v83" stroke="#ecd5a6" strokeWidth="2" /><g fill="#7c7653"><circle cx="129" cy="160" r="2.5" /><circle cx="283" cy="160" r="2.5" /><circle cx="129" cy="217" r="2.5" /><circle cx="283" cy="217" r="2.5" /></g>
+    <path d="M143 126h123v43H143Z" fill="#f7e8bf" stroke="#ab8c5c" strokeWidth="2" /><path d="m137 126 68-14 68 14" fill="none" stroke="#ab8c5c" strokeWidth="3" strokeLinecap="round" /><path d="m165 148 10-12 7 13-8 7Zm62-2 11-11 6 14-10 6Z" fill="#87a36e" /><path d="M197 138v17m10-17v17" stroke="#b5a175" strokeWidth="3" strokeLinecap="round" /><path d="M190 161h24" stroke="#c2a778" strokeWidth="2" strokeLinecap="round" />
+    <path d="M63 251v-57h18v57" fill="#9d7b55" /><path d="M47 177c0-15 44-15 44 0v27H47Z" fill="#b27661" stroke="#875d4c" strokeWidth="2" /><path d="M47 177c0-15 20-15 20 0v27H47Z" fill="#d79b76" /><path d="M53 183h8" stroke="#7c5c48" strokeWidth="3" strokeLinecap="round" /><path d="M79 177v-27h13v10H81" fill="#dfc382" stroke="#9b8058" strokeWidth="2" />
+    <g className="fvis-gate-butterfly" fill="#d5a376"><path d="M318 109c-29-25-30 11-6 6-25 9-6 27 6 1Z" /><path d="M318 109c23-28 32 4 8 6 26 4 11 27-8 1Z" /><path d="m318 110 1 12" stroke="#8d7f55" strokeWidth="2" /></g>
+    <g fill="#f2e4ad"><circle cx="48" cy="235" r="4" /><circle cx="39" cy="229" r="3" /><circle cx="87" cy="247" r="4" /><circle cx="337" cy="239" r="4" /><circle cx="365" cy="231" r="3" /></g><g fill="#d5a88b"><circle cx="64" cy="238" r="3" /><circle cx="350" cy="246" r="4" /><circle cx="381" cy="235" r="3" /></g>
+  </svg>;
+}

@@ -67,8 +67,8 @@ function ChapterContent({ chapter, game }: { chapter: number; game: Game }) {
   if (chapter === 0) return <>
     <p className="fg-lead">播种消耗 1 份作物，成熟后收获 2 份。把下一轮的种子留在粮仓里，田地就能一季接一季。</p>
     <ol className="fg-instructions"><li>选择已解锁的空地，挑选库存中还有的种子。</li><li>等倒计时结束，再收获成熟作物；收成进入粮仓。</li><li>留下一些作物种子，余下的送去加工或交订单。</li></ol>
-    <div className="fg-field-tip"><span className="fg-tip-title"><Sprout size={17} /> 一只手也能打理田地</span><p>浏览模式拖动地图，双指可以缩放。切到播种或收获模式，划过地块后松手操作；轻点地块也可以。只会处理符合条件的地块。</p></div>
-    <div className="fg-field-tip"><span className="fg-tip-title"><Tractor size={17} /> 给农场换个布置</span><p>收起手册，点游戏顶部“整理农场”，选中农舍、工坊或牧场区域后移动，也可以摆放免费的花坛、树篱和木栅，各有两件。点“保存布置”才会应用，取消就保留原样；恢复默认也要保存才生效。耕地、水塘和小镇的位置固定，布置不扣金币、钻石或库存。</p></div>
+    <div className="fg-field-tip"><span className="fg-tip-title"><Sprout size={17} /> 一只手也能打理田地</span><p>浏览模式拖动地图，双指可以缩放。轻点地块后展开“田地工具”，切到播种或收获模式，划过地块后松手操作；轻点地块也可以。只会处理符合条件的地块。</p></div>
+    <div className="fg-field-tip"><span className="fg-tip-title"><Tractor size={17} /> 给农场换个布置</span><p>收起手册，打开“农场菜单”里的“整理农场”，选中农舍、工坊或牧场区域后移动，也可以摆放免费的花坛、树篱和木栅，各有两件。点“保存布置”才会应用，取消就保留原样；恢复默认也要保存才生效。耕地、水塘和小镇的位置固定，布置不扣金币、钻石或库存。</p></div>
     <p className="fg-page-note">粮仓满了，先交货或扩容再收获。种子用完时，可以去仓库购买补给。农场布置移动的是整片区域，不能逐台移动机器或逐块移动田地。</p>
     <p className="fg-durable"><Check size={15} /> 已收获作物 {game.harvests.toLocaleString('zh-CN')} 次</p>
   </>;
@@ -89,18 +89,18 @@ function ChapterContent({ chapter, game }: { chapter: number; game: Game }) {
     <p className="fg-lead">收成放进仓库，备齐后送出订单，才会获得对应的金币与经验。金币可以用来建设和补给。</p>
     <ol className="fg-instructions"><li>在订单板查看每张订单的货物数量与奖励。</li><li>缺作物去农田，缺产物去牧场，缺成品去工坊。</li><li>备齐后交货。路边小店也能出售商品，成交后记得收款。</li></ol>
     <div className="fg-field-tip"><span className="fg-tip-title"><ShoppingBasket size={17} /> 接得住的订单更划算</span><p>刚起步时先做手头能完成的订单。仓库里既要有交货的商品，也要留下一轮的种子与饲料。</p></div>
-    <p className="fg-page-note">订单与路边小店是单机游戏交易，使用游戏金币；不代表真实买家、真实需求或现实收入。</p>
+    <div className="fg-field-tip"><span className="fg-tip-title"><ShoppingBasket size={17} /> 门口也有邻居来买货</span><p>回到农田，点“农场门口”，招呼一位邻居。看清商品、数量和报价后确认出售，作物至少保留两份种子；也可以婉拒或稍后再说，来客不会因离线自动离开。成交或送别后等待两分钟，再迎接下一位。</p></div><p className="fg-page-note">订单与路边小店是单机游戏交易，使用游戏金币；不代表真实买家、真实需求或现实收入。</p>
     <p className="fg-durable"><Check size={15} /> 已交付订单 {game.ordersDelivered.toLocaleString('zh-CN')} 单</p>
   </>;
   if (chapter === 4) return <>
     <p className="fg-lead">列车带来游戏访客，杂货铺、咖啡馆和旅店等着你来经营。备好农场商品，接待来客，再把报酬带回农场。</p>
     <ol className="fg-instructions"><li>在小镇查看列车状态，有空位时接待进站的访客。</li><li>查看访客想去的店铺与所需商品；备齐后开始服务，商品会从游戏仓库扣除。</li><li>服务倒计时结束后，手动领取报酬，再接待下一位来客。</li></ol>
     <div className="fg-field-tip"><span className="fg-tip-title"><ShoppingBasket size={17} /> 给来客留一份收成</span><p>缺少商品时，顺着需求去农田、牧场或工坊备货。先看看留种、饲料和现有订单，别把下一轮经营所需的库存全用完。</p></div>
-    <p className="fg-page-note">小镇访客与店铺使用游戏商品和游戏货币。现实中的种养记录、天气、问诊和行情，请从顶部入口切换到独立的农场助手。</p>
+    <p className="fg-page-note">小镇访客与店铺使用游戏商品和游戏货币。现实中的种养记录、天气、问诊和行情，请从地图右下“助手”或其他经营页面顶部“农场助手”进入独立服务。</p>
   </>;
   return <>
     <p className="fg-lead">农场助手是为真实农场主准备的独立界面。气象、诊所、行情与记录随时开放，不需要游戏等级，也不扣游戏金币。</p>
-    <ol className="fg-instructions"><li>从顶部“农场助手”切换界面，在气象站核对真实农场位置，再查看当地天气与农时参考。</li><li>在 AI 诊所提供真实照片、视频或症状描述，获得辅助研判；本地模型需先下载到支持的安卓设备。</li><li>在农场工作室记录真实地块、养殖与任务；查看行情、农技知识与有来源的农业资讯。</li></ol>
+    <ol className="fg-instructions"><li>从地图右下“助手”或其他经营页面顶部“农场助手”切换界面，在气象站核对真实农场位置，再查看当地天气与农时参考。</li><li>在 AI 诊所提供真实照片、视频或症状描述，获得辅助研判；本地模型需先下载到支持的安卓设备。</li><li>在农场工作室记录真实地块、养殖与任务；查看行情、农技知识与有来源的农业资讯。</li></ol>
     <div className="fg-field-tip"><span className="fg-tip-title"><MapPin size={17} /> 先看清数据来源</span><p>天气定位要与真实农场一致，行情要核对地区、单位和时间。AI 建议是辅助参考，严重或快速扩散的病情应联系当地农技人员或兽医。</p></div>
     <p className="fg-page-note">游戏里的作物状态、库存、金币和订单不是真实生产数据；真实农场记录独立保存。</p>
   </>;

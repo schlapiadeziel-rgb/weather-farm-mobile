@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, ChevronRight, Hand, HelpCircle, LockKeyhole, Sprout, Wheat, X } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, Hand, HelpCircle, LockKeyhole, Sprout, Wheat, X } from 'lucide-react';
 import { CROPS } from '../lib/farmContent';
 import { getLevel } from '../lib/game';
 import type { CropId, Game } from '../lib/farmTypes';
@@ -19,6 +19,9 @@ export type FieldToolsProps = {
 
 export function FieldTools({ game, mode, seed, onModeChange, onSeedChange, onHelp }: FieldToolsProps) {
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const toolsToggle = useRef<HTMLButtonElement>(null);
+  const toolsId = useId();
   const anchor = useRef<HTMLButtonElement>(null);
   const picker = useRef<HTMLDivElement>(null);
   const headingId = useId();
@@ -53,23 +56,30 @@ export function FieldTools({ game, mode, seed, onModeChange, onSeedChange, onHel
   }, [pickerOpen]);
 
   useEffect(() => { if (mode !== 'plant') setPickerOpen(false); }, [mode]);
+  useEffect(() => {
+    if (!toolsOpen || pickerOpen) return;
+    const key = (event: KeyboardEvent) => { if (event.key === 'Escape') { event.preventDefault(); setToolsOpen(false); toolsToggle.current?.focus(); } };
+    document.addEventListener('keydown', key);
+    return () => document.removeEventListener('keydown', key);
+  }, [toolsOpen, pickerOpen]);
 
   return <>
-    <div className={`field-tools ${mode === 'plant' ? 'field-tools-with-seed' : ''} ${onHelp ? 'field-tools-with-help' : ''}`} data-no-camera="true">
-      <div className="field-tool-modes" role="group" aria-label="田地操作方式">
-        <button type="button" className={mode === 'browse' ? 'active' : ''} aria-label="浏览田地" aria-pressed={mode === 'browse'} onClick={() => onModeChange('browse')}><Hand size={18} /><span>浏览</span></button>
+    <div className={`field-tools ${!toolsOpen ? 'field-tools-collapsed' : ''} ${mode === 'plant' ? 'field-tools-with-seed' : ''} ${onHelp ? 'field-tools-with-help' : ''}`} data-no-camera="true">
+      <button ref={toolsToggle} type="button" className="field-tools-toggle" aria-label={toolsOpen ? '收起田地工具' : '展开田地工具'} aria-expanded={toolsOpen} aria-controls={toolsId} onClick={() => { setPickerOpen(false); setToolsOpen(!toolsOpen); }}>{mode === 'plant' ? <Sprout size={18} /> : mode === 'harvest' ? <Wheat size={18} /> : <Hand size={18} />}<span>{mode === 'plant' ? `播种 · ${crop.name}` : mode === 'harvest' ? '连续收获' : '田地工具'}</span><ChevronDown size={14} /></button>
+      {toolsOpen && <><div id={toolsId} className="field-tool-modes" role="group" aria-label="田地操作方式">
+        <button type="button" className={mode === 'browse' ? 'active' : ''} aria-label="浏览田地" aria-pressed={mode === 'browse'} onClick={() => { onModeChange('browse'); setToolsOpen(false); }}><Hand size={18} /><span>浏览</span></button>
         <button type="button" className={mode === 'plant' ? 'active' : ''} aria-label="连续播种" aria-pressed={mode === 'plant'} onClick={() => onModeChange('plant')}><Sprout size={19} /><span>播种</span></button>
-        <button type="button" className={mode === 'harvest' ? 'active' : ''} aria-label="连续收获" aria-pressed={mode === 'harvest'} onClick={() => onModeChange('harvest')}><Wheat size={19} /><span>收获</span></button>
+        <button type="button" className={mode === 'harvest' ? 'active' : ''} aria-label="连续收获" aria-pressed={mode === 'harvest'} onClick={() => { onModeChange('harvest'); setToolsOpen(false); }}><Wheat size={19} /><span>收获</span></button>
       </div>
       {mode === 'plant' && <button ref={anchor} type="button" className={`field-seed-button ${stock ? '' : 'out-of-seeds'}`} aria-label={`选择播种作物，当前${crop.name}，库存${stock}`} aria-haspopup="dialog" aria-expanded={pickerOpen} onClick={() => setPickerOpen(true)}><span className="field-selected-seed"><CropVisual crop={crop.id} growth={100} health={100} /></span><span><strong>{crop.name}</strong><small><span>库存 {stock}</span><span className="field-seed-cost"> · 每块用 1</span></small></span><ChevronRight size={15} /></button>}
-      <div className="field-tool-hint"><p>{mode === 'browse' ? '轻触查看 · 划动地图' : mode === 'plant' ? stock ? <><span className="field-tool-seed-name">{crop.name}：</span>划过空地，松手播种</> : '没有种子了，去仓库补给' : '划过成熟作物，松手收获'}</p>{onHelp && <button type="button" aria-label="查看田地操作帮助" onClick={onHelp}><HelpCircle size={17} /></button>}</div>
+      <div className="field-tool-hint"><p>{mode === 'browse' ? '轻触查看 · 划动地图' : mode === 'plant' ? stock ? <><span className="field-tool-seed-name">{crop.name}：</span>划过空地，松手播种</> : '没有种子了，去仓库补给' : '划过成熟作物，松手收获'}</p>{onHelp && <button type="button" aria-label="查看田地操作帮助" onClick={() => { setToolsOpen(false); onHelp(); }}><HelpCircle size={17} /></button>}</div></>}
     </div>
     {pickerOpen && createPortal(<div className="field-seed-overlay" onPointerDown={event => { if (event.target === event.currentTarget) setPickerOpen(false); }}><div ref={picker} className="field-seed-picker" role="dialog" aria-modal="true" aria-labelledby={headingId} style={position}>
       <div className="field-seed-heading"><div><h2 id={headingId}>种子口袋</h2><p>选一份库存，种到空地里</p></div><button type="button" aria-label="收起种子口袋" onClick={() => setPickerOpen(false)}><X size={19} /></button></div>
       <div className="field-seed-grid">{CROPS.map(candidate => {
         const locked = level < candidate.level;
         const quantity = game.inventory[candidate.id] ?? 0;
-        return <button type="button" key={candidate.id} disabled={locked} aria-pressed={seed === candidate.id} aria-label={`${candidate.name}，${locked ? `${candidate.level}级解锁` : `库存${quantity}`}`} className={`${seed === candidate.id ? 'selected' : ''} ${!quantity ? 'empty-stock' : ''}`} onClick={() => { onSeedChange(candidate.id); setPickerOpen(false); }}><span className="field-seed-art"><CropVisual crop={candidate.id} growth={100} health={100} /></span><strong>{candidate.name}</strong><small>{locked ? <><LockKeyhole size={10} />Lv. {candidate.level}</> : `库存 ${quantity}`}</small>{seed === candidate.id && <Check className="field-seed-check" size={12} />}</button>;
+        return <button type="button" key={candidate.id} disabled={locked} aria-pressed={seed === candidate.id} aria-label={`${candidate.name}，${locked ? `${candidate.level}级解锁` : `库存${quantity}`}`} className={`${seed === candidate.id ? 'selected' : ''} ${!quantity ? 'empty-stock' : ''}`} onClick={() => { onSeedChange(candidate.id); setPickerOpen(false); setToolsOpen(false); }}><span className="field-seed-art"><CropVisual crop={candidate.id} growth={100} health={100} /></span><strong>{candidate.name}</strong><small>{locked ? <><LockKeyhole size={10} />Lv. {candidate.level}</> : `库存 ${quantity}`}</small>{seed === candidate.id && <Check className="field-seed-check" size={12} />}</button>;
       })}</div>
       <p className="field-seed-note">播种消耗 1 份作物，收获得到 2 份。</p>
     </div></div>, document.body)}

@@ -1,5 +1,7 @@
 .app-mode-switch{display:inline-flex;align-items:center;justify-content:center;gap:7px;flex-shrink:0;min-height:44px;padding:0 12px;border-radius:11px;background:#e8e9bd;color:#304e38;font-size:12px;font-weight:700;border:1px solid #f4f2cf}
 .game-topbar .wallet{margin-left:auto}
+.game-menu-entry{position:relative;display:grid;place-items:center;flex-shrink:0;min-width:44px;min-height:44px;border:1px solid #77936566;border-radius:11px;background:#294f3c;color:#eef3d2}
+.game-menu-dot{position:absolute;right:5px;top:5px;width:6px;height:6px;border-radius:50%;background:#efd28a;box-shadow:0 0 0 2px #294f3c}
 .assistant-topbar .app-mode-switch{margin-left:auto}
 .assistant-shell{background:#f1f4ed;color:#294e3c}
 .assistant-topbar{background:#f9fbf6;color:#2e5541;border-bottom:1px solid #dce5d6;box-shadow:0 2px 12px #294e3c08}

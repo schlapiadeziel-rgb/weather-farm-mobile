@@ -1,6 +1,6 @@
-import { useCallback, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useId, useLayoutEffect, useRef, useState } from 'react';
 import type { CSSProperties, PointerEvent as ReactPointerEvent, ReactNode } from 'react';
-import { Minus, Plus, Scan } from 'lucide-react';
+import { Minus, Plus, Scan, X, ZoomIn } from 'lucide-react';
 import './farm-viewport.css';
 import './farm-field-world.css';
 
@@ -26,6 +26,9 @@ export function FarmViewport({ children, className = '' }: FarmViewportProps) {
   const geometryRef = useRef<WorldGeometry>(EMPTY_GEOMETRY);
   const [geometry, setGeometry] = useState<WorldGeometry>(EMPTY_GEOMETRY);
   const [moving, setMoving] = useState(false);
+  const [controlsOpen, setControlsOpen] = useState(false);
+  const controlsId = useId();
+  const controlsToggle = useRef<HTMLButtonElement>(null);
   const pointers = useRef(new Map<number, TrackedPointer>());
   const canceledPointers = useRef(new Set<number>());
   const dragBase = useRef<Camera>(IDENTITY);
@@ -208,10 +211,17 @@ export function FarmViewport({ children, className = '' }: FarmViewportProps) {
       }
     }}>
     <div className="farm-viewport-world" style={{ '--farm-world-base': geometry.worldWidth ? geometry.worldWidth / 1200 : 1, width: geometry.worldWidth || '100%', height: geometry.worldHeight || '100%', transform: `translate3d(${geometry.offset.x + camera.x}px, ${geometry.offset.y + camera.y}px, 0) scale(${camera.scale})` } as CSSProperties}>{children}</div>
-    <div className="farm-camera-controls" data-no-camera="true" role="group" aria-label="农场地图视角">
-      <button type="button" aria-label="缩小农场地图" title="缩小地图" disabled={camera.scale <= MIN_ZOOM + .001} onClick={() => zoomBy(-.2)}><Minus size={19} /></button>
-      <button type="button" aria-label="复位农场地图" title="复位地图" onClick={() => updateCamera(IDENTITY)}><Scan size={19} /><span className="farm-camera-zoom">{Math.round(camera.scale * 100)}%</span></button>
-      <button type="button" aria-label="放大农场地图" title="放大地图" disabled={camera.scale >= MAX_ZOOM - .001} onClick={() => zoomBy(.2)}><Plus size={19} /></button>
+    <div className="farm-camera-controls" data-no-camera="true" role="group" aria-label="农场地图视角" onClick={event => event.stopPropagation()} onKeyDown={event => {
+      if (event.key === 'Escape' && controlsOpen) {
+        event.preventDefault(); event.stopPropagation(); setControlsOpen(false); controlsToggle.current?.focus({ preventScroll: true });
+      }
+    }}>
+      <div id={controlsId} className="farm-camera-options" data-camera-options hidden={!controlsOpen}>
+        <button type="button" aria-label="缩小农场地图" title="缩小地图" disabled={camera.scale <= MIN_ZOOM + .001} onClick={() => zoomBy(-.2)}><Minus size={19} /></button>
+        <button type="button" className="farm-camera-reset" aria-label="复位农场地图" title="复位地图" onClick={() => updateCamera(IDENTITY)}><Scan size={19} /><span className="farm-camera-zoom">{Math.round(camera.scale * 100)}%</span></button>
+        <button type="button" aria-label="放大农场地图" title="放大地图" disabled={camera.scale >= MAX_ZOOM - .001} onClick={() => zoomBy(.2)}><Plus size={19} /></button>
+      </div>
+      <button ref={controlsToggle} type="button" className="farm-camera-toggle" data-camera-toggle aria-label={controlsOpen ? '收起地图缩放' : '展开地图缩放'} title={controlsOpen ? '收起地图缩放' : '地图缩放'} aria-expanded={controlsOpen} aria-controls={controlsId} onClick={() => setControlsOpen(open => !open)}>{controlsOpen ? <X size={19} /> : <ZoomIn size={21} />}</button>
     </div>
   </div>;
 }
