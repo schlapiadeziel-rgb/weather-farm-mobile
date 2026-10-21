@@ -48,6 +48,9 @@
   padding:1px 4px;
   bottom:-4px;
 }
+
+/* Ready labels share the light map plaque, so keep their lettering dark. */
+.farm-scene.map-scene .farm-viewport-world .plot.ripe > .plot-label { color:#574523; }
 /* Keep the compact details view's top plots clear of the toolbar hint row.
    The mode controls and help button retain their 44px touch targets. */
 @media(max-height:400px) {

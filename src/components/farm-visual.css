@@ -37,6 +37,8 @@
 .fv-sparkle-small { animation-delay: -2.7s; animation-duration: 4.7s; }
 .fv-wheat-back .fv-wind { animation-delay: -2.2s; animation-duration: 6.3s; }
 .fv-wheat-right .fv-wind { animation-delay: -3.6s; animation-duration: 5.9s; }
+.fv-corn-back .fv-wind { animation-delay: -2.7s; animation-duration: 7.8s; }
+.fv-corn-front .fv-wind { animation-delay: -4.8s; animation-duration: 7.2s; }
 .fv-crop[data-stage="ripe"] .fv-sparkles { filter: drop-shadow(0 0 2px #fff4a680); }
 .fv-water-cue { animation: fv-water-cue 4s ease-in-out infinite; }
 .fv-animal-body {
@@ -50,6 +52,15 @@
 .fv-animal[data-animal="goat"] .fv-animal-body { animation-delay: -3.1s; animation-duration: 6.8s; }
 .fv-animal[data-condition="resting"] .fv-livestock-art { opacity: .66; }
 .fv-animal[data-condition="resting"] .fv-animal-body { animation: none; }
+.fv-eyes { transform-box: fill-box; transform-origin: center; animation: fv-blink 10.6s linear infinite; }
+.fv-animal[data-animal="cow"] .fv-eyes { animation-delay: -3.7s; }
+.fv-animal[data-animal="sheep"] .fv-eyes { animation-delay: -6.8s; }
+.fv-animal[data-animal="pig"] .fv-eyes { animation-delay: -1.8s; }
+.fv-animal[data-animal="goat"] .fv-eyes { animation-delay: -8.3s; }
+.fv-tail { transform-box: view-box; transform-origin: 22px 58px; animation: fv-tail-flick 12s ease-in-out infinite; }
+.fv-animal[data-animal="pig"] .fv-tail { animation-delay: -5.2s; animation-duration: 14s; }
+.fv-animal[data-condition="resting"] .fv-eyes,.fv-animal[data-condition="resting"] .fv-tail { animation:none; }
+[data-layout-editing="true"] .fv-visual *,.fle-dialog .fv-visual * { animation:none!important;transition:none!important; }
 
 /* The parent owns touch targets. Art never creates a floating interaction layer. */
 .crop-avatar .fv-crop { width: 100%; max-height: 100%; padding: 2px; }
@@ -92,6 +103,15 @@
 @keyframes fv-breathe {
   0%, 100% { transform: scaleY(1); }
   50% { transform: scaleY(1.015); }
+}
+@keyframes fv-blink {
+  0%, 91%, 94%, 100% { transform: scaleY(1); }
+  92%, 93% { transform: scaleY(.12); }
+}
+@keyframes fv-tail-flick {
+  0%, 72%, 84%, 100% { transform:rotate(0); }
+  76% { transform:rotate(4deg); }
+  80% { transform:rotate(-2deg); }
 }
 @media (max-height: 550px) {
   .plot .fv-crop { width: clamp(32px, 5.2vw, 58px); }

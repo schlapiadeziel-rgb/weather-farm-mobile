@@ -12,3 +12,9 @@
 .farm-landscape[data-layout-fit="contain"]{background:#91b86b}
 .farm-landscape[data-layout-editing="true"] .fl-windmill-blades,.farm-landscape[data-layout-editing="true"] .fl-water-ripples,.farm-landscape[data-layout-editing="true"] .fl-water-ring,.farm-landscape[data-layout-editing="true"] .fl-pond-reeds{animation-play-state:paused}
 .farm-landscape .fl-flowerbed,.farm-landscape .fl-hedge,.farm-landscape .fl-decorative-fence{pointer-events:visiblePainted}
+
+/* Small material changes catch the light without moving the saved silhouettes. */
+.fl-river-glints{pointer-events:none;animation:fl-river-drift 26s linear infinite}.fl-leaf-light{pointer-events:none;animation:fl-leaf-sun 10s ease-in-out infinite}.fl-pond-sunlight{animation:fl-pond-light 9s ease-in-out infinite}.fl-cow-eye{transform-box:fill-box;transform-origin:center;animation:fl-cow-blink 8s linear infinite}.fl-cow-tail{transform-box:fill-box;transform-origin:right top;animation:fl-tail-flick 7s ease-in-out infinite}
+@keyframes fl-river-drift{to{stroke-dashoffset:-135}}@keyframes fl-leaf-sun{0%,100%{opacity:.32}50%{opacity:.48}}@keyframes fl-pond-light{0%,100%{opacity:.11}50%{opacity:.2}}@keyframes fl-cow-blink{0%,44%,47%,100%{transform:scaleY(1)}45.5%{transform:scaleY(.1)}}@keyframes fl-tail-flick{0%,58%,68%,100%{transform:rotate(0)}62%{transform:rotate(6deg)}}
+.farm-landscape[data-layout-editing="true"] *{animation-play-state:paused!important}
+@media(prefers-reduced-motion:reduce){.farm-landscape *{animation:none!important;transition:none!important}.fl-leaf-light{opacity:.42}.fl-pond-sunlight{opacity:.15}}

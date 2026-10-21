@@ -11,6 +11,9 @@ import type { WeatherBundle, Location } from './lib/weather';
 import { validDate, validTimestamp } from './lib/publicDataHttp';
 import { CropVisual, AnimalVisual } from './components/FarmVisual';
 import FarmLandscape from './components/FarmLandscape';
+import type { FarmMapArea } from './components/FarmLandscape';
+import FarmMapSignals from './components/FarmMapSignals';
+import { getFarmMapSignals } from './lib/farmMapSignals';
 import FarmLayoutEditor from './components/FarmLayoutEditor';
 import FarmVisitors from './components/FarmVisitors';
 import FarmVisitorEntry from './components/FarmVisitorEntry';
@@ -148,6 +151,7 @@ export default function App() {
   const serviceWeather = locationChosen ? bundle : null;
   const serviceWeatherError = locationChosen ? weatherError : '先设置真实农场位置，再获取当地天气与农事提醒。';
   const activity = getFarmActivity(game, clock);
+  const mapSignals = getFarmMapSignals(game, clock);
   const readyTotal = activity.sections.reduce((sum, section) => sum + section.count, 0);
   function navigate(next: Tab) {
     if (PLAY_TABS.includes(next) !== simulation) { clearTimeout(timeout.current); setNotice(''); }
@@ -177,6 +181,11 @@ export default function App() {
     showNotice(saved ? '农场布置已保存。' : '本次布置已应用，但本机无法保存。请在农场日记导出游戏备份。');
   }
   function focusProduction(focus: { machineId?: MachineId; item?: ItemId }) { setProductionFocus({ ...focus, requestId: ++navigationRequest.current }); navigate('production'); }
+  function visitMapArea(area: FarmMapArea) {
+    const signal = getFarmMapSignals(gameRef.current, Date.now()).find(item => item.area === area);
+    if (signal) visitActivity(signal.target);
+    else navigate(area);
+  }
   function visitActivity(target: FarmActivityTarget) {
     if (target.tab === 'farm') { navigate('farm'); setSelected(target.plotId); setDetailsOpen(true); }
     else if (target.tab === 'livestock') { navigate('livestock'); setSelectedPen(target.penId); setDetailsOpen(true); }
@@ -403,7 +412,7 @@ export default function App() {
           <div className="scene-top"><div className="day-pill"><Sun size={17} /><strong>我的农田</strong><span>{game.unlockedPlots} 块耕地</span></div><FarmVisitorEntry game={game} now={clock} onOpen={openVisitors} /><button className="quest-sign" onClick={goal.action}><Flag size={17} /><span><strong>{goal.title}</strong><small>{goal.detail}</small></span><ChevronRight size={15} /></button></div>
           {(detailsOpen || fieldMode !== 'browse') && <FieldTools game={game} mode={fieldMode} seed={seed} onModeChange={chooseFieldMode} onSeedChange={next => { setSeed(next); chooseFieldMode('plant'); }} onHelp={openGuide} />}
           <FarmViewport>
-          <FarmLandscape layout={game.layout} onVisit={area => area === 'town' ? navigate('town') : navigate(area)} /><div className="scene-shade" />
+          <FarmLandscape layout={game.layout} onVisit={visitMapArea} /><div className="scene-shade" />
           <FieldInteraction game={game} mode={activeFieldMode} seed={seed} blocked={guideOpen || activityOpen || updateOpen || locationOpen || resetOpen || layoutOpen || visitorsOpen || gameMenuOpen || !!speedRequest} onChange={commitGame} onNotice={showNotice}>
           <div className="field-wrap"><div className="plot-grid">{game.plots.map(p => {
             const c = CROPS.find(s => s.id === p.crop), ready = p.growth >= 100 && !!c, locked = p.id > game.unlockedPlots;
@@ -413,6 +422,7 @@ export default function App() {
             </button>;
           })}</div><span className="field-caption">播种用 1 份 · 收获得 2 份 · 留种、加工，再去交订单</span></div>
           </FieldInteraction>
+          <FarmMapSignals signals={mapSignals} onVisit={visitMapArea} blocked={activeFieldMode !== 'browse' || guideOpen || activityOpen || updateOpen || locationOpen || resetOpen || layoutOpen || visitorsOpen || gameMenuOpen || !!speedRequest} />
           </FarmViewport>
           <div className="farm-bottom"><div className="farm-level"><span className="level-emblem"><Wheat size={21} /></span><div><strong>Lv. {level} 农场主</strong><Bar value={(game.xp - levelBase) / (nextLevelXp - levelBase) * 100} tone="gold" /><span>{game.xp} / {nextLevelXp} 经验</span></div></div><button className="advance-button" onClick={() => navigate('orders')}><ClipboardList size={20} /><span>订单板</span><ChevronRight size={18} /></button></div>
 
@@ -429,7 +439,7 @@ export default function App() {
       </> : tab === 'livestock' ? <>
         <main className="farm-scene livestock-scene map-scene">
           <FarmSceneHud game={game} onMenu={openGameMenu} onAssistant={() => navigate('assistant')} onActivity={openActivity} ready={readyTotal > 0} hasUpdate={!!availableUpdate} />
-          <FarmViewport><FarmLandscape layout={game.layout} onVisit={area => area === 'town' ? navigate('town') : navigate(area)} /><div className="scene-shade" /></FarmViewport>
+          <FarmViewport><FarmLandscape layout={game.layout} onVisit={visitMapArea} /><div className="scene-shade" /><FarmMapSignals signals={mapSignals} currentArea="livestock" onVisit={visitMapArea} blocked={animalMode !== 'browse' || guideOpen || activityOpen || updateOpen || locationOpen || resetOpen || layoutOpen || visitorsOpen || gameMenuOpen || !!speedRequest} /></FarmViewport>
           <div className="scene-top"><div className="day-pill"><PawPrint size={17} /><strong>我的牧场</strong><span>饲料换产物</span></div><button className="quest-sign" onClick={() => requestItem(animal?.feedItem ?? selectedAnimal.feedItem)}><Factory size={17} /><span><strong>先备好动物的口粮</strong><small>饲料厂里加工饲料</small></span><ChevronRight size={15} /></button></div>
           {(detailsOpen || animalMode !== 'browse') && <AnimalTools game={game} mode={animalMode} onModeChange={chooseAnimalMode} />}
           <AnimalInteraction game={game} mode={detailsOpen ? 'browse' : animalMode} blocked={guideOpen || activityOpen || updateOpen || locationOpen || resetOpen || layoutOpen || visitorsOpen || gameMenuOpen || !!speedRequest} onChange={commitGame} onNotice={showNotice} onApplied={showPenFeedback}>
