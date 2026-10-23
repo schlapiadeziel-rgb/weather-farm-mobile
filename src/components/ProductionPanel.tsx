@@ -5,6 +5,7 @@ import type { Game, ItemId, MachineDefinition, MachineId, ProductionJob, RecipeD
 import { MACHINES, RECIPES, getItem } from '../lib/farmContent';
 import { cancelQueuedProduction, collectProduction, expandProductionSlots, getLevel, productionSlotCost, queueProduction, speedUpMachine, storageUsed, unlockMachine } from '../lib/game';
 import GemConfirmation from './GemConfirmation';
+import CompletionButton from './CompletionButton';
 import './farm-production.css';
 
 type SupplyTab = 'farm' | 'livestock' | 'explore' | 'storage';
@@ -83,6 +84,13 @@ export function ProductionPanel({ game, onChange, notify, now, onNavigate, onReq
   const [workbenchView, setWorkbenchView] = useState<'recipes' | 'queue'>('recipes');
   const [focusedItem, setFocusedItem] = useState<ItemId | null>(null);
   const [pendingFocus, setPendingFocus] = useState<number | null>(null);
+  const [lastCollected, setLastCollected] = useState<{ machine: MachineId; recipe: ItemId } | null>(null);
+  const [repeatSuccessToken, setRepeatSuccessToken] = useState(0);
+  const latestGameRef = useRef(game);
+  const lastGamePropRef = useRef(game);
+  // Local view changes may render before the parent supplies an accepted action.
+  // Only a changed game prop replaces the synchronous action state.
+  if (lastGamePropRef.current !== game) { lastGamePropRef.current = game; latestGameRef.current = game; }
   const lastFocusRequest = useRef<number | null>(null);
   const recipeRefs = useRef(new Map<ItemId, HTMLElement>());
   const buildSiteRef = useRef<HTMLDivElement>(null);
@@ -96,17 +104,35 @@ export function ProductionPanel({ game, onChange, notify, now, onNavigate, onReq
   const activeJob = owned?.queue.find(job => job.readyAt > now && job.startedAt <= now);
   const confirmJob = confirmation && confirmation.kind !== 'expand' && confirmation.machine === machine.id ? owned?.queue.find(job => job.id === confirmation.job) : undefined;
   const expandCost = owned && owned.slots < 9 ? productionSlotCost(game, machine.id) : 0;
+  const repeatRecipe = lastCollected?.machine === machine.id ? recipes.find(recipe => recipe.id === lastCollected.recipe) : undefined;
+  const repeatIngredients = Object.entries(repeatRecipe?.inputs ?? {}) as [ItemId, number][];
+  const repeatMissing = repeatIngredients.filter(([id, amount]) => (game.inventory[id] ?? 0) < amount);
+  const repeatLevel = Math.max(machine.level, repeatRecipe?.level ?? 1);
+  const repeatReasons = [
+    level < repeatLevel ? `需要 ${repeatLevel} 级，当前 ${level} 级。` : '',
+    owned && owned.queue.length >= owned.slots ? `生产位已满（${owned.queue.length}/${owned.slots}），先收取成品或扩位。` : '',
+    repeatMissing.length ? '原料不足，补齐后可再做一批。' : '',
+  ].filter(Boolean);
   const { Icon } = workshopLooks[machine.id];
-  const apply = (action: () => Game, message: string) => { try { const next = action(); const saved = onChange(next); notify(saved === false ? `${message}本机未能保存，请在农场日记导出游戏备份。` : message); } catch (error) { notify(error instanceof Error ? error.message : '这次操作没有完成，请稍后再试。'); } };
+  const apply = (action: (latest: Game) => Game, message: string): boolean => {
+    try {
+      const next = action(latestGameRef.current);
+      latestGameRef.current = next;
+      const saved = onChange(next);
+      notify(saved === false ? `${message}本机未能保存，请在农场日记导出游戏备份。` : message);
+      return true;
+    } catch (error) { notify(error instanceof Error ? error.message : '这次操作没有完成，请稍后再试。'); return false; }
+  };
   const selectMachine = (id: MachineId) => {
     const selectedAt = Date.now();
-    const hasReadyProduct = game.machines.find(item => item.id === id)?.queue.some(job => job.readyAt <= selectedAt);
-    setSelected(id); setConfirmation(null); setFocusedItem(null); setPendingFocus(null);
+    const hasReadyProduct = latestGameRef.current.machines.find(item => item.id === id)?.queue.some(job => job.readyAt <= selectedAt);
+    setSelected(id); setConfirmation(null); setFocusedItem(null); setPendingFocus(null); setLastCollected(null);
     setWorkbenchView(hasReadyProduct ? 'queue' : 'recipes');
   };
   useEffect(() => {
     if (!focus || lastFocusRequest.current === focus.requestId) return;
     lastFocusRequest.current = focus.requestId;
+    setLastCollected(null);
     const recipe = focus.item ? RECIPES.find(entry => entry.output === focus.item) : undefined;
     const target = recipe?.machine ?? focus.machineId;
     if (!target || !MACHINES.some(entry => entry.id === target)) return;
@@ -136,17 +162,27 @@ export function ProductionPanel({ game, onChange, notify, now, onNavigate, onReq
     if (source.machine) { if (!game.machines.some(item => item.id === source.machine)) setFilter('all'); selectMachine(source.machine); }
     else if (source.tab) onNavigate?.(source.tab);
   };
-  const makeRecipe = (recipe: RecipeDefinition) => apply(() => queueProduction(game, machine.id, recipe.id, now), `${getItem(recipe.output).name}已加入生产队列。`);
-  const collect = (job: ProductionJob) => apply(() => collectProduction(game, machine.id, job.id, now), `已将${getItem(job.recipe).name}收入仓库。`);
+  const showRecipes = () => { setWorkbenchView('recipes'); setFocusedItem(null); setPendingFocus(null); };
+  const makeRecipe = (recipe: RecipeDefinition) => apply(latest => queueProduction(latest, recipe.machine, recipe.id, Date.now()), `${getItem(recipe.output).name}已加入生产队列。`);
+  const collect = (job: ProductionJob) => {
+    if (apply(latest => collectProduction(latest, machine.id, job.id, Date.now()), `已将${getItem(job.recipe).name}收入仓库。`)) setLastCollected({ machine: machine.id, recipe: job.recipe });
+  };
   let confirmationDetails: { cost: number; heading: string; description: string; cancelLabel: string; confirmLabel: string; blockedReason: string; perform(): void } | null = null;
   if (confirmation?.machine === machine.id && owned) {
     if (confirmation.kind === 'expand') {
-      confirmationDetails = { cost: expandCost, heading: `为${machine.name}增加一个生产位？`, description: `生产位将从 ${owned.slots} 个增加到 ${Math.min(9, owned.slots + 1)} 个，最多可有 9 个。扩建后可以排更多产品；仍会按顺序逐份制作。`, cancelLabel: '先不扩建', confirmLabel: '确认扩建', blockedReason: owned.slots >= 9 ? '已经有 9 个生产位，无需再扩建。' : game.gems < expandCost ? `还差 ${expandCost - game.gems} 颗游戏钻石。` : '', perform: () => apply(() => expandProductionSlots(game, machine.id), `${machine.name}新增了一个生产位。`) };
+      confirmationDetails = { cost: expandCost, heading: `为${machine.name}增加一个生产位？`, description: `生产位将从 ${owned.slots} 个增加到 ${Math.min(9, owned.slots + 1)} 个，最多可有 9 个。扩建后可以排更多产品；仍会按顺序逐份制作。`, cancelLabel: '先不扩建', confirmLabel: '确认扩建', blockedReason: owned.slots >= 9 ? '已经有 9 个生产位，无需再扩建。' : game.gems < expandCost ? `还差 ${expandCost - game.gems} 颗游戏钻石。` : '', perform: () => apply(latest => {
+        if (productionSlotCost(latest, machine.id) !== expandCost) throw new Error('生产位或钻石报价已变化，请重新确认扩位。');
+        return expandProductionSlots(latest, machine.id);
+      }, `${machine.name}新增了一个生产位。`) };
     } else if (confirmJob) {
       const name = getItem(confirmJob.recipe).name;
       if (confirmation.kind === 'speed') {
         const cost = gemCost(confirmJob, now);
-        confirmationDetails = { cost, heading: '让这份产品提前完成？', description: `立即完成当前的${name}。后续排队产品会提前开始，完成后仍需收取。`, cancelLabel: '继续等待', confirmLabel: '确认加速', blockedReason: confirmJob.readyAt <= now ? '产品已经完成，可以直接收取。' : activeJob?.id !== confirmJob.id ? '只能加速当前正在制作的产品。' : game.gems < cost ? `还差 ${cost - game.gems} 颗游戏钻石。` : '', perform: () => apply(() => speedUpMachine(game, machine.id, confirmJob.id, now), `已使用 ${cost} 颗游戏钻石，产品可以收取了。`) };
+        confirmationDetails = { cost, heading: '让这份产品提前完成？', description: `立即完成当前的${name}。后续排队产品会提前开始，完成后仍需收取。`, cancelLabel: '继续等待', confirmLabel: '确认加速', blockedReason: confirmJob.readyAt <= now ? '产品已经完成，可以直接收取。' : activeJob?.id !== confirmJob.id ? '只能加速当前正在制作的产品。' : game.gems < cost ? `还差 ${cost - game.gems} 颗游戏钻石。` : '', perform: () => apply(latest => {
+          const actionNow = Date.now(), latestJob = latest.machines.find(item => item.id === machine.id)?.queue.find(job => job.id === confirmJob.id);
+          if (!latestJob || latestJob.readyAt <= actionNow || gemCost(latestJob, actionNow) !== cost) throw new Error('产品状态或钻石报价已变化，请重新查看并确认。');
+          return speedUpMachine(latest, machine.id, confirmJob.id, actionNow);
+        }, `已使用 ${cost} 颗游戏钻石，产品可以收取了。`) };
       } else {
         const recipe = RECIPES.find(item => item.id === confirmJob.recipe);
         const refund = Object.entries(recipe?.inputs ?? {}).map(([id, amount]) => `${getItem(id as ItemId).name} ×${amount}`).join('、');
@@ -155,7 +191,7 @@ export function ProductionPanel({ game, onChange, notify, now, onNavigate, onReq
           const shortage = storageUsed(game, kind) + amount - (kind === 'silo' ? game.siloCapacity : game.barnCapacity);
           return shortage > 0 ? `${kind === 'silo' ? '粮仓' : '货仓'}还需留出 ${shortage} 个空位` : '';
         }).filter(Boolean);
-        confirmationDetails = { cost: 1, heading: `取消排队中的${name}？`, description: `退回全部原料：${refund}。后续产品会提前开始。粮仓和货仓需要留够空间；已经开始制作的产品不能取消。`, cancelLabel: '保留排队', confirmLabel: '确认取消', blockedReason: confirmJob.startedAt <= now ? '这份产品已经开始制作，不能取消。' : game.gems < 1 ? '还需要 1 颗游戏钻石。' : refundSpace.length ? `${refundSpace.join('，')}。先使用或出售一些库存。` : '', perform: () => apply(() => cancelQueuedProduction(game, machine.id, confirmJob.id, now), `已取消${name}，全部原料退回仓库，使用了 1 颗游戏钻石。`) };
+        confirmationDetails = { cost: 1, heading: `取消排队中的${name}？`, description: `退回全部原料：${refund}。后续产品会提前开始。粮仓和货仓需要留够空间；已经开始制作的产品不能取消。`, cancelLabel: '保留排队', confirmLabel: '确认取消', blockedReason: confirmJob.startedAt <= now ? '这份产品已经开始制作，不能取消。' : game.gems < 1 ? '还需要 1 颗游戏钻石。' : refundSpace.length ? `${refundSpace.join('，')}。先使用或出售一些库存。` : '', perform: () => apply(latest => cancelQueuedProduction(latest, machine.id, confirmJob.id, Date.now()), `已取消${name}，全部原料退回仓库，使用了 1 颗游戏钻石。`) };
       }
     }
   }
@@ -169,7 +205,7 @@ export function ProductionPanel({ game, onChange, notify, now, onNavigate, onReq
         </button>; })}{buildings.length === 0 && <div className="fp-no-buildings"><p>这里还没有工坊。</p><button onClick={() => changeFilter('all')}>看看可以建什么</button></div>}</div>
       </aside>
       <div className="fp-workbench" data-view={workbenchView}><div className="fp-workbench-heading"><span className="fp-machine-emblem"><Icon size={22} /></span><div><h3>{machine.name}</h3><p>{owned ? `${owned.queue.length}/${owned.slots} 个生产位 · 按顺序逐份制作` : level < machine.level ? `农场达到 ${machine.level} 级后可建造 · 当前 ${level} 级` : '建一座新工坊，开始制作吧'}</p></div>{owned && <span className="fp-level">Lv.{level}</span>}</div>
-        {!owned ? <div className="fp-build-site" ref={buildSiteRef}>{focusedItem && <p className="fp-focus-label"><ArrowRight size={12} />正在查看 · {getItem(focusedItem).name}</p>}<WorkshopArt machine={machine} /><span className="fp-build-sign">{level < machine.level ? <LockKeyhole size={20} /> : <Hammer size={20} />}<strong>{level < machine.level ? `${machine.level}级解锁` : '这里等着你的新工坊'}</strong></span><p>{level < machine.level ? `还需提升 ${machine.level - level} 级。收获、收取产品和完成订单，都能获得经验。` : `建成后可制作 ${recipes.length} 种产品；配方随等级逐步开放。`}</p><button className="fp-primary" disabled={level < machine.level || game.coins < machine.cost} onClick={() => apply(() => unlockMachine(game, machine.id), `${machine.name}建成了！`)}><Hammer size={17} />建造 · <Coins size={15} />{machine.cost.toLocaleString()}</button>{level >= machine.level && game.coins < machine.cost && <small>还差 {Math.max(0, machine.cost - game.coins).toLocaleString()} 游戏金币，可通过交货和路边摊赚取。</small>}</div> : <>
+        {!owned ? <div className="fp-build-site" ref={buildSiteRef}>{focusedItem && <p className="fp-focus-label"><ArrowRight size={12} />正在查看 · {getItem(focusedItem).name}</p>}<WorkshopArt machine={machine} /><span className="fp-build-sign">{level < machine.level ? <LockKeyhole size={20} /> : <Hammer size={20} />}<strong>{level < machine.level ? `${machine.level}级解锁` : '这里等着你的新工坊'}</strong></span><p>{level < machine.level ? `还需提升 ${machine.level - level} 级。收获、收取产品和完成订单，都能获得经验。` : `建成后可制作 ${recipes.length} 种产品；配方随等级逐步开放。`}</p><button className="fp-primary" disabled={level < machine.level || game.coins < machine.cost} onClick={() => apply(latest => unlockMachine(latest, machine.id), `${machine.name}建成了！`)}><Hammer size={17} />建造 · <Coins size={15} />{machine.cost.toLocaleString()}</button>{level >= machine.level && game.coins < machine.cost && <small>还差 {Math.max(0, machine.cost - game.coins).toLocaleString()} 游戏金币，可通过交货和路边摊赚取。</small>}</div> : <>
           <div className="fp-mobile-views" role="group" aria-label="工坊工作台视图"><button aria-pressed={workbenchView === 'recipes'} onClick={() => setWorkbenchView('recipes')}>制作配方</button><button aria-pressed={workbenchView === 'queue'} onClick={() => setWorkbenchView('queue')}>生产队列 <span>{owned.queue.length}/{owned.slots}</span>{owned.queue.some(job => job.readyAt <= now) && <b>可收取</b>}</button></div>
           <div className="fp-recipes" ref={recipesRef} aria-label={`${machine.name}配方`}>
             {recipes.map(recipe => { const item = getItem(recipe.output), ingredients = Object.entries(recipe.inputs) as [ItemId, number][], missing = ingredients.filter(([id, amount]) => (game.inventory[id] ?? 0) < amount), locked = level < recipe.level, full = owned.queue.length >= owned.slots; return <article key={recipe.id} ref={element => { if (element) recipeRefs.current.set(recipe.output, element); else recipeRefs.current.delete(recipe.output); }} data-recipe-item={recipe.output} className={`fp-recipe ${locked ? 'locked' : ''} ${focusedItem === recipe.output ? 'is-focused' : ''}`} aria-label={focusedItem === recipe.output ? `正在查看${item.name}配方` : undefined}>{focusedItem === recipe.output && <p className="fp-focus-label"><ArrowRight size={12} />正在查看 · {item.name}</p>}<div className="fp-recipe-top"><span className="fp-product-art"><ProductArt item={recipe.output} Icon={Icon} /></span><div><h4>{item.name}<small>×{recipe.quantity}</small></h4><span><Clock3 size={11} />{duration(recipe.durationMs)}<b>+{recipe.xp} XP</b></span></div><span className="fp-stock">库存 {game.inventory[recipe.output] ?? 0}</span></div><div className="fp-ingredients">{ingredients.map(([id, amount]) => <span key={id} className={(game.inventory[id] ?? 0) < amount ? 'short' : ''}><span>{getItem(id).name}</span><b>{game.inventory[id] ?? 0}/{amount}</b></span>)}</div>
@@ -177,8 +213,21 @@ export function ProductionPanel({ game, onChange, notify, now, onNavigate, onReq
               {locked ? <p className="fp-recipe-help">收获和交货可获得经验，还需提升 {recipe.level - level} 级。</p> : missing.length > 0 ? <div className="fp-missing">{missing.map(([id, amount]) => { const source = ingredientSource(id); return <div key={id}><span>还缺{getItem(id).name} ×{amount - (game.inventory[id] ?? 0)}</span>{source.machine || onNavigate || onRequestItem ? <button onClick={() => goToIngredient(id)} aria-label={`补充${getItem(id).name}，去${source.label}`}>去{source.label}<ArrowRight size={12} /></button> : <small>来自{source.label}</small>}</div>; })}</div> : full && <p className="fp-recipe-help">先收取成品，或扩建一个生产位。</p>}
             </article>; })}
           </div>
-          <div className="fp-production-line"><div className="fp-line-title"><strong>生产队列</strong><span>{owned.slots}/9 个生产位</span>{owned.slots < 9 ? <button className="fp-expand" disabled={game.gems < expandCost} title={game.gems < expandCost ? `还差 ${expandCost - game.gems} 颗游戏钻石` : '增加一个生产位，仍按顺序制作'} aria-label={`扩建一个生产位，需要${expandCost}颗游戏钻石${game.gems < expandCost ? `，还差${expandCost - game.gems}颗` : ''}`} onClick={() => setConfirmation({ kind: 'expand', machine: machine.id })}><Plus size={14} />扩位 <Diamond size={13} />{expandCost}</button> : <small className="fp-slots-complete"><Check size={12} />已全部扩建</small>}</div>
-            <div className="fp-jobs" role="group" aria-label="生产任务，滚动查看全部生产位">{owned.queue.map((job, index) => { const ready = job.readyAt <= now, waiting = job.startedAt > now, recipe = RECIPES.find(item => item.id === job.recipe), storage = getItem(recipe?.output ?? job.recipe).storage, requiredSpace = Math.max(0, storageUsed(game, storage) + (recipe?.quantity ?? 1) - (storage === 'silo' ? game.siloCapacity : game.barnCapacity)), progress = Math.max(0, Math.min(100, (now - job.startedAt) / Math.max(1, job.readyAt - job.startedAt) * 100)); return <div key={job.id} className={`fp-job ${ready ? 'ready' : ''}`}><span className="fp-job-number">{index + 1}</span><div><strong>{getItem(job.recipe).name} ×{recipe?.quantity ?? 1}</strong><small>{ready ? '制作完成' : waiting ? `排队中 · ${duration(job.startedAt - now)}后开始` : `制作中 · 剩余${duration(job.readyAt - now)}`}</small>{ready && requiredSpace > 0 && <small className="fp-capacity-needed" id={`fp-space-${job.id}`}>收取需腾出 {requiredSpace} 个{storage === 'silo' ? '筒仓' : '谷仓'}空位</small>}{!ready && <span className="fp-progress"><i style={{ width: `${progress}%` }} /></span>}</div>{ready ? <button onClick={() => collect(job)} disabled={requiredSpace > 0} aria-describedby={requiredSpace > 0 ? `fp-space-${job.id}` : undefined} aria-label={`收取${getItem(job.recipe).name}`}><Check size={14} />收取</button> : waiting ? <button className="fp-job-cancel" disabled={game.gems < 1} onClick={() => setConfirmation({ kind: 'cancel', machine: machine.id, job: job.id })} aria-label={`取消等待中的${getItem(job.recipe).name}，退回原料，消耗1颗游戏钻石`}><X size={12} />取消 <Diamond size={11} />1</button> : activeJob?.id === job.id && <button className="fp-job-speed" disabled={game.gems < gemCost(job, now)} onClick={() => setConfirmation({ kind: 'speed', machine: machine.id, job: job.id })} aria-label={`使用${gemCost(job, now)}颗游戏钻石加速当前产品`}><Diamond size={13} />{gemCost(job, now)}</button>}</div>; })}{Array.from({ length: Math.max(0, owned.slots - owned.queue.length) }, (_, index) => <div className="fp-job fp-empty-job" key={`empty-${index}`}><span>＋</span><small>空闲生产位</small></div>)}</div>
+          <div className={`fp-production-line${repeatRecipe ? ' has-repeat' : ''}`}><div className="fp-line-title"><strong>生产队列</strong><span>{owned.slots}/9 个生产位</span>{owned.slots < 9 ? <button className="fp-expand" disabled={game.gems < expandCost} title={game.gems < expandCost ? `还差 ${expandCost - game.gems} 颗游戏钻石` : '增加一个生产位，仍按顺序制作'} aria-label={`扩建一个生产位，需要${expandCost}颗游戏钻石${game.gems < expandCost ? `，还差${expandCost - game.gems}颗` : ''}`} onClick={() => setConfirmation({ kind: 'expand', machine: machine.id })}><Plus size={14} />扩位 <Diamond size={13} />{expandCost}</button> : <small className="fp-slots-complete"><Check size={12} />已全部扩建</small>}</div>
+            {repeatRecipe && <article className="fp-repeat-card" aria-label={`刚收取的${getItem(repeatRecipe.output).name}配方`}>
+              <div className="fp-repeat-heading"><span className="fp-product-art"><ProductArt item={repeatRecipe.output} Icon={Icon} /></span><div><small>刚收取的配方</small><strong>{getItem(repeatRecipe.output).name} ×{repeatRecipe.quantity}</strong></div><CompletionButton key={`${machine.id}:${repeatRecipe.id}`} className="fp-queue-button" successToken={repeatSuccessToken} data-repeat-recipe={repeatRecipe.id} disabled={repeatReasons.length > 0} aria-describedby={repeatReasons.length ? 'fp-repeat-reason' : undefined} aria-label={`再做一批${getItem(repeatRecipe.output).name}，制作${repeatRecipe.quantity}份`} onClick={() => { if (makeRecipe(repeatRecipe)) setRepeatSuccessToken(token => token + 1); }}><Plus size={14} />再做一批</CompletionButton></div>
+              <div className="fp-ingredients" aria-label="再做一批所需原料与当前库存">{repeatIngredients.map(([id, amount]) => <span key={id} className={(game.inventory[id] ?? 0) < amount ? 'short' : ''}><span>{getItem(id).name}</span><b>库存 {game.inventory[id] ?? 0} / 需 {amount}</b></span>)}</div>
+              {repeatReasons.length > 0 && <p className="fp-repeat-reason" id="fp-repeat-reason">{repeatReasons.join(' ')}</p>}
+              {repeatMissing.length > 0 && <div className="fp-missing">{repeatMissing.map(([id, amount]) => { const source = ingredientSource(id); return <div key={id}><span>还缺{getItem(id).name} ×{amount - (game.inventory[id] ?? 0)}</span>{source.machine || onNavigate || onRequestItem ? <button onClick={() => goToIngredient(id)} aria-label={`补充${getItem(id).name}，去${source.label}`}>去{source.label}<ArrowRight size={12} /></button> : <small>来自{source.label}</small>}</div>; })}</div>}
+            </article>}
+            <div className="fp-jobs" role="group" aria-label="生产任务，滚动查看全部生产位">{owned.queue.map((job, index) => {
+              const ready = job.readyAt <= now, waiting = job.startedAt > now, recipe = RECIPES.find(item => item.id === job.recipe), storage = getItem(recipe?.output ?? job.recipe).storage;
+              const requiredSpace = Math.max(0, storageUsed(game, storage) + (recipe?.quantity ?? 1) - (storage === 'silo' ? game.siloCapacity : game.barnCapacity));
+              const progress = Math.max(0, Math.min(100, (now - job.startedAt) / Math.max(1, job.readyAt - job.startedAt) * 100));
+              return <div key={job.id} className={`fp-job ${ready ? 'ready' : ''}`}><span className="fp-job-number">{index + 1}</span><div><strong>{getItem(job.recipe).name} ×{recipe?.quantity ?? 1}</strong><small>{ready ? '制作完成' : waiting ? `排队中 · ${duration(job.startedAt - now)}后开始` : `制作中 · 剩余${duration(job.readyAt - now)}`}</small>{ready && requiredSpace > 0 && <small className="fp-capacity-needed" id={`fp-space-${job.id}`}>收取需腾出 {requiredSpace} 个{storage === 'silo' ? '粮仓' : '货仓'}空位</small>}{!ready && <span className="fp-progress"><i style={{ width: `${progress}%` }} /></span>}</div>
+                <div className="fp-job-actions">{ready ? <><button onClick={() => collect(job)} disabled={requiredSpace > 0} aria-describedby={requiredSpace > 0 ? `fp-space-${job.id}` : undefined} aria-label={`收取${getItem(job.recipe).name}`}><Check size={14} />收取</button>{requiredSpace > 0 && onNavigate && <button className="fp-job-storage" onClick={() => onNavigate('storage')} aria-label={`前往仓库，为${getItem(job.recipe).name}腾出空间`}><Package size={13} />去仓库</button>}</> : waiting ? <button className="fp-job-cancel" disabled={game.gems < 1} onClick={() => setConfirmation({ kind: 'cancel', machine: machine.id, job: job.id })} aria-label={`取消等待中的${getItem(job.recipe).name}，退回原料，消耗1颗游戏钻石`}><X size={12} />取消 <Diamond size={11} />1</button> : activeJob?.id === job.id && <button className="fp-job-speed" disabled={game.gems < gemCost(job, now)} onClick={() => setConfirmation({ kind: 'speed', machine: machine.id, job: job.id })} aria-label={`使用${gemCost(job, now)}颗游戏钻石加速当前产品`}><Diamond size={13} />{gemCost(job, now)}</button>}</div>
+              </div>;
+            })}{Array.from({ length: Math.max(0, owned.slots - owned.queue.length) }, (_, index) => <button className="fp-job fp-empty-job" key={`empty-${index}`} onClick={showRecipes} aria-label="选择配方，使用空闲生产位"><span aria-hidden="true">＋</span><small>空闲生产位<br />选择配方</small></button>)}</div>
           </div>
         </>}
       </div>

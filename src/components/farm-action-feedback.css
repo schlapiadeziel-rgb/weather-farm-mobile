@@ -1,0 +1,44 @@
+/* A scene overlay: outside the camera world and below the corner HUD. */
+.farm-action-feedback {
+  position: absolute;
+  z-index: 4;
+  top: 15px;
+  left: 50%;
+  width: max-content;
+  max-width: calc(100% - 170px);
+  padding: 8px 11px;
+  border: 1px solid #fff1bc;
+  border-radius: 12px;
+  background: #284f38f5;
+  box-shadow: 0 3px 0 #173f2a55, 0 6px 18px #25442c30;
+  color: #fff6d7;
+  font-size: 12px;
+  line-height: 1.35;
+  user-select: none;
+  transform: translateX(-50%);
+  animation: faf-appear 2200ms ease-out both;
+}
+.farm-action-feedback, .farm-action-feedback * { pointer-events: none; }
+.faf-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px; }
+.faf-heading > svg { flex-shrink: 0; color: #f2d98d; }
+.faf-heading > strong { font-size: 12px; white-space: nowrap; }
+.faf-heading > span { color: #dfe7c5; font-size: 11px; white-space: nowrap; }
+.faf-heading > .faf-unsaved { padding: 1px 4px; border-radius: 4px; background: #f5dfa8; color: #695127; font-size: 10px; white-space: nowrap; }
+.faf-chips { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 4px; margin-top: 5px; }
+.faf-chip { display: inline-flex; align-items: center; gap: 4px; min-width: 0; max-width: 100%; padding: 2px 6px; border-radius: 5px; background: #eff3ce1a; font-size: 11px; }
+.faf-chip > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.faf-chip > b { flex-shrink: 0; color: #f3db91; font-variant-numeric: tabular-nums; }
+.faf-chip.faf-consumed > b { color: #e1e8c8; }
+.faf-more { color: #dce5c2; font-size: 10px; white-space: nowrap; }
+@keyframes faf-appear {
+  0% { opacity: 0; transform: translate(-50%, 5px); }
+  9%, 82% { opacity: 1; transform: translate(-50%, 0); }
+  100% { opacity: 0; transform: translate(-50%, -4px); }
+}
+@media (max-height: 400px) {
+  .farm-action-feedback { top: 10px; padding: 6px 8px; }
+  .faf-chips { margin-top: 4px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .farm-action-feedback { animation: none; }
+}

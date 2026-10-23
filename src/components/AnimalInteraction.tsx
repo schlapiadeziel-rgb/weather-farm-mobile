@@ -12,7 +12,7 @@ export type AnimalInteractionProps = {
   blocked?: boolean;
   onChange(game: Game): void | boolean;
   onNotice?(message: string): void;
-  onApplied?(ids: number[], mode: 'feed' | 'collect'): void;
+  onApplied?(ids: number[], mode: 'feed' | 'collect', before: Game, after: Game, saved?: boolean): void;
 };
 
 type Point = { x: number; y: number };
@@ -58,12 +58,13 @@ export function AnimalInteraction({ children, game, mode, blocked = false, onCha
     // Also guard the latest render before a mode/modal effect has run.
     if (latest.blocked || latest.mode !== action) return;
     try {
-      const result = applyAnimalStroke(latest.game, action, ids, Date.now());
+      const before = latest.game;
+      const result = applyAnimalStroke(before, action, ids, Date.now());
       const saved = result.changedPenIds.length ? latest.onChange(result.game) : undefined;
       // A second accessible activation can arrive before React paints the
       // parent update. Always base it on the result already committed.
       if (result.changedPenIds.length) latest.game = result.game;
-      if (result.changedPenIds.length) latest.onApplied?.([...result.changedPenIds], action);
+      if (result.changedPenIds.length) latest.onApplied?.([...result.changedPenIds], action, before, result.game, typeof saved === 'boolean' ? saved : undefined);
       const notice = getAnimalStrokeNotice(result, action);
       latest.onNotice?.(saved === false ? `${notice} 本机未能保存，请导出游戏备份。` : notice);
     } catch (error) {

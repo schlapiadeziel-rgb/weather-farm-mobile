@@ -1,0 +1,28 @@
+/* The real page remains interactive; captures never own a touch target. */
+:root[data-farm-page-transition]::view-transition { pointer-events:none; }
+:root[data-farm-page-transition]::view-transition-group(root) { animation:none; }
+:root[data-farm-page-transition]::view-transition-image-pair(root) { isolation:isolate; }
+:root[data-farm-page-transition]::view-transition-old(root),
+:root[data-farm-page-transition]::view-transition-new(root) { animation:none; mix-blend-mode:normal; }
+:root[data-farm-page-transition="reveal"]::view-transition-new(root) {
+  z-index:2;
+  animation:farm-page-open 340ms cubic-bezier(.22,.65,.22,1) both;
+}
+:root[data-farm-page-transition="reveal"]::view-transition-old(root) { z-index:1; }
+:root[data-farm-page-transition="return"]::view-transition-old(root) {
+  z-index:2;
+  animation:farm-page-close 300ms cubic-bezier(.4,0,.4,1) both;
+}
+:root[data-farm-page-transition="return"]::view-transition-new(root) { z-index:1; }
+@keyframes farm-page-open {
+  from { clip-path:circle(0 at var(--farm-page-x) var(--farm-page-y)); }
+  to { clip-path:circle(var(--farm-page-radius) at var(--farm-page-x) var(--farm-page-y)); }
+}
+@keyframes farm-page-close {
+  from { clip-path:circle(var(--farm-page-radius) at var(--farm-page-x) var(--farm-page-y)); }
+  to { clip-path:circle(0 at var(--farm-page-x) var(--farm-page-y)); }
+}
+@media(prefers-reduced-motion:reduce) {
+  :root[data-farm-page-transition]::view-transition-old(root),
+  :root[data-farm-page-transition]::view-transition-new(root) { animation:none!important; }
+}

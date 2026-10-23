@@ -13,16 +13,17 @@ export type FieldInteractionProps = {
   blocked?: boolean;
   onChange(game: Game): void | boolean;
   onNotice?(message: string): void;
+  onApplied?(ids: number[], action: 'plant' | 'harvest', before: Game, after: Game, saved?: boolean): void;
 };
 
 type Point = { x: number; y: number };
 type Stroke = { pointer: number; mode: 'plant' | 'harvest'; seed: CropId; ids: number[]; last: Point };
 
 /** One pointer stroke is one inventory transaction and one user notification. */
-export function FieldInteraction({ children, game, mode, seed, blocked = false, onChange, onNotice }: FieldInteractionProps) {
+export function FieldInteraction({ children, game, mode, seed, blocked = false, onChange, onNotice, onApplied }: FieldInteractionProps) {
   const container = useRef<HTMLDivElement>(null);
-  const current = useRef({ game, mode, seed, blocked, onChange, onNotice });
-  current.current = { game, mode, seed, blocked, onChange, onNotice };
+  const current = useRef({ game, mode, seed, blocked, onChange, onNotice, onApplied });
+  current.current = { game, mode, seed, blocked, onChange, onNotice, onApplied };
   const stroke = useRef<Stroke | null>(null);
   const blockedPointers = useRef(new Set<number>());
   const downPointers = useRef(new Set<number>());
@@ -56,10 +57,15 @@ export function FieldInteraction({ children, game, mode, seed, blocked = false, 
 
   const submit = useCallback((ids: number[], action: 'plant' | 'harvest', chosenSeed: CropId) => {
     const latest = current.current;
-    if (latest.blocked) return;
+    if (latest.blocked || latest.mode !== action) return;
     try {
-      const result = applyFieldStroke(latest.game, action, ids, chosenSeed, Date.now());
+      const before = latest.game;
+      const result = applyFieldStroke(before, action, ids, chosenSeed, Date.now());
       const saved = result.changedPlotIds.length ? latest.onChange(result.game) : undefined;
+      if (result.changedPlotIds.length) {
+        latest.game = result.game;
+        latest.onApplied?.([...result.changedPlotIds], action, before, result.game, typeof saved === 'boolean' ? saved : undefined);
+      }
       const notice = getFieldStrokeNotice(result, action, chosenSeed);
       latest.onNotice?.(saved === false ? `${notice} 本机未能保存，请导出游戏备份。` : notice);
     } catch (error) {
