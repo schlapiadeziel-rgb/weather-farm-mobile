@@ -2,13 +2,13 @@
 
 中文横屏农场经营游戏。参考 Hay Day 的播种、喂养、库存、加工排队、交订单和路边摊循环，代码与场景美术独立原创。农田与牧场采用全屏地图，等级、货币和圆形入口悬浮在边角；田地、牧场、工坊、河塘与小镇通过道路相连。播种、收获、投喂和收取后短暂显示本次实际结果，工坊收取后可手动再做一批。工坊与牧场的待收提示跟随建筑，点击可找到有成品的机器或畜栏。农场门口可接待原创邻居，小镇经营列车访客与店铺。真实天气、本机图文 AI、官方资讯和实际农场记录全部放在独立的“农场助手”界面。
 
-[下载 Android v0.14.0 试玩版](https://github.com/schlapiadeziel-rgb/weather-farm-mobile/releases/tag/v0.14.0) · [版本与安装包](https://github.com/schlapiadeziel-rgb/weather-farm-mobile/releases) · [v0.14.0 验证范围](docs/validation-v0.14.md)
+[下载 Android v0.15.0 试玩版](https://github.com/schlapiadeziel-rgb/weather-farm-mobile/releases/tag/v0.15.0) · [版本与安装包](https://github.com/schlapiadeziel-rgb/weather-farm-mobile/releases) · [v0.15.0 验证范围](docs/validation-v0.15.md)
 
-主分支新增生产队列状态提示、读屏进度和宽屏滚动吸附：[画面与验证范围](docs/workshop-queue-status.md)。此改动尚未包含在已发布的 v0.14.0 APK 中。
+v0.15.0 新增生产队列状态提示、读屏进度和宽屏滚动吸附：[画面与验证范围](docs/workshop-queue-status.md)。
 
 ![主分支工坊生产状态](docs/workshop-queue-status.png)
 
-主分支新增工坊配方叠卡：当前可用配方优先显示，未解锁配方可展开翻看，订单“查看来源”会自动展开并定位。此改动尚未包含在上方 v0.14.0 安装包中；[改动与验证范围](docs/workshop-recipe-stack.md)。
+v0.15.0 新增工坊配方叠卡：当前可用配方优先显示，未解锁配方可展开翻看，订单“查看来源”会自动展开并定位。[改动与验证范围](docs/workshop-recipe-stack.md)。
 
 ![主分支工坊配方叠卡](docs/workshop-recipe-stack.png)
 
