@@ -4,6 +4,8 @@
 
 [下载 Android v0.15.0 试玩版](https://github.com/schlapiadeziel-rgb/weather-farm-mobile/releases/tag/v0.15.0) · [版本与安装包](https://github.com/schlapiadeziel-rgb/weather-farm-mobile/releases) · [v0.15.0 验证范围](docs/validation-v0.15.md)
 
+主分支新增地块原地播种／收获提示：[实际画面与验证](docs/plot-action-feedback.md)。此改动尚未包含在上方已发布的 v0.15.0 APK 中。
+
 v0.15.0 新增生产队列状态提示、读屏进度和宽屏滚动吸附：[画面与验证范围](docs/workshop-queue-status.md)。
 
 ![主分支工坊生产状态](docs/workshop-queue-status.png)
