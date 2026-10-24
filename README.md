@@ -4,6 +4,10 @@
 
 [下载 Android v0.14.0 试玩版](https://github.com/schlapiadeziel-rgb/weather-farm-mobile/releases/tag/v0.14.0) · [版本与安装包](https://github.com/schlapiadeziel-rgb/weather-farm-mobile/releases) · [v0.14.0 验证范围](docs/validation-v0.14.md)
 
+主分支新增生产队列状态提示、读屏进度和宽屏滚动吸附：[画面与验证范围](docs/workshop-queue-status.md)。此改动尚未包含在已发布的 v0.14.0 APK 中。
+
+![主分支工坊生产状态](docs/workshop-queue-status.png)
+
 主分支新增工坊配方叠卡：当前可用配方优先显示，未解锁配方可展开翻看，订单“查看来源”会自动展开并定位。此改动尚未包含在上方 v0.14.0 安装包中；[改动与验证范围](docs/workshop-recipe-stack.md)。
 
 ![主分支工坊配方叠卡](docs/workshop-recipe-stack.png)
