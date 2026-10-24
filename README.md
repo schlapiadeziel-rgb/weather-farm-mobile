@@ -4,6 +4,10 @@
 
 [下载 Android v0.14.0 试玩版](https://github.com/schlapiadeziel-rgb/weather-farm-mobile/releases/tag/v0.14.0) · [版本与安装包](https://github.com/schlapiadeziel-rgb/weather-farm-mobile/releases) · [v0.14.0 验证范围](docs/validation-v0.14.md)
 
+主分支新增工坊配方叠卡：当前可用配方优先显示，未解锁配方可展开翻看，订单“查看来源”会自动展开并定位。此改动尚未包含在上方 v0.14.0 安装包中；[改动与验证范围](docs/workshop-recipe-stack.md)。
+
+![主分支工坊配方叠卡](docs/workshop-recipe-stack.png)
+
 以下为 v0.14.0 最终界面的实际操作截图：从无存档的新农场收获、播种、排产与收取后产生，浏览器时钟只推进正常计时。最后一张把真实成功动效停在 550 毫秒便于查看，没有注入游戏库存或奖励。
 
 ![v0.14.0 本次收获与实际库存、经验反馈](docs/farm-action-v014.png)

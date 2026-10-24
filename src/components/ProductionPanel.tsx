@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { Apple, ArrowRight, Check, ChefHat, Clock3, Coins, CookingPot, Diamond, Droplets, Factory, Flame, Hammer, IceCreamBowl, Leaf, LockKeyhole, Package, Plus, Scissors, Sparkles, Sprout, Wheat, X } from 'lucide-react';
+import { Apple, ArrowRight, Check, ChevronDown, ChefHat, Clock3, Coins, CookingPot, Diamond, Droplets, Factory, Flame, Hammer, IceCreamBowl, Leaf, LockKeyhole, Package, Plus, Scissors, Sparkles, Sprout, Wheat, X } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { Game, ItemId, MachineDefinition, MachineId, ProductionJob, RecipeDefinition } from '../lib/farmTypes';
 import { MACHINES, RECIPES, getItem } from '../lib/farmContent';
@@ -86,6 +86,8 @@ export function ProductionPanel({ game, onChange, notify, now, onNavigate, onReq
   const [pendingFocus, setPendingFocus] = useState<number | null>(null);
   const [lastCollected, setLastCollected] = useState<{ machine: MachineId; recipe: ItemId } | null>(null);
   const [repeatSuccessToken, setRepeatSuccessToken] = useState(0);
+  const [lockedRecipesOpen, setLockedRecipesOpen] = useState(false);
+  const recipeGroupId = useId();
   const latestGameRef = useRef(game);
   const lastGamePropRef = useRef(game);
   // Local view changes may render before the parent supplies an accepted action.
@@ -99,6 +101,9 @@ export function ProductionPanel({ game, onChange, notify, now, onNavigate, onReq
   const machine = MACHINES.find(item => item.id === selected) ?? MACHINES[0];
   const owned = game.machines.find(item => item.id === machine.id);
   const recipes = RECIPES.filter(item => item.machine === machine.id);
+  const lockedRecipes = recipes.filter(recipe => level < recipe.level);
+  const lockedRecipesVisible = lockedRecipesOpen || lockedRecipes.some(recipe => recipe.output === focusedItem);
+  const lockedRecipeIds = lockedRecipes.map(recipe => `${recipeGroupId}-${recipe.id}`).join(' ');
   const buildings = filter === 'all' ? MACHINES : MACHINES.filter(item => game.machines.some(built => built.id === item.id));
   const readyCount = game.machines.reduce((count, item) => count + item.queue.filter(job => job.readyAt <= now).length, 0);
   const activeJob = owned?.queue.find(job => job.readyAt > now && job.startedAt <= now);
@@ -126,12 +131,14 @@ export function ProductionPanel({ game, onChange, notify, now, onNavigate, onReq
   const selectMachine = (id: MachineId) => {
     const selectedAt = Date.now();
     const hasReadyProduct = latestGameRef.current.machines.find(item => item.id === id)?.queue.some(job => job.readyAt <= selectedAt);
+    setLockedRecipesOpen(false);
     setSelected(id); setConfirmation(null); setFocusedItem(null); setPendingFocus(null); setLastCollected(null);
     setWorkbenchView(hasReadyProduct ? 'queue' : 'recipes');
   };
   useEffect(() => {
     if (!focus || lastFocusRequest.current === focus.requestId) return;
     lastFocusRequest.current = focus.requestId;
+    setLockedRecipesOpen(false);
     setLastCollected(null);
     const recipe = focus.item ? RECIPES.find(entry => entry.output === focus.item) : undefined;
     const target = recipe?.machine ?? focus.machineId;
@@ -208,7 +215,12 @@ export function ProductionPanel({ game, onChange, notify, now, onNavigate, onReq
         {!owned ? <div className="fp-build-site" ref={buildSiteRef}>{focusedItem && <p className="fp-focus-label"><ArrowRight size={12} />正在查看 · {getItem(focusedItem).name}</p>}<WorkshopArt machine={machine} /><span className="fp-build-sign">{level < machine.level ? <LockKeyhole size={20} /> : <Hammer size={20} />}<strong>{level < machine.level ? `${machine.level}级解锁` : '这里等着你的新工坊'}</strong></span><p>{level < machine.level ? `还需提升 ${machine.level - level} 级。收获、收取产品和完成订单，都能获得经验。` : `建成后可制作 ${recipes.length} 种产品；配方随等级逐步开放。`}</p><button className="fp-primary" disabled={level < machine.level || game.coins < machine.cost} onClick={() => apply(latest => unlockMachine(latest, machine.id), `${machine.name}建成了！`)}><Hammer size={17} />建造 · <Coins size={15} />{machine.cost.toLocaleString()}</button>{level >= machine.level && game.coins < machine.cost && <small>还差 {Math.max(0, machine.cost - game.coins).toLocaleString()} 游戏金币，可通过交货和路边摊赚取。</small>}</div> : <>
           <div className="fp-mobile-views" role="group" aria-label="工坊工作台视图"><button aria-pressed={workbenchView === 'recipes'} onClick={() => setWorkbenchView('recipes')}>制作配方</button><button aria-pressed={workbenchView === 'queue'} onClick={() => setWorkbenchView('queue')}>生产队列 <span>{owned.queue.length}/{owned.slots}</span>{owned.queue.some(job => job.readyAt <= now) && <b>可收取</b>}</button></div>
           <div className="fp-recipes" ref={recipesRef} aria-label={`${machine.name}配方`}>
-            {recipes.map(recipe => { const item = getItem(recipe.output), ingredients = Object.entries(recipe.inputs) as [ItemId, number][], missing = ingredients.filter(([id, amount]) => (game.inventory[id] ?? 0) < amount), locked = level < recipe.level, full = owned.queue.length >= owned.slots; return <article key={recipe.id} ref={element => { if (element) recipeRefs.current.set(recipe.output, element); else recipeRefs.current.delete(recipe.output); }} data-recipe-item={recipe.output} className={`fp-recipe ${locked ? 'locked' : ''} ${focusedItem === recipe.output ? 'is-focused' : ''}`} aria-label={focusedItem === recipe.output ? `正在查看${item.name}配方` : undefined}>{focusedItem === recipe.output && <p className="fp-focus-label"><ArrowRight size={12} />正在查看 · {item.name}</p>}<div className="fp-recipe-top"><span className="fp-product-art"><ProductArt item={recipe.output} Icon={Icon} /></span><div><h4>{item.name}<small>×{recipe.quantity}</small></h4><span><Clock3 size={11} />{duration(recipe.durationMs)}<b>+{recipe.xp} XP</b></span></div><span className="fp-stock">库存 {game.inventory[recipe.output] ?? 0}</span></div><div className="fp-ingredients">{ingredients.map(([id, amount]) => <span key={id} className={(game.inventory[id] ?? 0) < amount ? 'short' : ''}><span>{getItem(id).name}</span><b>{game.inventory[id] ?? 0}/{amount}</b></span>)}</div>
+            {lockedRecipes.length > 0 && <button className="fp-recipe-stack" aria-expanded={lockedRecipesVisible} aria-controls={lockedRecipeIds} onClick={() => { setLockedRecipesOpen(!lockedRecipesVisible); if (lockedRecipesVisible) { setFocusedItem(null); setPendingFocus(null); } }}>
+              <span className="fp-recipe-stack-art" aria-hidden="true"><LockKeyhole size={18} /></span>
+              <span><strong>未解锁配方 · {lockedRecipes.length}</strong><small>{lockedRecipesVisible ? '收起，专注当前制作' : `下一份 ${Math.min(...lockedRecipes.map(recipe => recipe.level))} 级解锁 · 点击翻看`}</small></span>
+              <ChevronDown size={18} aria-hidden="true" />
+            </button>}
+            {recipes.map(recipe => { const item = getItem(recipe.output), ingredients = Object.entries(recipe.inputs) as [ItemId, number][], missing = ingredients.filter(([id, amount]) => (game.inventory[id] ?? 0) < amount), locked = level < recipe.level, full = owned.queue.length >= owned.slots; return <article key={recipe.id} id={`${recipeGroupId}-${recipe.id}`} hidden={locked && !lockedRecipesVisible} ref={element => { if (element) recipeRefs.current.set(recipe.output, element); else recipeRefs.current.delete(recipe.output); }} data-recipe-item={recipe.output} className={`fp-recipe ${locked ? 'locked' : ''} ${focusedItem === recipe.output ? 'is-focused' : ''}`} aria-label={focusedItem === recipe.output ? `正在查看${item.name}配方` : undefined}>{focusedItem === recipe.output && <p className="fp-focus-label"><ArrowRight size={12} />正在查看 · {item.name}</p>}<div className="fp-recipe-top"><span className="fp-product-art"><ProductArt item={recipe.output} Icon={Icon} /></span><div><h4>{item.name}<small>×{recipe.quantity}</small></h4><span><Clock3 size={11} />{duration(recipe.durationMs)}<b>+{recipe.xp} XP</b></span></div><span className="fp-stock">库存 {game.inventory[recipe.output] ?? 0}</span></div><div className="fp-ingredients">{ingredients.map(([id, amount]) => <span key={id} className={(game.inventory[id] ?? 0) < amount ? 'short' : ''}><span>{getItem(id).name}</span><b>{game.inventory[id] ?? 0}/{amount}</b></span>)}</div>
               <button className="fp-queue-button" disabled={locked || missing.length > 0 || full} onClick={() => makeRecipe(recipe)}>{locked ? <><LockKeyhole size={14} />{recipe.level}级解锁 · 当前{level}级</> : full ? '生产位已满' : missing.length > 0 ? '补齐原料后制作' : <><ArrowRight size={15} />加入队列</>}</button>
               {locked ? <p className="fp-recipe-help">收获和交货可获得经验，还需提升 {recipe.level - level} 级。</p> : missing.length > 0 ? <div className="fp-missing">{missing.map(([id, amount]) => { const source = ingredientSource(id); return <div key={id}><span>还缺{getItem(id).name} ×{amount - (game.inventory[id] ?? 0)}</span>{source.machine || onNavigate || onRequestItem ? <button onClick={() => goToIngredient(id)} aria-label={`补充${getItem(id).name}，去${source.label}`}>去{source.label}<ArrowRight size={12} /></button> : <small>来自{source.label}</small>}</div>; })}</div> : full && <p className="fp-recipe-help">先收取成品，或扩建一个生产位。</p>}
             </article>; })}
