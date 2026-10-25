@@ -90,6 +90,8 @@ export function FarmViewport({ children, className = '' }: FarmViewportProps) {
   const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.button !== 0 || (event.target instanceof Element && event.target.closest('[data-no-camera],input,textarea,select'))) return;
     if (pointers.current.size >= 2) return;
+    // Returning to the map closes the temporary controls without consuming the tap.
+    setControlsOpen(false);
     canceledPointers.current.delete(event.pointerId);
     const point = localPoint(event);
     if (!pointers.current.size) {
@@ -174,9 +176,17 @@ export function FarmViewport({ children, className = '' }: FarmViewportProps) {
       const worldWidth = 1200 * base, worldHeight = 700 * base;
       const next = { width, height, worldWidth, worldHeight, offset: { x: (width - worldWidth) / 2, y: (height - worldHeight) / 2 } };
       cancelPointers();
+      const current = cameraRef.current;
+      // Resize changes the world base scale as well as the crop. Preserve the
+      // logical farm point at the viewport center, then apply normal edge bounds.
+      const centered = previous.worldWidth && previous.worldHeight ? {
+        scale: current.scale,
+        x: width / 2 - next.offset.x - (previous.width / 2 - previous.offset.x - current.x) / previous.worldWidth * worldWidth,
+        y: height / 2 - next.offset.y - (previous.height / 2 - previous.offset.y - current.y) / previous.worldHeight * worldHeight,
+      } : current;
       geometryRef.current = next;
       setGeometry(next);
-      updateCamera(cameraRef.current);
+      updateCamera(centered);
       dragBase.current = cameraRef.current;
     };
     measure();
