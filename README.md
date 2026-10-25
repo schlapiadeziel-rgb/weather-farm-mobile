@@ -2,11 +2,13 @@
 
 中文横屏农场经营游戏。参考 Hay Day 的播种、喂养、库存、加工排队、交订单和路边摊循环，代码与场景美术独立原创。农田与牧场采用全屏地图，等级、货币和圆形入口悬浮在边角；田地、牧场、工坊、河塘与小镇通过道路相连。播种、收获、投喂和收取后短暂显示本次实际结果，工坊收取后可手动再做一批。工坊与牧场的待收提示跟随建筑，点击可找到有成品的机器或畜栏。农场门口可接待原创邻居，小镇经营列车访客与店铺。真实天气、本机图文 AI、官方资讯和实际农场记录全部放在独立的“农场助手”界面。
 
-[下载 Android v0.15.0 试玩版](https://github.com/schlapiadeziel-rgb/weather-farm-mobile/releases/tag/v0.15.0) · [版本与安装包](https://github.com/schlapiadeziel-rgb/weather-farm-mobile/releases) · [v0.15.0 验证范围](docs/validation-v0.15.md)
+[下载 Android v0.16.0 试玩版](https://github.com/schlapiadeziel-rgb/weather-farm-mobile/releases/tag/v0.16.0) · [版本与安装包](https://github.com/schlapiadeziel-rgb/weather-farm-mobile/releases) · [v0.16.0 验证范围](docs/validation-v0.16.md)
 
-主分支优化了镜头在详情面板开合和窗口尺寸变化时的观察中心，并在点回地图时收起缩放控件：[行为与验证](docs/camera-resize.md)。此改动尚未包含在已发布的 v0.15.0 APK 中。
+v0.16.0 优化了镜头在详情面板开合和窗口尺寸变化时的观察中心，并在点回地图时收起缩放控件：[行为与验证](docs/camera-resize.md)。
 
-主分支新增地块原地播种／收获提示：[实际画面与验证](docs/plot-action-feedback.md)。此改动尚未包含在上方已发布的 v0.15.0 APK 中。
+v0.16.0 新增地块原地播种／收获提示：[实际画面与验证](docs/plot-action-feedback.md)。
+
+![v0.16.0 正常收获后的原地与顶部反馈](docs/plot-action-feedback.png)
 
 v0.15.0 新增生产队列状态提示、读屏进度和宽屏滚动吸附：[画面与验证范围](docs/workshop-queue-status.md)。
 

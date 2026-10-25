@@ -228,7 +228,7 @@ export function FarmViewport({ children, className = '' }: FarmViewportProps) {
     }}>
       <div id={controlsId} className="farm-camera-options" data-camera-options hidden={!controlsOpen}>
         <button type="button" aria-label="缩小农场地图" title="缩小地图" disabled={camera.scale <= MIN_ZOOM + .001} onClick={() => zoomBy(-.2)}><Minus size={19} /></button>
-        <button type="button" className="farm-camera-reset" aria-label="复位农场地图" title="复位地图" onClick={() => updateCamera(IDENTITY)}><Scan size={19} /><span className="farm-camera-zoom">{Math.round(camera.scale * 100)}%</span></button>
+        <button type="button" className="farm-camera-reset" aria-label="复位农场地图" aria-describedby={`${controlsId}-zoom`} title="复位地图" onClick={() => updateCamera(IDENTITY)}><Scan size={19} /><span id={`${controlsId}-zoom`} className="farm-camera-zoom">{Math.round(camera.scale * 100)}%</span></button>
         <button type="button" aria-label="放大农场地图" title="放大地图" disabled={camera.scale >= MAX_ZOOM - .001} onClick={() => zoomBy(.2)}><Plus size={19} /></button>
       </div>
       <button ref={controlsToggle} type="button" className="farm-camera-toggle" data-camera-toggle aria-label={controlsOpen ? '收起地图缩放' : '展开地图缩放'} title={controlsOpen ? '收起地图缩放' : '地图缩放'} aria-expanded={controlsOpen} aria-controls={controlsId} onClick={() => setControlsOpen(open => !open)}>{controlsOpen ? <X size={19} /> : <ZoomIn size={21} />}</button>
