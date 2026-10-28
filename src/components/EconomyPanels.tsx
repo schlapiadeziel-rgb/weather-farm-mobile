@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Axe, Check, Coins, Fish, Gem, Leaf, Package, Pickaxe, Plus, RefreshCw, Ship, ShoppingBag, Sprout, Store, Timer, Trees, Trophy, Truck, Warehouse, Wheat } from 'lucide-react';
 import type { Game, ItemId, OrchardPlot, StorageKind } from '../lib/farmTypes';
@@ -50,19 +50,37 @@ function EmptyNote({ icon, children }: { icon: ReactNode; children: ReactNode })
 }
 
 export function OrdersPanel(props: OrdersPanelProps) {
-  const { game, now } = props;
+  const { game } = props;
+  const [readyOnly, setReadyOnly] = useState(false);
+  const latestGame = useRef(game);
+  const lastGameProp = useRef(game);
+  if (lastGameProp.current !== game) { lastGameProp.current = game; latestGame.current = game; }
+  const applyOrder = (action: (current: Game) => Game, message: string) => {
+    try {
+      const next = action(latestGame.current);
+      latestGame.current = next;
+      const saved = props.onChange(next);
+      props.notify(saved === false ? `${message} 本机未能保存，请在农场日记导出游戏备份。` : message);
+    } catch (error) { props.notify(error instanceof Error ? error.message : '这次订单操作没有完成，请再试一次。'); }
+  };
   const [kind, setKind] = useState<'truck' | 'boat'>(props.initialKind ?? 'truck');
   useEffect(() => { if (props.initialKind !== undefined) setKind(props.initialKind); }, [props.initialKind, props.requestId]);
+  useEffect(() => setReadyOnly(false), [kind, props.requestId]);
   const orders = game.orders.filter(order => order.kind === kind);
+  const isReady = (order: typeof orders[number]) => { const needs = Object.entries(order.requirements) as [ItemId, number][]; return needs.length > 0 && needs.every(([id, quantity]) => (game.inventory[id] ?? 0) >= quantity); };
+  const readyCount = orders.filter(isReady).length;
+  const visibleOrders = orders.map((order, index) => ({ order, index })).filter(({ order }) => !readyOnly || isReady(order));
   return <main className="fe-panel fe-orders">
     <PanelHeading icon={<Truck size={29} />} title="今天的订单" description="把田里的收成变成好东西，再送到需要它们的地方。"><span className="fe-level-stamp">已送达 <strong>{game.ordersDelivered}</strong> 单</span></PanelHeading>
     <nav className="fe-tabs" aria-label="配送方式"><button className={kind === 'truck' ? 'is-active' : ''} aria-pressed={kind === 'truck'} onClick={() => setKind('truck')}><Truck size={17} />卡车订单<span>{game.orders.filter(order => order.kind === 'truck').length}</span></button><button className={kind === 'boat' ? 'is-active' : ''} aria-pressed={kind === 'boat'} onClick={() => setKind('boat')}><Ship size={17} />货船订单<span>{game.orders.filter(order => order.kind === 'boat').length}</span></button></nav>
+    {orders.length > 0 && <div className="fe-order-toolbar"><p><strong>{readyCount}</strong> 张可交货 <span>／ 共 {orders.length} 张</span></p><button type="button" aria-pressed={readyOnly} onClick={() => setReadyOnly(value => !value)}>只看可交货{readyOnly && <Check size={14} aria-hidden="true" />}</button></div>}
     <section className="fe-order-board" aria-label={kind === 'truck' ? '卡车订单板' : '货船装货板'}>
       <div className="fe-board-caption"><span>{kind === 'truck' ? '合作社 · 发货板' : '河畔码头 · 装货板'}</span><small>收获 → 加工 → 交货</small></div>
-      {orders.length ? <div className="fe-order-grid">{orders.map((order, index) => {
+      {visibleOrders.length ? <div className="fe-order-grid">{visibleOrders.map(({ order, index }) => {
         const needs = Object.entries(order.requirements) as [ItemId, number][];
-        const ready = needs.every(([id, quantity]) => (game.inventory[id] || 0) >= quantity);
-        return <article className={`fe-order-card ${ready ? 'is-ready' : ''}`} key={order.id}>
+        const prepared = needs.filter(([id, quantity]) => (game.inventory[id] ?? 0) >= quantity).length;
+        const ready = isReady(order);
+        return <article className={`fe-order-card ${ready ? 'is-ready' : ''}`} key={order.id} data-order-id={order.id}>
           <div className="fe-order-top"><span className="fe-paper-pin" /><span>{kind === 'truck' ? '田间小货车' : '河畔货船'} · {index + 1} 号</span>{ready && <span className="fe-ready-label"><Check size={13} />备齐了</span>}</div>
           <h3>{kind === 'truck' ? '邻镇需要这些' : '下一程的货物'}</h3>
           <div className="fe-order-items">{needs.map(([id, quantity]) => {
@@ -71,12 +89,13 @@ export function OrdersPanel(props: OrdersPanelProps) {
             const shortage = Math.max(0, quantity - owned);
             return <div className={`fe-order-item ${shortage === 0 ? 'has-stock' : ''}`} key={id}><div className="fe-order-item-line"><span className="fe-item-icon" aria-hidden="true">{item.icon}</span><strong>{item.name}</strong><span className="fe-stock-count">{owned}<small> / {quantity}</small></span></div>{shortage > 0 && <div className="fe-order-shortage"><span>还缺 {shortage} 份</span>{props.onRequestItem && <button type="button" className="fe-order-source" aria-label={`为${item.name}备货，还缺${shortage}份，查看来源`} onClick={() => props.onRequestItem?.(id)}>查看来源</button>}</div>}</div>;
           })}</div>
+          <div className="fe-order-progress"><span>已备齐 <b>{prepared}/{needs.length}</b> 种</span><span role="progressbar" aria-label={`${index + 1}号订单备货进度`} aria-valuemin={0} aria-valuemax={Math.max(1, needs.length)} aria-valuenow={prepared} aria-valuetext={`已备齐 ${prepared} 种，共需 ${needs.length} 种商品`}><i style={{ width: `${prepared / Math.max(1, needs.length) * 100}%` }} /></span></div>
           <Reward coins={order.coins} xp={order.xp} />
-          <div className="fe-order-actions"><button className="fe-button fe-button-green" disabled={!ready} onClick={() => commit(props, () => deliverOrder(game, order.id, now), '货物已经送出！')}><span>{kind === 'truck' ? <Truck size={16} /> : <Ship size={16} />}</span>{ready ? '装好，出发！' : '还差一些货物'}</button><button className="fe-icon-button" aria-label={`更换${index + 1}号订单`} title="更换订单" onClick={() => commit(props, () => discardOrder(game, order.id, now), '订单已经更换。')}><RefreshCw size={17} /></button></div>
+          <div className="fe-order-actions"><button className="fe-button fe-button-green" disabled={!ready} onClick={() => applyOrder(current => deliverOrder(current, order.id, Date.now()), '货物已经送出！')}><span>{kind === 'truck' ? <Truck size={16} /> : <Ship size={16} />}</span>{ready ? '装好，出发！' : '还差一些货物'}</button><button className="fe-icon-button" aria-label={`更换${index + 1}号订单`} title="更换订单" onClick={() => applyOrder(current => discardOrder(current, order.id, Date.now()), '订单已经更换。')}><RefreshCw size={17} /></button></div>
         </article>;
-      })}</div> : <div className="fe-order-empty"><EmptyNote icon={kind === 'boat' ? <Ship size={37} /> : <Truck size={37} />}>{kind === 'boat' ? `经营等级 ${BOAT_LEVEL} 可以接到货船订单，来安排下一程吧。` : '发货板还没有订单，接一批新订单吧。'}</EmptyNote><button className="fe-button" disabled={kind === 'boat' && getLevel(game) < BOAT_LEVEL} onClick={() => commit(props, () => ensureOrders(game, kind), '新订单来到发货板了。')}>{kind === 'boat' ? <Ship size={17} /> : <Truck size={17} />}{kind === 'boat' && getLevel(game) < BOAT_LEVEL ? `${BOAT_LEVEL} 级开放码头` : '接一批新订单'}</button></div>}
+      })}</div> : orders.length > 0 ? <div className="fe-order-empty fe-order-filter-empty"><EmptyNote icon={<Package size={37} />}>暂时没有备齐的订单，回到全部订单查看缺少的货物。</EmptyNote><button type="button" className="fe-button" onClick={() => setReadyOnly(false)}>查看全部订单</button></div> : <div className="fe-order-empty"><EmptyNote icon={kind === 'boat' ? <Ship size={37} /> : <Truck size={37} />}>{kind === 'boat' ? `经营等级 ${BOAT_LEVEL} 可以接到货船订单，来安排下一程吧。` : '发货板还没有订单，接一批新订单吧。'}</EmptyNote><button className="fe-button" disabled={kind === 'boat' && getLevel(game) < BOAT_LEVEL} onClick={() => applyOrder(current => ensureOrders(current, kind), '新订单来到发货板了。')}>{kind === 'boat' ? <Ship size={17} /> : <Truck size={17} />}{kind === 'boat' && getLevel(game) < BOAT_LEVEL ? `${BOAT_LEVEL} 级开放码头` : '接一批新订单'}</button></div>}
     </section>
-    <p className="fe-footnote">本机 NPC 订单 · 交货会消耗库存；缺货时可以先种植、喂养，或去工坊安排加工。</p>
+    <p className="fe-footnote">本机 NPC 订单 · 各订单共用库存，交货后重新核对其余订单；缺货时可种植、喂养或加工。</p>
     {props.onRequestItem && <p className="fe-footnote fe-source-note">查看来源只切换页面，不会自动制作、扣除库存或交货。</p>}
   </main>;
 }
