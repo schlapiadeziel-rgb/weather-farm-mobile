@@ -62,3 +62,15 @@
     display:none;
   }
 }
+
+/* Raised, finely furrowed soil catches the same upper-left light as the scenery. */
+.farm-scene.map-scene .farm-viewport-world .plot:not(.locked){
+  background-color:#785132;
+  background-image:linear-gradient(140deg,#ffdfa02e,transparent 54%,#392d261f),radial-gradient(ellipse at 27% 32%,#d9aa7480 0 .65px,transparent 1px),repeating-linear-gradient(0deg,#b08758 0 1px,#957044 1px 4px,#795234 5px 7px,#66452d 8px 9px);
+  background-size:auto,13px 11px,auto;
+  border-color:#765031 #66422b #573c29 #8d6940;
+  box-shadow:inset 0 1px 0 #e0b47b80,inset -1px -1px 2px #4f362c66,0 4px 0 #5c402c,0 7px 0 #4b37281f,3px 11px 10px #355a3033;
+}
+.farm-scene.map-scene .farm-viewport-world .plot.ripe{border-color:#f4d77b #d5ad53 #b18b43 #ffe7a1;box-shadow:inset 0 1px 0 #ffe4a2a6,0 4px 0 #78572f,3px 11px 11px #355a3033}
+.farm-scene.map-scene .farm-viewport-world .plot.selected{outline:2px solid #fff0ab;outline-offset:3px}
+.farm-scene.map-scene .farm-viewport-world .plot.locked{background:radial-gradient(ellipse at 20% 30%,#c0d78f66,transparent 72%),repeating-linear-gradient(18deg,transparent 0 17px,#58783f17 18px 19px),linear-gradient(145deg,#9abc70,#739b50);border:1px solid #74964e;box-shadow:inset 0 1px 0 #dce5ac66,0 3px 0 #56763c,2px 7px 8px #416a3429;opacity:.94}

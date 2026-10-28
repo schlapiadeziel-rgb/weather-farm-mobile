@@ -1,0 +1,42 @@
+{
+  "provenance": "Original AI-generated game illustrations created for this project; no third-party game sprites.",
+  "encoding": "WebP quality90 alphaQuality100; no resizing.",
+  "assets": [
+    {
+      "file": "public/art/meadow-tree.webp",
+      "bytes": 389318,
+      "sha256": "1d05f70d5314c231fa6fbe68ba4ca520c35af848513e091d1d71a39775eef04a",
+      "source_png_sha256": "e338096c21208dd4da3aa79fb9e05fdb7007d8cff7b9d86db7cefaf1e47529ea",
+      "width": 1254,
+      "height": 1254,
+      "alpha": true
+    },
+    {
+      "file": "public/art/farmhouse.webp",
+      "bytes": 270534,
+      "sha256": "d88515c0e8ba1209de4ea415c974e5eb69c9238b6df152be0b04946c98c3bf67",
+      "source_png_sha256": "89c1f3344c0fb0a9b02c69949181c336a1153972202714ef08512e0daa7aa761",
+      "width": 1254,
+      "height": 1254,
+      "alpha": true
+    },
+    {
+      "file": "public/art/barn.webp",
+      "bytes": 236088,
+      "sha256": "f8b231ce4a8276eb2d4d044bd9958f83ba38fac436b7ef7e82beac00441295e0",
+      "source_png_sha256": "89db01b252a6e9bcf67b7c725d009e1837fc935d00f3d5bcc6ab6e587db3a727",
+      "width": 1254,
+      "height": 1254,
+      "alpha": true
+    },
+    {
+      "file": "public/art/windmill.webp",
+      "bytes": 281162,
+      "sha256": "3f0afdb5d1c74e1ffc067fbef69f02bcbcbcf9bea77b4656fd8190ee87115988",
+      "source_png_sha256": "54464b372d38284cf57fb37e3b00bef42f2ca4749126009b65471fdeb5e2c90c",
+      "width": 1254,
+      "height": 1254,
+      "alpha": true
+    }
+  ]
+}
