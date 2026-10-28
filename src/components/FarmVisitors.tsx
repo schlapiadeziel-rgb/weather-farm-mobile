@@ -5,7 +5,7 @@ import { ArrowLeft, ArrowRight, Check, Clock3, Coins, DoorOpen, HandHeart, Leaf,
 import type { Game, ItemId } from '../lib/farmTypes';
 import type { FarmVisitor } from '../lib/farmVisitorTypes';
 import { getItem } from '../lib/farmContent';
-import { FARM_VISITOR_PROFILES, getFarmVisitorProfile, getFarmVisitorSaleBlock } from '../lib/farmVisitors';
+import { FARM_VISITOR_CROP_RESERVE, FARM_VISITOR_PROFILES, getFarmVisitorProfile, getFarmVisitorSaleBlock } from '../lib/farmVisitors';
 import { FarmVisitorGateArt, FarmVisitorPortrait } from './FarmVisitorArt';
 import './farm-visitors.css';
 
@@ -69,6 +69,10 @@ export default function FarmVisitors({ game, now, onClose, onWelcome, onSell, on
   const item = shownVisitor ? getItem(shownVisitor.item) : null;
   const stock = shownVisitor ? game.inventory[shownVisitor.item] ?? 0 : 0;
   const remaining = shownVisitor ? stock - shownVisitor.quantity : 0;
+  const reserve = item?.category === 'crop' ? FARM_VISITOR_CROP_RESERVE : 0;
+  const requiredStock = shownVisitor ? shownVisitor.quantity + reserve : 0;
+  const shortage = Math.max(0, requiredStock - stock);
+  const preparedStock = Math.min(stock, requiredStock);
   const wait = Math.max(0, game.farmVisitors.nextArrivalAt - now);
   const staleConfirmation = !!confirmation && !sameRequest(visitor, confirmation.visitor);
   const saleBlock = shownVisitor ? staleConfirmation ? '这位邻居的请求已经改变，请返回重新查看。' : getFarmVisitorSaleBlock(game, shownVisitor.id, now) : '';
@@ -195,9 +199,14 @@ export default function FarmVisitors({ game, now, onClose, onWelcome, onSell, on
             <article className={`fvis-receipt${confirmation?.kind === 'dismiss' ? ' fvis-receipt--dismiss' : ''}`} aria-label={`${item.name}收购清单`}>
               <div className="fvis-receipt-top"><span>{confirmation?.kind === 'dismiss' ? '原收购请求' : '田边小买卖'}</span><span>{confirmation?.kind === 'dismiss' ? '仅查看，不会出售' : '一口价 · 游戏金币'}</span></div>
               <div className="fvis-requested-item"><RequestedItemArt item={shownVisitor.item} /><div><small>想买一点</small><h4>{item.name}<span>×{shownVisitor.quantity}</span></h4></div><span className="fvis-request-stamp">邻里<br />好收成</span></div>
-              <dl className="fvis-stock-list"><div><dt>当前库存</dt><dd>{stock}<small> 份</small></dd></div><div><dt>{confirmation?.kind === 'dismiss' ? '本次交付' : '本次出售'}</dt><dd>{confirmation?.kind === 'dismiss' ? '0' : `−${shownVisitor.quantity}`}<small> 份</small></dd></div><div className={confirmation?.kind !== 'dismiss' && remaining < (item.category === 'crop' ? 2 : 0) ? 'fvis-stock-low' : ''}><dt>{confirmation?.kind === 'dismiss' ? '送别后库存' : '售出后剩余'}</dt><dd>{confirmation?.kind === 'dismiss' ? <>{stock}<small> 份</small></> : remaining < 0 ? '库存不足' : <>{remaining}<small> 份</small></>}</dd></div></dl>
+              <dl className="fvis-stock-list"><div><dt>当前库存</dt><dd>{stock}<small> 份</small></dd></div><div><dt>{confirmation?.kind === 'dismiss' ? '本次交付' : '本次出售'}</dt><dd>{confirmation?.kind === 'dismiss' ? '0' : `−${shownVisitor.quantity}`}<small> 份</small></dd></div><div className={confirmation?.kind !== 'dismiss' && remaining < reserve ? 'fvis-stock-low' : ''}><dt>{confirmation?.kind === 'dismiss' ? '送别后库存' : '售出后剩余'}</dt><dd>{confirmation?.kind === 'dismiss' ? <>{stock}<small> 份</small></> : remaining < 0 ? '库存不足' : <>{remaining}<small> 份</small></>}</dd></div></dl>
+              {confirmation?.kind !== 'dismiss' && <div className={`fvis-preparation${shortage ? ' fvis-preparation--short' : ''}`}>
+                <div><span>{shortage ? `还需补充 ${shortage} 份${item.name}` : '收成已备齐'}</span><small>{stock} / {requiredStock} 份</small></div>
+                <div className="fvis-preparation-track" role="progressbar" aria-label={`${item.name}备货进度${reserve ? '，含保留种子' : ''}`} aria-valuemin={0} aria-valuemax={requiredStock} aria-valuenow={preparedStock} aria-valuetext={`库存 ${stock} 份，需要 ${requiredStock} 份${reserve ? `，含 ${reserve} 份种子` : ''}`}><span style={{ width: `${requiredStock ? preparedStock / requiredStock * 100 : 0}%` }} /></div>
+                <p>出售 {shownVisitor.quantity} 份{reserve ? ` ＋ 留种 ${reserve} 份` : ''}；{shortage ? '补齐后再回来成交。' : '确认后才会交付。'}</p>
+              </div>}
               <div className="fvis-rewards"><span><Coins size={21} aria-hidden="true" /><strong>+{shownVisitor.coins}</strong><small>金币</small></span><span className="fvis-reward-xp"><Sparkles size={19} aria-hidden="true" /><strong>+{shownVisitor.xp}</strong><small>经验</small></span></div>
-              <p className="fvis-seed-note"><Sprout size={15} aria-hidden="true" />{confirmation?.kind === 'dismiss' ? '送别后，所有物品照常留在仓库。' : item.category === 'crop' ? '作物至少留下 2 份，下一轮播种有着落。' : '只交出清单上的物品，其他收成继续留在仓库。'}</p>
+              <p className="fvis-seed-note"><Sprout size={15} aria-hidden="true" />{confirmation?.kind === 'dismiss' ? '送别后，所有物品照常留在仓库。' : item.category === 'crop' ? `作物至少留下 ${reserve} 份，下一轮播种有着落。` : '只交出清单上的物品，其他收成继续留在仓库。'}</p>
             </article>
 
             {confirmation?.kind === 'dismiss' && !staleConfirmation ? <p className="fvis-dismiss-note"><Leaf size={16} aria-hidden="true" />谢绝不会受到惩罚；已经播种和排队的生产照常进行。</p> : saleBlock ? <p id={blockedId} className="fvis-blocked" role="status"><Package size={17} aria-hidden="true" />{saleBlock}</p> : !confirmation && <p className="fvis-patience"><Clock3 size={14} aria-hidden="true" />邻居会一直等你。先去收获，回来再聊也没关系。</p>}
