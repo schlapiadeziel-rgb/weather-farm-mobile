@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { ReactNode } from 'react';
 import { Coins, Diamond, Leaf, Menu } from 'lucide-react';
 import type { Game } from '../lib/farmTypes';
 import { getLevel } from '../lib/game';
@@ -21,7 +22,7 @@ function RollingNumber({ value, name }: { value: number; name: 'level' | 'coins'
 }
 
 /** Corner-only game HUD; the landscape stays behind every control. */
-export default function FarmSceneHud({ game, onMenu, onAssistant, onActivity, ready, hasUpdate }: { game: Game; onMenu(): void; onAssistant(): void; onActivity(): void; ready: boolean; hasUpdate: boolean }) {
+export default function FarmSceneHud({ game, onMenu, onAssistant, onActivity, ready, hasUpdate, context }: { game: Game; onMenu(): void; onAssistant(): void; onActivity(): void; ready: boolean; hasUpdate: boolean; context?: ReactNode }) {
   const level = getLevel(game);
   const base = 20 * (level - 1) ** 2;
   const target = 20 * level ** 2;
@@ -37,10 +38,10 @@ export default function FarmSceneHud({ game, onMenu, onAssistant, onActivity, re
       </span>
       <span className="fsh-xp" aria-hidden="true"><span key={level} style={{ transform: `scaleX(${progress / 100})` }} /></span>
     </button>
-    <div className="fsh-wallet" aria-label={`金币 ${game.coins}，钻石 ${game.gems}`}>
+    {context ? <div className="fsh-context">{context}</div> : <div className="fsh-wallet" aria-label={`金币 ${game.coins}，钻石 ${game.gems}`}>
       <span><RollingNumber value={game.coins} name="coins" /><Coins size={23} aria-hidden="true" /></span>
       <span><RollingNumber value={game.gems} name="gems" /><Diamond size={21} aria-hidden="true" /></span>
-    </div>
+    </div>}
     <button className="fsh-corner fsh-menu" onClick={onMenu} aria-label="打开农场菜单" aria-haspopup="dialog" title="农场菜单"><Menu size={24} aria-hidden="true" /><span>经营</span>{(ready || hasUpdate) && <i aria-hidden="true" />}</button>
     <button className="fsh-corner fsh-assistant" onClick={onAssistant} aria-label="进入农场助手" title="独立农场助手"><Leaf size={25} aria-hidden="true" /><span>助手</span></button>
   </div>;
