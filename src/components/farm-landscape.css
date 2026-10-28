@@ -20,3 +20,5 @@
 @media(prefers-reduced-motion:reduce){.farm-landscape *{animation:none!important;transition:none!important}.fl-leaf-light{opacity:.42}.fl-pond-sunlight{opacity:.15}}
 
 .fl-scenic-terrain,.fl-painted-tree{pointer-events:none}.fl-painted-tree{image-rendering:auto}
+
+.fl-painted-herd,.fl-painted-flock{pointer-events:none}

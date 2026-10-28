@@ -18,6 +18,7 @@ import FarmLayoutEditor from './components/FarmLayoutEditor';
 import FarmVisitors from './components/FarmVisitors';
 import FarmVisitorEntry from './components/FarmVisitorEntry';
 import SupplyReturn from './components/SupplyReturn';
+import PenScenery from './components/PenScenery';
 import FarmGameMenu from './components/FarmGameMenu';
 import type { FarmGameMenuAction } from './components/FarmGameMenu';
 import { welcomeFarmVisitor, sellToFarmVisitor, dismissFarmVisitor } from './lib/farmVisitors';
@@ -512,7 +513,7 @@ export default function App() {
           <div className="livestock-field"><div className="pen-grid">{game.animals.map(p => {
             const a = LIVESTOCK.find(v => v.id === p.animal), ready = p.progress >= 100 && !!a;
             return <button key={p.id} data-pen-id={p.id} className={`animal-pen ${p.id === selectedPen ? 'selected' : ''} ${a ? 'occupied' : ''} ${ready ? 'ready' : ''}`} onClick={() => { setSelectedPen(p.id); if (ready) animalAct('collect', p.id); else { setDetailsOpen(true); feedback(); } }} aria-pressed={p.id === selectedPen} aria-label={`${p.id}号畜舍，${a ? `${a.name}，${ready ? `轻触收集${a.productName}` : p.readyAt ? `剩余${timerText(p.readyAt-clock)}` : '等待喂食'}` : '空畜舍，可购买动物'}`}>
-              {penFeedback[p.id] && <AnimalActionFeedback key={penFeedback[p.id].key} action={penFeedback[p.id].action} product={penFeedback[p.id].product} />}<span className="pen-label">畜舍 {String(p.id).padStart(2, '0')}</span><span className="animal-sprite"><AnimalVisual animal={p.animal} healthy /></span><strong>{a ? a.name : '等待新伙伴'}</strong><span className="animal-product">{a ? ready ? `${a.productEmoji} ${a.productName}可收集` : p.readyAt ? timerText(p.readyAt-clock) : '需要一份饲料' : '点击选择动物'}</span>{ready && <span className="ready-mark"><Check size={13} /></span>}
+              <PenScenery occupied={!!a} />{penFeedback[p.id] && <AnimalActionFeedback key={penFeedback[p.id].key} action={penFeedback[p.id].action} product={penFeedback[p.id].product} />}<span className="pen-label">畜舍 {String(p.id).padStart(2, '0')}</span><span className="animal-sprite"><AnimalVisual animal={p.animal} healthy /></span><strong>{a ? a.name : '等待新伙伴'}</strong><span className="animal-product">{a ? ready ? `${a.productEmoji} ${a.productName}可收集` : p.readyAt ? timerText(p.readyAt-clock) : '需要一份饲料' : '点击选择动物'}</span>{ready && <span className="ready-mark"><Check size={13} /></span>}
             </button>;
           })}</div><span className="field-caption">投喂一份饲料，等待产物 · 收集后再投喂下一轮</span></div>
           </AnimalInteraction>

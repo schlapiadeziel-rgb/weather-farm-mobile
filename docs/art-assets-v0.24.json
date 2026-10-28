@@ -1,0 +1,51 @@
+{
+  "provenance": "Original AI-generated animal illustrations created for this project; no third-party game sprites.",
+  "encoding": "Runtime delivery resized to640x640, WebP quality90 alphaQuality100; original generated PNGs retained in workspace.",
+  "assets": [
+    {
+      "file": "public/art/animals/chicken.webp",
+      "bytes": 65386,
+      "sha256": "b35669182e67f2b22ba7535c167ed93e899aaa9921e474753f8bb2eaaab4ad76",
+      "source_png_sha256": "31f4df680284a35dda8db089a854338ac22c47515cedb4d2e7f6ac19c95407f8",
+      "width": 640,
+      "height": 640,
+      "alpha": true
+    },
+    {
+      "file": "public/art/animals/cow.webp",
+      "bytes": 71566,
+      "sha256": "85170fca872b0b3ac23d2709ee1dccf2c0d275ab18ae88b90e7695febc5994bf",
+      "source_png_sha256": "30048bcfb7b83e8f67948014ca90b7b5a6d2ecec64569ac8e0e907fbeaddf9a6",
+      "width": 640,
+      "height": 640,
+      "alpha": true
+    },
+    {
+      "file": "public/art/animals/pig.webp",
+      "bytes": 58856,
+      "sha256": "6b303f9cec7b63d7c085e8e1097bd6e62e4540d748296d6f38ad589bc0af4f7a",
+      "source_png_sha256": "0934938cf8a1b0568fc45353e7acef5f19400a2c0d1ef3421c4869345e1848c6",
+      "width": 640,
+      "height": 640,
+      "alpha": true
+    },
+    {
+      "file": "public/art/animals/sheep.webp",
+      "bytes": 69968,
+      "sha256": "13b4292404a85224d814fbfac7fa51bd688715bc5db86ffdb038ad73777a28fc",
+      "source_png_sha256": "be1cfea0bbba888fa50fea485dd466773b00e9f3b258e9fd71d881aa9b9a6340",
+      "width": 640,
+      "height": 640,
+      "alpha": true
+    },
+    {
+      "file": "public/art/animals/goat.webp",
+      "bytes": 82526,
+      "sha256": "58d1a3c41b6945532c0a0904ced3705acd9170ff7110135e9441317fcf069949",
+      "source_png_sha256": "dac9e5aeac6531768fee11d01b38ffa8f35679123ee67c21f36c2d594ff7024d",
+      "width": 640,
+      "height": 640,
+      "alpha": true
+    }
+  ]
+}

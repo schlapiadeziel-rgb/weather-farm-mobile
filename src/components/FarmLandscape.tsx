@@ -154,7 +154,13 @@ function Windmill({ x, y }: { x: number; y: number }) {
 }
 
 function Cow({ x, y, paint, flip = false }: { x: number; y: number; paint: string; flip?: boolean }) {
-  return <g transform={`translate(${x} ${y}) scale(${flip ? -1 : 1} 1)`}><ellipse cx="5" cy="17" rx="24" ry="7" fill="#436439" opacity=".23" /><path d="m-17 6 1 13h5l2-13m23-1 2 14h5l-1-16" stroke="#a39c7c" strokeWidth="4" /><path d="M-22-3c2-16 41-15 46 1v12c-11 12-40 8-46-2Z" fill={`url(#${paint}-milk)`} stroke="#aaa27d" strokeWidth="1" /><path d="M-12-12c16-4 20 5 13 13-8 5-20-2-13-13m18 19c8-5 16-2 15 6-7 6-18 5-15-6Z" fill="#61715c" /><path d="M20-8c12-3 21 5 19 17-1 9-13 13-19 5-6-7-7-15 0-22Z" fill="#f5eacc" stroke="#b3ae8c" /><path d="m22-8-7-7 2 10m16-4 8-5-2 9" fill="#b3b18b" /><ellipse cx="29" cy="12" rx="10" ry="6" fill="#dda992" /><path d="m24 13 1 1m7-1 1 1" stroke="#ac8069" strokeWidth="1.4" strokeLinecap="round" /><circle className="fl-cow-eye" cx="27" cy="0" r="1.8" fill="#425940" /><path className="fl-cow-tail" d="m-21-6-8 2-3 12" stroke="#b4b39a" strokeWidth="2" fill="none" /></g>;
+  const [imageFailed, setImageFailed] = useState(false);
+  return <g transform={`translate(${x} ${y}) scale(${flip ? -1 : 1} 1)`}><ellipse cx="5" cy="17" rx="24" ry="7" fill="#436439" opacity=".23" />{!imageFailed ? <image className="fl-painted-herd" href="/art/animals/cow.webp" x="-29" y="-35" width="62" height="57" preserveAspectRatio="xMidYMax meet" onError={() => setImageFailed(true)} /> : <g className="fl-herd-fallback"><path d="m-17 6 1 13h5l2-13m23-1 2 14h5l-1-16" stroke="#a39c7c" strokeWidth="4" /><path d="M-22-3c2-16 41-15 46 1v12c-11 12-40 8-46-2Z" fill={`url(#${paint}-milk)`} stroke="#aaa27d" strokeWidth="1" /><path d="M-12-12c16-4 20 5 13 13-8 5-20-2-13-13m18 19c8-5 16-2 15 6-7 6-18 5-15-6Z" fill="#61715c" /><path d="M20-8c12-3 21 5 19 17-1 9-13 13-19 5-6-7-7-15 0-22Z" fill="#f5eacc" stroke="#b3ae8c" /><path d="m22-8-7-7 2 10m16-4 8-5-2 9" fill="#b3b18b" /><ellipse cx="29" cy="12" rx="10" ry="6" fill="#dda992" /><path d="m24 13 1 1m7-1 1 1" stroke="#ac8069" strokeWidth="1.4" strokeLinecap="round" /><circle className="fl-cow-eye" cx="27" cy="0" r="1.8" fill="#425940" /><path className="fl-cow-tail" d="m-21-6-8 2-3 12" stroke="#b4b39a" strokeWidth="2" fill="none" /></g>}</g>;
+}
+
+function MapHen() {
+  const [imageFailed, setImageFailed] = useState(false);
+  return <g transform="translate(350 475)"><ellipse rx="19" ry="7" cy="14" fill="#739d57" opacity=".2" />{!imageFailed ? <image className="fl-painted-flock" href="/art/animals/chicken.webp" x="-15" y="-25" width="42" height="48" preserveAspectRatio="xMidYMax meet" onError={() => setImageFailed(true)} /> : <g className="fl-chicken-fallback"><path d="M-12 3c0-13 20-16 27-4 5 14-24 18-27 4Z" fill="#fff2d6" /><circle cx="16" cy="-8" r="7" fill="#fff4db" /><path d="m22-8 8 3-8 2" fill="#dfa84c" /><path d="m12-15 1-5 4 3 3-2 2 6" fill="#d87953" /><circle cx="17" cy="-9" r="1.3" fill="#4c6240" /><path d="m-5 12-2 6m12-7 2 6" stroke="#bd9a51" strokeWidth="2" /></g>}</g>;
 }
 
 function Sign({ x, y, label }: { x: number; y: number; label: string }) {
@@ -219,7 +225,7 @@ export function FarmLandscape({ onVisit, className = '', layout, fit = 'cover', 
       <path d="m292 424 37-18 29 15-37 19Z" fill="#d6c992" /><path d="m299 422 22 10 28-14" fill="none" stroke="#d7b76d" strokeWidth="5" />
       <Fence points={[[243,409],[274,428],[306,448],[343,430],[379,412],[419,395],[455,391]]} />
       <PaintedLandmark kind="barn" />
-      <g transform="translate(350 475)"><ellipse rx="19" ry="7" cy="14" fill="#739d57" opacity=".2" /><path d="M-12 3c0-13 20-16 27-4 5 14-24 18-27 4Z" fill="#fff2d6" /><circle cx="16" cy="-8" r="7" fill="#fff4db" /><path d="m22-8 8 3-8 2" fill="#dfa84c" /><path d="m12-15 1-5 4 3 3-2 2 6" fill="#d87953" /><circle cx="17" cy="-9" r="1.3" fill="#4c6240" /><path d="m-5 12-2 6m12-7 2 6" stroke="#bd9a51" strokeWidth="2" /></g>
+      <MapHen />
       <Sign x={335} y={535} label="牧场" />
     </MapPlace>
     </LayoutItem>

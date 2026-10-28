@@ -2,6 +2,7 @@ import { memo, useId } from 'react';
 import { CROPS } from '../lib/farmContent';
 import type { AnimalId, CropId } from '../lib/farmTypes';
 import './farm-visual.css';
+import PaintedAnimal from './PaintedAnimal';
 
 /** Original decorative game scenery; separate from photo assessment inputs. */
 export const FARM_ART_URL = '/farm-art-v2.png';
@@ -304,14 +305,14 @@ function EmptyPen({ id }: { id: string }) {
   </g>;
 }
 
-/** Vector livestock art stays inside its layout box on small phone screens. */
+/** Illustrated livestock keeps the original layout box, with independent SVG fallbacks. */
 export const AnimalVisual = memo(function AnimalVisual({ animal, healthy, className = '' }: AnimalVisualProps) {
   const id = `fv-a-${useId().replace(/:/g, '')}`;
   return <span className={`fv-visual fv-animal ${className}`} data-animal={animal ?? 'empty'} data-condition={animal ? healthy ? 'healthy' : 'resting' : 'empty'} aria-hidden="true">
     <svg viewBox="0 0 120 112" focusable="false" strokeLinecap="round" strokeLinejoin="round">
       <Paint id={id} /><ellipse cx="61" cy="101" rx="40" ry="6" fill="#52663b" opacity=".16" /><ellipse cx="61" cy="101" rx="26" ry="3" fill="#324a30" opacity=".17" />
       <path d="m23 99-2-5m5 5 2-4m62 4 1-5m3 5 3-3" stroke="#9aaa69" strokeWidth="1.3" />
-      <g className="fv-livestock-art">{animal === 'chicken' ? <Chicken id={id} healthy={healthy} /> : animal === 'cow' ? <Cow id={id} healthy={healthy} /> : animal === 'sheep' ? <Sheep id={id} healthy={healthy} /> : animal === 'pig' ? <Pig id={id} healthy={healthy} /> : animal === 'goat' ? <Goat id={id} healthy={healthy} /> : <EmptyPen id={id} />}</g>
+      <g className="fv-livestock-art">{animal ? <PaintedAnimal animal={animal} fallback={animal === 'chicken' ? <Chicken id={id} healthy={healthy} /> : animal === 'cow' ? <Cow id={id} healthy={healthy} /> : animal === 'sheep' ? <Sheep id={id} healthy={healthy} /> : animal === 'pig' ? <Pig id={id} healthy={healthy} /> : animal === 'goat' ? <Goat id={id} healthy={healthy} /> : <EmptyPen id={id} />} /> : <EmptyPen id={id} />}</g>
     </svg>
   </span>;
 });
