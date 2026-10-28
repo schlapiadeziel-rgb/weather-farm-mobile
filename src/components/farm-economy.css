@@ -31,3 +31,5 @@
 .fe-order-card.is-ready .fe-order-progress i{background:#84a35a}
 .fe-order-filter-empty{color:#f6e8c5}.fe-order-filter-empty .fe-empty{color:inherit}
 @media(prefers-reduced-motion:reduce){.fe-order-progress i{transition:none}}
+
+.fe-sale-preview{display:flex;align-items:center;flex-wrap:wrap;gap:8px 16px;padding:11px 13px;margin:0 0 12px;border:1px solid #d3d5af;border-radius:10px;background:#eef1d8;color:#738154;font-size:11px;line-height:1.6}.fe-sale-preview strong{color:#506c3c}.fe-sale-preview b{font-variant-numeric:tabular-nums;color:#8d6b31}.fe-sale-preview small{flex-basis:100%;color:#9b7449}.fe-sale-validation{padding:8px 11px;margin:0 0 13px!important;border:1px solid #e4c99b;border-radius:8px;background:#f7ead3;color:#966a3d;font-size:11px;line-height:1.6}.fe-sale-validation[hidden]{display:none}.fe-sale-form input[aria-invalid=true]{border-color:#be9764}
