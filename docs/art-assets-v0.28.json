@@ -1,0 +1,96 @@
+{
+  "provenance": "Original AI-generated production workshop illustrations created for this project; no third-party game sprites.",
+  "encoding": "WebP quality90 alphaQuality100, fit within768x768 preserving source aspect ratio; original generated PNGs retained in workspace.",
+  "assets": [
+    {
+      "file": "public/art/workshops/jam_maker.webp",
+      "bytes": 175242,
+      "sha256": "cffc791edcf9e7858f7c2159583ebd6f522f15941255a165980888d9a6aeb8c5",
+      "source_png_sha256": "9f90269f8dd03465536f5fefeacacc10ee2e000039d0674ab6016600b1bc57d2",
+      "width": 768,
+      "height": 702,
+      "alpha": true
+    },
+    {
+      "file": "public/art/workshops/smelter.webp",
+      "bytes": 163222,
+      "sha256": "127fbdd96eff5bad6ea12aed6ed1adfa92958aec3755d7474ff35f6803024509",
+      "source_png_sha256": "ddc2a600a957e6e45bf54113873fcbd3423cc9bb5f70d49126b50a37ca552bed",
+      "width": 768,
+      "height": 689,
+      "alpha": true
+    },
+    {
+      "file": "public/art/workshops/jeweler.webp",
+      "bytes": 152834,
+      "sha256": "08948a00f2ce42e76b0206bc4dcbfef0aeb015d179b52b2b2025faf237a8b406",
+      "source_png_sha256": "376642f60c1adda4014c26692f4bce64a533e3c3030f71497160c50da778208b",
+      "width": 768,
+      "height": 679,
+      "alpha": true
+    },
+    {
+      "file": "public/art/workshops/coffee_kiosk.webp",
+      "bytes": 149246,
+      "sha256": "9e00c1d3dcba7bf9f771dcd41daf27eafad36522db63b5b750033e6ccabaf888",
+      "source_png_sha256": "6cc381a538a7fc7c79eb60c9026b87345a77898a78d8d81f34511d91d870c7db",
+      "width": 768,
+      "height": 702,
+      "alpha": true
+    },
+    {
+      "file": "public/art/workshops/honey_extractor.webp",
+      "bytes": 123632,
+      "sha256": "9378ecfef040e66dc1b27ca437c7da223d54e5a134ea0f684898fb229c685f94",
+      "source_png_sha256": "7481fcd9a3096596c2fb8c583171f4b0d5f12eeea603d92d65bdc54355d5d3cc",
+      "width": 768,
+      "height": 666,
+      "alpha": true
+    },
+    {
+      "file": "public/art/workshops/candy_machine.webp",
+      "bytes": 177326,
+      "sha256": "975b4631121ea8b2fe80199b6f36552846cbd6f068e1d5c6e260604311efc054",
+      "source_png_sha256": "25f7eabd63706fbb04663487117fe90e10579830838e111777a096b3613e32ae",
+      "width": 768,
+      "height": 702,
+      "alpha": true
+    },
+    {
+      "file": "public/art/workshops/sauce_maker.webp",
+      "bytes": 109026,
+      "sha256": "9cca70f3236fd5e030c9bdbc0fbcb8b16ac365a8eec3cbc5d7950ff7a89057db",
+      "source_png_sha256": "d57910a0e61746984755392934bc4f30829f7c1b17d5677440e13d5f001b3191",
+      "width": 768,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "file": "public/art/workshops/sushi_bar.webp",
+      "bytes": 159760,
+      "sha256": "43b7fca25114d21a7ea1f151057feff1a3134f9a065b88eadc7d3fadd56ecf8e",
+      "source_png_sha256": "f2a647a085f57f2ddd94b9a41080aa8b948e9439653cdff48d6b685e5d5fabd2",
+      "width": 768,
+      "height": 702,
+      "alpha": true
+    },
+    {
+      "file": "public/art/workshops/salad_bar.webp",
+      "bytes": 182814,
+      "sha256": "0fa0ee7510cbdf8a6290c0c652f7207dbf8bdc3bf60d9d294ce8f45aa64eb66a",
+      "source_png_sha256": "5bc22c1d7859fe36702c11c8a6c8af055b0041528aa64f7298e2d1bd16a01a77",
+      "width": 768,
+      "height": 702,
+      "alpha": true
+    },
+    {
+      "file": "public/art/workshops/soup_kitchen.webp",
+      "bytes": 176548,
+      "sha256": "31acd3e4d2093d46bc4679ba9a689d2705b075b2d574f06b3f7680523ae6faa5",
+      "source_png_sha256": "f7abe1f73fe6fdfaa7596b7ecc95048166d90726abb3c763751c1b3bb75eecf7",
+      "width": 768,
+      "height": 709,
+      "alpha": true
+    }
+  ]
+}
