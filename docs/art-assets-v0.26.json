@@ -1,0 +1,60 @@
+{
+  "provenance": "Original AI-generated production workshop illustrations created for this project; no third-party game sprites.",
+  "encoding": "WebP quality90 alphaQuality100, fit within768x768 preserving source aspect ratio; original generated PNGs retained in workspace.",
+  "assets": [
+    {
+      "file": "public/art/workshops/feed_mill.webp",
+      "bytes": 173338,
+      "sha256": "27d8a975408e928d90e4bd64d4bc0220a4c1d29bddc11531e1da622cc335f141",
+      "source_png_sha256": "eb7e8475ca69c1b5d2a76ba4d794537de2a5f49fd18343d273da8108593a3525",
+      "width": 768,
+      "height": 768,
+      "alpha": true
+    },
+    {
+      "file": "public/art/workshops/bakery.webp",
+      "bytes": 168802,
+      "sha256": "805bbd960bdec79c7aac03f155c80a826737ac958952353ab013ee2bd280658c",
+      "source_png_sha256": "d95b984b0e966d5456759e2e79cf070e4a4224537cb9171cca6ce9c16e91b2d5",
+      "width": 768,
+      "height": 702,
+      "alpha": true
+    },
+    {
+      "file": "public/art/workshops/dairy.webp",
+      "bytes": 154770,
+      "sha256": "54dc802d7e0acd9cd4e06ddaff456864548b2c91d03f10483d8fda1152d66764",
+      "source_png_sha256": "fea12b89f0e41a1d1429826accf2877540093078b3f9db2f8796b4acafaeb3b1",
+      "width": 768,
+      "height": 702,
+      "alpha": true
+    },
+    {
+      "file": "public/art/workshops/sugar_mill.webp",
+      "bytes": 172270,
+      "sha256": "ca2d0e1a999def296be77b4eb89046b160288aef4be39a0a8271370eb6b1b874",
+      "source_png_sha256": "f101476992d5810e4e64f81895f284abadc3a4731f9cfa59f58b6bf7018bf6a5",
+      "width": 768,
+      "height": 702,
+      "alpha": true
+    },
+    {
+      "file": "public/art/workshops/popcorn_pot.webp",
+      "bytes": 166806,
+      "sha256": "49049dce3754f1d902af296c4ce4cc7fb819898089226df5364d81d2569aff86",
+      "source_png_sha256": "9bfbe88f284ac03c17f2eb40f9a55ac54272cbdf353983e0f764b2fe6299ce2d",
+      "width": 768,
+      "height": 702,
+      "alpha": true
+    },
+    {
+      "file": "public/art/workshops/bbq.webp",
+      "bytes": 157468,
+      "sha256": "483aa9bba2e6fba4eb76f086a722ec06430454a7bbe5cf4fe3b39f304946b9cb",
+      "source_png_sha256": "06b6901c54f0bccd7c4b88fd8456eb8b5ccef14ffeacb445177e167727552158",
+      "width": 768,
+      "height": 702,
+      "alpha": true
+    }
+  ]
+}

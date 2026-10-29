@@ -21,11 +21,11 @@ const workshopLooks: Record<MachineId, { color: string; Icon: LucideIcon; shape:
   salad_bar: { color: '#86a95f', Icon: Leaf, shape: 3 }, soup_kitchen: { color: '#ba986d', Icon: CookingPot, shape: 1 },
 };
 
-/** Original vector architecture, made for this game rather than borrowed assets. */
-function WorkshopArt({ machine }: { machine: MachineDefinition }) {
+/** Original vector art remains for later workshops and failed image loads. */
+function VectorWorkshopArt({ machine, fallback = false }: { machine: MachineDefinition; fallback?: boolean }) {
   const paint = `fp-${useId().replace(/:/g, '')}`;
   const { color, Icon, shape } = workshopLooks[machine.id];
-  return <svg className="fp-workshop-art" viewBox="0 0 180 130" aria-hidden="true" focusable="false">
+  return <svg className="fp-workshop-art" data-workshop-art={machine.id} data-art-status={fallback ? 'fallback' : 'vector'} viewBox="0 0 180 130" aria-hidden="true" focusable="false">
     <defs><linearGradient id={`${paint}-roof`} x1="0" y1="0" x2="1" y2="1"><stop stopColor={color} /><stop offset="1" stopColor="#5b6653" /></linearGradient><linearGradient id={`${paint}-wall`} x1="0" y1="0" x2="0" y2="1"><stop stopColor="#fff0cf" /><stop offset="1" stopColor="#d9c3a0" /></linearGradient></defs>
     <ellipse cx="90" cy="115" rx="73" ry="12" fill="#567446" opacity=".16" /><path d="m20 109 67-17 76 16-68 18Z" fill="#a9bf76" /><path d="m20 109 75 17 68-18v5l-68 17-75-16Z" fill="#839d59" />
     <path d="M26 106V88m127 21V89" stroke="#7f8754" strokeWidth="2" /><g fill="#789d5a"><circle cx="25" cy="85" r="11" /><circle cx="31" cy="92" r="8" /><circle cx="151" cy="86" r="10" /><circle cx="157" cy="94" r="8" /></g><g fill="#a2bd75"><circle cx="22" cy="82" r="6" /><circle cx="149" cy="82" r="6" /></g>
@@ -35,6 +35,19 @@ function WorkshopArt({ machine }: { machine: MachineDefinition }) {
     <path d="m59 80 15 6v20l-15-6Zm68-12 8 4v17l-8-4Z" fill="#abc5ba" stroke="#819b90" strokeWidth=".8" /><path d="m66 84 1 19m-8-14 15 6m57-25v17" stroke="#fdf0ce" strokeWidth="1.2" />
     <g transform="translate(88 63)"><rect width="23" height="21" rx="4" fill="#fff3d3" stroke={color} strokeWidth="1" /><Icon x="4" y="3" width="15" height="15" color={color} strokeWidth="1.6" /></g>
     <path d="m50 110 22 8v8l-22-8Z" fill="#b39668" /><path d="m50 110 11-3 22 8-11 3Z" fill="#ddc68e" /><path d="m56 115 10 3" stroke="#8e7958" strokeWidth="2" /><path d="m82 122 18-5 18 4-18 6Z" fill="#ead7aa" />
+  </svg>;
+}
+
+const paintedWorkshops = new Set<MachineId>(['feed_mill', 'bakery', 'dairy', 'sugar_mill', 'popcorn_pot', 'bbq']);
+
+function WorkshopArt({ machine }: { machine: MachineDefinition }) {
+  const [failedFor, setFailedFor] = useState<MachineId | null>(null);
+  if (!paintedWorkshops.has(machine.id)) return <VectorWorkshopArt machine={machine} />;
+  if (failedFor === machine.id) return <VectorWorkshopArt machine={machine} fallback />;
+  return <svg className="fp-workshop-art" data-workshop-art={machine.id} data-art-status="painted" viewBox="0 0 180 130" aria-hidden="true" focusable="false">
+    <ellipse cx="90" cy="121" rx="68" ry="7" fill="#627b47" opacity=".17" />
+    <path d="m20 119 70-16 70 16-70 10Z" fill="#bdce89" opacity=".5" />
+    <image href={`/art/workshops/${machine.id}.webp`} x="8" y="-3" width="164" height="128" preserveAspectRatio="xMidYMax meet" onError={() => setFailedFor(machine.id)} />
   </svg>;
 }
 
