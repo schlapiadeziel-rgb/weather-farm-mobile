@@ -1,0 +1,60 @@
+{
+  "provenance": "Original AI-generated production workshop illustrations created for this project; no third-party game sprites.",
+  "encoding": "WebP quality90 alphaQuality100, fit within768x768 preserving source aspect ratio; original generated PNGs retained in workspace.",
+  "assets": [
+    {
+      "file": "public/art/workshops/pie_oven.webp",
+      "bytes": 167604,
+      "sha256": "c14077afbb7937913d8699015b57e9087f85cd92fab7a6e091bb472121a12876",
+      "source_png_sha256": "6369a61a79c823667b0410c11fdff0cd63bdfc5bc16257cab0501f6fd5e6ca6b",
+      "width": 768,
+      "height": 702,
+      "alpha": true
+    },
+    {
+      "file": "public/art/workshops/loom.webp",
+      "bytes": 161280,
+      "sha256": "ac4185ba952812ef7b66de20729f088ef28317e410f95df03692983f30160900",
+      "source_png_sha256": "d51719b1460ddb6c36ebc6f07f2329417d5e009e5287d911a3b81281375dad51",
+      "width": 768,
+      "height": 702,
+      "alpha": true
+    },
+    {
+      "file": "public/art/workshops/sewing_machine.webp",
+      "bytes": 184886,
+      "sha256": "75957bb28ab24e4b2c53d29dbae724615559c46b3549cbe7fa2c8e62e4573ade",
+      "source_png_sha256": "55369303e4abe0bb10aa8db0524b297780056dbd6a9e01783582ecfbbde261fc",
+      "width": 768,
+      "height": 719,
+      "alpha": true
+    },
+    {
+      "file": "public/art/workshops/cake_oven.webp",
+      "bytes": 163522,
+      "sha256": "2387d5a3d1304b8e172798e7fa30833c58df01f59687cf7adc02520992516c4c",
+      "source_png_sha256": "1a4c9328d71f59e8642ad1c7c00ad469234d90c02519e04922f7e46fcf819b93",
+      "width": 768,
+      "height": 702,
+      "alpha": true
+    },
+    {
+      "file": "public/art/workshops/juice_press.webp",
+      "bytes": 150966,
+      "sha256": "7fe9019c673afa0663e950d675f7c83c119a08c4ddb706fafad7cd40a8939747",
+      "source_png_sha256": "0decb9efef2296a1363b9c7f4f6a1b6cfb9aea63da8ed06523157dacb99dc98e",
+      "width": 768,
+      "height": 702,
+      "alpha": true
+    },
+    {
+      "file": "public/art/workshops/icecream_maker.webp",
+      "bytes": 164720,
+      "sha256": "520ebad664c929750ed1cb5adfc1a0bc2689ed2f4030a49d8ee8ae202b82caf4",
+      "source_png_sha256": "94ca53071dbc05fd1463bbbc0577a752a0617197804d2c6d254e56c6545b925e",
+      "width": 768,
+      "height": 702,
+      "alpha": true
+    }
+  ]
+}

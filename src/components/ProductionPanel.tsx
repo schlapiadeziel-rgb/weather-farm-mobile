@@ -38,7 +38,7 @@ function VectorWorkshopArt({ machine, fallback = false }: { machine: MachineDefi
   </svg>;
 }
 
-const paintedWorkshops = new Set<MachineId>(['feed_mill', 'bakery', 'dairy', 'sugar_mill', 'popcorn_pot', 'bbq']);
+const paintedWorkshops = new Set<MachineId>(['feed_mill', 'bakery', 'dairy', 'sugar_mill', 'popcorn_pot', 'bbq', 'pie_oven', 'loom', 'sewing_machine', 'cake_oven', 'juice_press', 'icecream_maker']);
 
 function WorkshopArt({ machine }: { machine: MachineDefinition }) {
   const [failedFor, setFailedFor] = useState<MachineId | null>(null);
