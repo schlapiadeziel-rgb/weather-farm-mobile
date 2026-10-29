@@ -1,0 +1,42 @@
+{
+  "provenance": "Original AI-generated town buildings and train created for this project; no third-party game sprites.",
+  "encoding": "WebP quality90 alphaQuality100; fit within768x768 for buildings and1024x1024 for train, preserving source aspect ratio; original generated PNGs retained in workspace.",
+  "assets": [
+    {
+      "file": "public/art/town/store.webp",
+      "bytes": 143550,
+      "sha256": "960dc17a2f6c9ac543c56762b00fe218a46fe78f14aa34d28865480de22741c8",
+      "source_png_sha256": "1405e4f4613faa4774f05900bbf1a6df0db9a3fb98f37933a8b67bc5a97fcc3c",
+      "width": 768,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "file": "public/art/town/cafe.webp",
+      "bytes": 131116,
+      "sha256": "96c398a45bf29e8bf83e613bababb4fa0067d2e1def9977066116abaff17b7e5",
+      "source_png_sha256": "29e24bfd063de48ad4cf255057ebbd55c80607df5e990e769e3d679962d419bc",
+      "width": 768,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "file": "public/art/town/inn.webp",
+      "bytes": 167942,
+      "sha256": "dfe500171630841afe6f5375af897274e40ec1d704f596160e046f7a1b3eb9a5",
+      "source_png_sha256": "ea33723c3be064455231ceb07d84ed4edf15e0c53f609b28846f0c5f06018f3a",
+      "width": 768,
+      "height": 723,
+      "alpha": true
+    },
+    {
+      "file": "public/art/town/train.webp",
+      "bytes": 102860,
+      "sha256": "16be237cbbcd8ab54719684370eb3344bb65aab4051e81de4166425ad6828d68",
+      "source_png_sha256": "39da80415936eac833fec6b11da0caff2df457f51175aee9ddcac239713a7754",
+      "width": 1024,
+      "height": 343,
+      "alpha": true
+    }
+  ]
+}

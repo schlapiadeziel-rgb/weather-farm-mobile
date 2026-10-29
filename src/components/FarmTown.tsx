@@ -4,6 +4,7 @@ import type { Game, ItemId } from '../lib/farmTypes';
 import { getItem, MACHINES, RECIPES } from '../lib/farmContent';
 import { arriveTownTrain, buildTownFacility, collectTownVisitor, getTownFacilityCapacity, getTownUpgradeCost, getTownVisitorPhase, serveTownVisitor, TOWN_BUILDINGS, TOWN_MAX_VISITORS, TOWN_TRAIN_COOLDOWN_MS, upgradeTownFacility } from '../lib/townGame';
 import type { TownBuildingId, TownVisitor } from '../lib/townTypes';
+import TownScenery from './TownScenery';
 import './farm-town.css';
 
 export type FarmTownProps = { game: Game; now: number; onChange(game: Game): void | boolean; notify(text: string): void; onRequestItem?(item: ItemId): void; onNavigate?(tab: 'farm' | 'storage' | 'production' | 'orders'): void };
@@ -23,12 +24,12 @@ function sourceLabel(id: ItemId) {
   return '仓库';
 }
 
-/** Original miniature architecture and inhabitants, drawn for this game's town. */
-function TownBuildingArt({ id }: { id: TownBuildingId }) {
+/** The previous original vector art stays available when a bundled image cannot load. */
+function VectorTownBuildingArt({ id }: { id: TownBuildingId }) {
   const paint = `town-${useId().replace(/:/g, '')}`;
   const { color, Icon } = looks[id];
   const upper = id === 'inn';
-  return <svg className="ft-building-art" viewBox="0 0 200 164" aria-hidden="true" focusable="false">
+  return <svg className="ft-building-art" data-town-art={id} data-art-status="fallback" viewBox="0 0 200 164" aria-hidden="true" focusable="false">
     <defs><linearGradient id={`${paint}-wall`} x1="0" y1="0" x2=".8" y2="1"><stop stopColor="#fff6da" /><stop offset="1" stopColor="#e0caa4" /></linearGradient><linearGradient id={`${paint}-roof`} x1="0" y1="0" x2=".7" y2="1"><stop stopColor={color} /><stop offset="1" stopColor={id === 'store' ? '#437a72' : id === 'cafe' ? '#a66155' : '#5c6487'} /></linearGradient></defs>
     <ellipse cx="100" cy="142" rx="83" ry="15" fill="#5a784e" opacity=".17" /><path d="m18 137 77-20 88 19-81 23Z" fill="#a7c579" /><path d="m18 137 84 22 81-23v5l-81 22-84-21Z" fill="#81a15a" />
     <path d="M29 132v-20m143 22v-22" stroke="#8d9862" strokeWidth="2" /><g fill="#6d9d58"><circle cx="29" cy="109" r="14" /><circle cx="20" cy="117" r="9" /><circle cx="40" cy="118" r="10" /><circle cx="170" cy="112" r="13" /><circle cx="179" cy="120" r="9" /></g><g fill="#a5c875"><circle cx="25" cy="104" r="8" /><circle cx="165" cy="107" r="7" /></g>
@@ -44,12 +45,27 @@ function TownBuildingArt({ id }: { id: TownBuildingId }) {
   </svg>;
 }
 
-function TownLandscape() {
-  return <svg className="ft-landscape" viewBox="0 0 620 480" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false"><defs><linearGradient id="ft-sky" x1="0" y1="0" x2="0" y2="1"><stop stopColor="#b9dcdf" /><stop offset="1" stopColor="#f3edd0" /></linearGradient></defs><rect width="620" height="480" fill="url(#ft-sky)" /><circle cx="535" cy="43" r="24" fill="#fff3bc" /><g fill="#fff7e3" opacity=".6"><path d="M35 44c0-12 17-17 26-9 9-17 35-17 43 5 17-3 27 6 26 18H35Z" /><path d="M360 33c2-12 16-15 25-8 9-17 33-13 38 3 16-3 26 5 25 16h-88Z" /></g><path d="M0 119 82 49l90 72 94-45 91 50 109-52 94 58 60-30v378H0Z" fill="#91b69c" /><path d="M0 149c95-57 167 0 262-16s161-24 358 3v344H0Z" fill="#b4cd93" /><path d="M0 213c174-63 290 28 620-28v295H0Z" fill="#c3d69b" /><path d="M0 353c176-72 344-21 620-66v193H0Z" fill="#bad090" /><path d="M0 177h620" stroke="#8c9772" strokeWidth="16" /><path d="M0 171h620m-620 12h620" stroke="#cdd1b3" strokeWidth="2" /><path d="M0 177h620" stroke="#9a8062" strokeWidth="12" strokeDasharray="3 12" /><path d="M311 190v118c-49 16-133 24-211 10m211-10c67-14 130-8 209 6m-209-6v172" fill="none" stroke="#aeb57f" strokeWidth="25" /><path d="M311 190v118c-49 16-133 24-211 10m211-10c67-14 130-8 209 6m-209-6v172" fill="none" stroke="#ebdcb5" strokeWidth="21" /><g fill="#86a967"><ellipse cx="26" cy="315" rx="38" ry="27" /><ellipse cx="611" cy="371" rx="39" ry="24" /><ellipse cx="22" cy="445" rx="31" ry="20" /></g><g fill="#f4dea1" opacity=".7"><circle cx="44" cy="369" r="2" /><circle cx="574" cy="411" r="2" /><circle cx="95" cy="420" r="2" /><circle cx="542" cy="241" r="2" /></g></svg>;
+function TownBuildingArt({ id }: { id: TownBuildingId }) {
+  const [failedFor, setFailedFor] = useState<TownBuildingId | null>(null);
+  if (failedFor === id) return <VectorTownBuildingArt id={id} />;
+  return <svg className="ft-building-art" data-town-art={id} data-art-status="painted" viewBox="0 0 200 164" aria-hidden="true" focusable="false">
+    <ellipse cx="100" cy="153" rx="70" ry="8" fill="#526943" opacity=".14" />
+    <image href={`/art/town/${id}.webp`} x="0" y="0" width="200" height="160" preserveAspectRatio="xMidYMax meet" onError={() => setFailedFor(id)} />
+  </svg>;
 }
 
 function TrainArt() {
-  return <svg className="ft-train-art" viewBox="0 0 300 94" aria-hidden="true" focusable="false"><ellipse cx="151" cy="80" rx="136" ry="9" fill="#6c8956" opacity=".16" /><path d="M14 78h274m-274 7h274" stroke="#84917a" strokeWidth="3" /><path d="M17 81h269" stroke="#a6926c" strokeWidth="7" strokeDasharray="4 13" /><g fill="#d3c199" stroke="#9a997b" strokeWidth="1"><rect x="130" y="29" width="67" height="43" rx="4" /><rect x="208" y="29" width="67" height="43" rx="4" /></g><g fill="#91b6aa" stroke="#638c81"><path d="M137 37h14v18h-14zm20 0h14v18h-14zm20 0h13v18h-13zm38 0h14v18h-14zm20 0h14v18h-14zm20 0h13v18h-13Z" /></g><path d="M127 29h72m6 0h73" stroke="#6b8c76" strokeWidth="7" strokeLinecap="round" /><path d="M28 55h89v19H27Zm43-22h40v24H71Z" fill="#5f9d8e" stroke="#3e7d71" /><path d="M41 45h31v25H41Z" fill="#78aa88" /><path d="M32 69h84v7H23Z" fill="#b16f56" /><path d="M79 37h23v17H79Z" fill="#b9d5c1" stroke="#51867a" /><path d="M66 32h50" stroke="#46796c" strokeWidth="6" strokeLinecap="round" /><path d="M39 44V27h13v18" fill="#527b69" /><path d="M36 27h19" stroke="#567f6c" strokeWidth="5" /><path className="ft-steam" d="M44 18C27 8 57 4 45-7" stroke="#fff8df" strokeWidth="7" strokeLinecap="round" fill="none" opacity=".6" /><path d="M115 67h16m65 0h13" stroke="#7d8166" strokeWidth="3" /><g fill="#57746b" stroke="#cfceb0" strokeWidth="3"><circle cx="43" cy="74" r="10" /><circle cx="72" cy="74" r="10" /><circle cx="102" cy="74" r="10" /><circle cx="145" cy="74" r="8" /><circle cx="182" cy="74" r="8" /><circle cx="223" cy="74" r="8" /><circle cx="261" cy="74" r="8" /></g><path d="M43 74h59" stroke="#d6c291" strokeWidth="3" /><circle cx="27" cy="57" r="5" fill="#f0ce80" /></svg>;
+  const [failed, setFailed] = useState(false);
+  if (failed) return <VectorTrainArt />;
+  return <svg className="ft-train-art" data-town-art="train" data-art-status="painted" viewBox="0 0 300 94" aria-hidden="true" focusable="false">
+    <ellipse cx="151" cy="80" rx="136" ry="9" fill="#536a47" opacity=".16" />
+    <path d="M14 78h274m-274 7h274" stroke="#84917a" strokeWidth="3" /><path d="M17 81h269" stroke="#a6926c" strokeWidth="7" strokeDasharray="4 13" />
+    <image href="/art/town/train.webp" x="5" y="-11" width="290" height="94" preserveAspectRatio="xMidYMax meet" onError={() => setFailed(true)} />
+  </svg>;
+}
+
+function VectorTrainArt() {
+  return <svg className="ft-train-art" data-town-art="train" data-art-status="fallback" viewBox="0 0 300 94" aria-hidden="true" focusable="false"><ellipse cx="151" cy="80" rx="136" ry="9" fill="#6c8956" opacity=".16" /><path d="M14 78h274m-274 7h274" stroke="#84917a" strokeWidth="3" /><path d="M17 81h269" stroke="#a6926c" strokeWidth="7" strokeDasharray="4 13" /><g fill="#d3c199" stroke="#9a997b" strokeWidth="1"><rect x="130" y="29" width="67" height="43" rx="4" /><rect x="208" y="29" width="67" height="43" rx="4" /></g><g fill="#91b6aa" stroke="#638c81"><path d="M137 37h14v18h-14zm20 0h14v18h-14zm20 0h13v18h-13zm38 0h14v18h-14zm20 0h14v18h-14zm20 0h13v18h-13Z" /></g><path d="M127 29h72m6 0h73" stroke="#6b8c76" strokeWidth="7" strokeLinecap="round" /><path d="M28 55h89v19H27Zm43-22h40v24H71Z" fill="#5f9d8e" stroke="#3e7d71" /><path d="M41 45h31v25H41Z" fill="#78aa88" /><path d="M32 69h84v7H23Z" fill="#b16f56" /><path d="M79 37h23v17H79Z" fill="#b9d5c1" stroke="#51867a" /><path d="M66 32h50" stroke="#46796c" strokeWidth="6" strokeLinecap="round" /><path d="M39 44V27h13v18" fill="#527b69" /><path d="M36 27h19" stroke="#567f6c" strokeWidth="5" /><path className="ft-steam" d="M44 18C27 8 57 4 45-7" stroke="#fff8df" strokeWidth="7" strokeLinecap="round" fill="none" opacity=".6" /><path d="M115 67h16m65 0h13" stroke="#7d8166" strokeWidth="3" /><g fill="#57746b" stroke="#cfceb0" strokeWidth="3"><circle cx="43" cy="74" r="10" /><circle cx="72" cy="74" r="10" /><circle cx="102" cy="74" r="10" /><circle cx="145" cy="74" r="8" /><circle cx="182" cy="74" r="8" /><circle cx="223" cy="74" r="8" /><circle cx="261" cy="74" r="8" /></g><path d="M43 74h59" stroke="#d6c291" strokeWidth="3" /><circle cx="27" cy="57" r="5" fill="#f0ce80" /></svg>;
 }
 function VisitorAvatar({ visitor, index = 0 }: { visitor: TownVisitor; index?: number }) {
   const palette = ['#809e9b', '#b18479', '#a49b6b', '#8594b2', '#9aa97b', '#b18d9b'];
@@ -96,7 +112,7 @@ export function FarmTown({ game, now, onChange, notify, onRequestItem, onNavigat
   return <section className="farm-town-panel" aria-label="游戏访客小镇">
     <header className="ft-header"><span className="ft-town-seal"><TrainFront size={23} aria-hidden="true" /></span><div className="ft-heading"><h2>风禾小镇</h2><p>本机模拟访客 · 把农场的好东西带进小镇</p></div><div className="ft-town-stats"><span><Award size={16} aria-hidden="true" />声望 <b>{town.reputation}</b></span><span><Coins size={16} aria-hidden="true" />游戏金币 <b>{game.coins.toLocaleString()}</b></span></div></header>
     <div className="ft-layout">
-      <aside className="ft-map" aria-label="小镇建筑地图"><div className="ft-map-canvas"><TownLandscape />
+      <aside className="ft-map" aria-label="小镇建筑地图"><div className="ft-map-canvas"><TownScenery />
         <div className="ft-station"><div className="ft-station-sign"><TrainFront size={14} aria-hidden="true" /><strong>风禾车站</strong><span>{town.visitors.length}/{TOWN_MAX_VISITORS} 位访客在镇</span></div><TrainArt /><div className="ft-train-controls"><button className="ft-primary ft-arrive" disabled={trainRemaining > 0 || trainFull} onClick={callTrain} data-town-action="arrive"><TrainFront size={16} aria-hidden="true" />{trainFull ? '小镇已满，先接待访客' : trainRemaining > 0 ? `下一班 ${remaining(trainRemaining)}` : '让火车到站'}</button><small>{trainFull ? '领取接待报酬后，访客会离开小镇。' : trainRemaining > 0 ? `火车每 ${TOWN_TRAIN_COOLDOWN_MS / 60000} 分钟可到站一次，需手动迎接。` : '轻触迎接最多 3 位新访客，不会自动扣货。'}</small></div></div>
         <div className="ft-buildings" role="group" aria-label="选择接待建筑">{TOWN_BUILDINGS.map(entry => {
           const builtLevel = town.buildings.find(built => built.id === entry.id)?.level ?? 0;
