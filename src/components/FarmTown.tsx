@@ -8,7 +8,8 @@ import TownScenery from './TownScenery';
 import './farm-town.css';
 
 export type TownFocus = { buildingId: TownBuildingId; visitorId: string; requestId: number };
-export type FarmTownProps = { game: Game; now: number; onChange(game: Game): void | boolean; notify(text: string): void; onRequestItem?(item: ItemId): void; onNavigate?(tab: 'farm' | 'storage' | 'production' | 'orders'): void; focus?: TownFocus };
+export type TownSupplyOrigin = Omit<TownFocus, 'requestId'> & { visitorName: string };
+export type FarmTownProps = { game: Game; now: number; onChange(game: Game): void | boolean; notify(text: string): void; onRequestItem?(item: ItemId, returnTo: TownSupplyOrigin): void; onNavigate?(tab: 'farm' | 'livestock' | 'storage' | 'production' | 'orders' | 'explore'): void; focus?: TownFocus };
 const looks = { store: { color: '#5d9d92', Icon: ShoppingBasket }, cafe: { color: '#cc826d', Icon: Coffee }, inn: { color: '#8a8eaf', Icon: House } };
 
 function remaining(milliseconds: number) {
@@ -17,6 +18,7 @@ function remaining(milliseconds: number) {
   return `${minutes}:${String(seconds % 60).padStart(2, '0')}`;
 }
 function sourceLabel(id: ItemId) {
+  if (id === 'honey') return '蜂箱';
   const item = getItem(id);
   if (item.category === 'crop') return '农田';
   if (item.category === 'animal') return '牧场';
@@ -127,11 +129,11 @@ export function FarmTown({ game, now, onChange, notify, onRequestItem, onNavigat
     } catch (error) { notify(error instanceof Error ? error.message : '这次操作没有完成，请稍后再试。'); }
   };
   const callTrain = () => apply(current => arriveTownTrain(current, Date.now()), (next, previous) => `火车到站，${next.town.visitors.length - previous.town.visitors.length} 位模拟访客来到小镇。`);
-  const requestItem = (id: ItemId) => {
-    if (onRequestItem) { onRequestItem(id); return; }
+  const requestItem = (id: ItemId, visitor: TownVisitor) => {
+    if (onRequestItem) { onRequestItem(id, { buildingId: visitor.buildingId, visitorId: visitor.id, visitorName: visitor.name }); return; }
     if (!onNavigate) return;
     const category = getItem(id).category;
-    onNavigate(category === 'crop' ? 'farm' : RECIPES.some(entry => entry.output === id) ? 'production' : 'storage');
+    onNavigate(id === 'honey' ? 'explore' : category === 'crop' ? 'farm' : category === 'animal' ? 'livestock' : RECIPES.some(entry => entry.output === id) ? 'production' : 'storage');
   };
   return <section className="farm-town-panel" aria-label="游戏访客小镇">
     <header className="ft-header"><span className="ft-town-seal"><TrainFront size={23} aria-hidden="true" /></span><div className="ft-heading"><h2>风禾小镇</h2><p>本机模拟访客 · 把农场的好东西带进小镇</p></div><div className="ft-town-stats"><span><Award size={16} aria-hidden="true" />声望 <b>{town.reputation}</b></span><span><Coins size={16} aria-hidden="true" />游戏金币 <b>{game.coins.toLocaleString()}</b></span></div></header>
@@ -161,7 +163,7 @@ export function FarmTown({ game, now, onChange, notify, onRequestItem, onNavigat
               const full = occupied >= capacity;
               const progress = visitor.startedAt !== undefined && visitor.readyAt !== undefined ? Math.max(0, Math.min(100, (now - visitor.startedAt) / Math.max(1, visitor.readyAt - visitor.startedAt) * 100)) : 0;
               return <article className={`ft-visitor ft-visitor-${phase}`} key={visitor.id} data-town-visitor={visitor.id} tabIndex={-1} aria-label={`小镇访客 · ${visitor.name}`}><div className="ft-visitor-heading"><VisitorAvatar visitor={visitor} index={town.visitors.findIndex(entry => entry.id === visitor.id)} /><div><h4>{visitor.name}</h4><span>{phase === 'waiting' ? '等候接待' : phase === 'serving' ? '正在享受小镇时光' : '接待完成'}</span></div><span className={`ft-visitor-phase ${phase}`}>{phase === 'ready' ? <><Check size={13} aria-hidden="true" />可领取</> : phase === 'serving' ? <><Clock3 size={12} aria-hidden="true" />{remaining((visitor.readyAt ?? now) - now)}</> : <><Users size={12} aria-hidden="true" />等候中</>}</span></div>
-                {phase === 'waiting' ? <><div className="ft-requirements">{entries.map(([id, quantity]) => <div key={id} className={(game.inventory[id] ?? 0) < quantity ? 'is-short' : ''}><span>{getItem(id).icon}<b>{getItem(id).name}</b></span><span><small>库存</small> {game.inventory[id] ?? 0}<i>/</i><strong>{quantity}</strong></span></div>)}</div>{missing.length > 0 && <div className="ft-missing-items">{missing.map(([id, quantity]) => <div key={id}><span>还缺{getItem(id).name} ×{quantity - (game.inventory[id] ?? 0)}</span>{onRequestItem || onNavigate ? <button onClick={() => requestItem(id)}>去{onRequestItem ? sourceLabel(id) : getItem(id).category === 'crop' ? '农田' : RECIPES.some(entry => entry.output === id) ? '工坊' : '仓库'}<ArrowRight size={12} aria-hidden="true" /></button> : <small>来自{sourceLabel(id)}</small>}</div>)}</div>}</> : <p className="ft-consumed-note">接待用品已交付：{entries.map(([id, quantity]) => `${getItem(id).name} ×${quantity}`).join('、')}</p>}
+                {phase === 'waiting' ? <><div className="ft-requirements">{entries.map(([id, quantity]) => <div key={id} className={(game.inventory[id] ?? 0) < quantity ? 'is-short' : ''}><span>{getItem(id).icon}<b>{getItem(id).name}</b></span><span><small>库存</small> {game.inventory[id] ?? 0}<i>/</i><strong>{quantity}</strong></span></div>)}</div>{missing.length > 0 && <div className="ft-missing-items">{missing.map(([id, quantity]) => <div key={id}><span>还缺{getItem(id).name} ×{quantity - (game.inventory[id] ?? 0)}</span>{onRequestItem || onNavigate ? <button onClick={() => requestItem(id, visitor)}>去{sourceLabel(id)}<ArrowRight size={12} aria-hidden="true" /></button> : <small>来自{sourceLabel(id)}</small>}</div>)}</div>}</> : <p className="ft-consumed-note">接待用品已交付：{entries.map(([id, quantity]) => `${getItem(id).name} ×${quantity}`).join('、')}</p>}
                 {phase === 'serving' && <div className="ft-service-progress" role="progressbar" aria-label={`${visitor.name}接待进度`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.floor(progress)}><span style={{ width: `${progress}%` }} /></div>}
                 <div className="ft-visitor-bottom"><div className="ft-rewards" aria-label={`报酬：${visitor.coins}游戏金币，${visitor.xp}经验，${visitor.reputation}声望`}><span><Coins size={13} aria-hidden="true" />{visitor.coins}</span><span><Star size={12} aria-hidden="true" />{visitor.xp} XP</span><span><Award size={12} aria-hidden="true" />+{visitor.reputation}</span></div>{phase === 'waiting' ? <button className="ft-primary ft-serve" disabled={missing.length > 0 || full} data-town-action="serve" onClick={() => apply(current => serveTownVisitor(current, visitor.id, Date.now()), `已交付接待用品，${visitor.name}开始在${building.name}享受小镇时光。`)}>{missing.length ? '补齐货物后接待' : full ? '接待位已满' : '交付并接待'}</button> : phase === 'ready' ? <button className="ft-primary ft-collect" data-town-action="collect" onClick={() => apply(current => collectTownVisitor(current, visitor.id, Date.now()), `已领取 ${visitor.coins} 游戏金币、${visitor.xp} 经验和 ${visitor.reputation} 声望。${visitor.name}满意离开了小镇。`)}><PackageCheck size={15} aria-hidden="true" />领取报酬</button> : <span className="ft-service-time"><Clock3 size={13} aria-hidden="true" />剩余 {remaining((visitor.readyAt ?? now) - now)}</span>}</div>{phase === 'waiting' && full && <p className="ft-capacity-note">先领取已完成的接待报酬，或升级建筑增加接待位。</p>}
               </article>;

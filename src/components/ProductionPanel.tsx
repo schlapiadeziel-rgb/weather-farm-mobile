@@ -79,6 +79,7 @@ function ProductArt({ item, Icon }: { item: ItemId; Icon: LucideIcon }) {
 
 type Confirmation = { kind: 'expand'; machine: MachineId } | { kind: 'speed' | 'cancel'; machine: MachineId; job: string };
 function ingredientSource(id: ItemId): { label: string; tab?: SupplyTab; machine?: MachineId } {
+  if (id === 'honey') return { label: '蜂箱', tab: 'explore' };
   const item = getItem(id);
   if (item.category === 'crop') return { label: '农田', tab: 'farm' };
   if (item.category === 'animal') return { label: '牧场', tab: 'livestock' };
