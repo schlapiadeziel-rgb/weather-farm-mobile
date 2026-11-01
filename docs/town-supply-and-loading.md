@@ -20,12 +20,12 @@
 
 小镇、生产工坊和经营面板通过现有页面加载提示进入时读取。订单、仓库和探索共用经营面板模块。新农场先显示农田，不再预先加载这些页面的代码与独立样式；首次打开各页面后，再次进入复用已加载模块。
 
-同一依赖锁定文件、同一构建环境中，对比优化前开发提交 `c901a0d` 与本轮最终构建：
+同一依赖锁定文件、同一构建环境中，对比优化前开发提交 `c901a0d` 与v0.29.0 最终网页构建：
 
 | 首屏入口资源 | 优化前（字节） | 优化后（字节） | 减少 |
 | --- | ---: | ---: | ---: |
-| JavaScript | 723,013 | 629,943 | 12.87% |
-| JavaScript gzip | 221,114 | 193,616 | 12.44% |
+| JavaScript | 723,013 | 630,601 | 12.78% |
+| JavaScript gzip | 221,114 | 193,848 | 12.33% |
 | CSS | 242,812 | 194,756 | 19.79% |
 | CSS gzip | 48,965 | 39,748 | 18.82% |
 
@@ -33,12 +33,12 @@ gzip 使用 Python `gzip.compress(..., mtime=0)` 的默认 9 级压缩。这里�
 
 ## 验证范围
 
-- `npm test`：337 项规则测试通过。
+- `npm test`：346 项规则测试通过。
 - `npm run build`：TypeScript 检查和最终生产构建通过。
 - `scripts/check-town-supply-return.py`：22 组通过，覆盖三种横屏、作物/动物/蜂蜜来源、键盘、多层配方返回、替换访客来源、结束路径、助手切换与普通转场；导航前后游戏经济快照和四个真实资料键不变。
 - `scripts/check-lazy-pages.py`：27 组通过，覆盖 640×360、844×390、1280×720 下新农场冷启动、五个页面首次进入与重访、样式和无横向溢出，以及正常页面转场。完整游戏存档保持不变，页面错误与本地资源加载失败均为 0。
 - `scripts/check-town-activity.py`：上一轮 14 组看板检查再次通过，页面错误为 0；包括精确访客定位、实际手动领取报酬、计时变化与旧存档。
 
-加载检查确认初始只请求入口 `index-CttWlLxC.js`；`FarmTown-0KW1Q7xU.js`、`ProductionPanel-DvhIDwp0.js` 与 `EconomyPanels-DBZBVtv6.js` 各在首次使用时请求一次。后续代码变化会改变文件内容哈希。
+加载检查确认初始只请求入口 `index-MMTO4mJW.js`；`FarmTown-CL1kq24J.js`、`ProductionPanel-PW5NwDAx.js` 与 `EconomyPanels-BpjMRANA.js` 各在首次使用时请求一次。后续代码变化会改变文件内容哈希。
 
 复跑浏览器检查：先构建并另开终端运行 `npm run preview`，再分别执行三个 Python 脚本。需要 Python Playwright 和 Chromium，可用 `CHROMIUM_PATH` 指定浏览器、脚本首个参数指定 URL。脚本使用隔离浏览器存储和测试时钟，阻断外部 HTTPS。未进行安卓系统覆盖安装或原生服务性能测试。

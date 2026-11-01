@@ -6,7 +6,7 @@
 
 v0.28.0 补齐十类后期设施，全部 22 类工坊建筑统一为原创插画。[查看实际画面对比](docs/workshop-art-v0.28.md)。
 
-下一版开发：农场看板新增[小镇接待提醒](docs/town-activity-board.md)；访客缺货后可逐层返回配方、再回到原访客，蜂蜜来源提示改为蜂箱；工坊、小镇与经营面板改为按需加载，首屏入口 JS 减少约 13%。[补货与加载验证](docs/town-supply-and-loading.md)。这些改动尚未发布为新 APK。
+v0.29.0 发布准备：农场看板新增[小镇接待提醒](docs/town-activity-board.md)；访客补货可逐层返回配方、再回到原访客；[98 种物品统一来源](docs/item-sources.md)，果园、鱼塘、矿山与蜂箱提示更明确。工坊、小镇与经营面板改为按需加载，首屏入口 JS 减少约 13%。[补货与加载](docs/town-supply-and-loading.md) · [v0.29.0 验证范围](docs/validation-v0.29.md)。新 APK 正在准备，以下下载入口仍指向已发布 v0.28.0。
 
 v0.27.0 升级六种中期生产设施：[画面对比](docs/workshop-art-v0.27.md)。
 

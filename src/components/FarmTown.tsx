@@ -1,7 +1,8 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { ArrowRight, Award, Check, Clock3, Coffee, Coins, Hammer, House, LockKeyhole, PackageCheck, ShoppingBasket, Star, TrainFront, Users } from 'lucide-react';
 import type { Game, ItemId } from '../lib/farmTypes';
-import { getItem, MACHINES, RECIPES } from '../lib/farmContent';
+import { getItem } from '../lib/farmContent';
+import { getItemSource } from '../lib/itemSource';
 import { arriveTownTrain, buildTownFacility, collectTownVisitor, getTownFacilityCapacity, getTownUpgradeCost, getTownVisitorPhase, serveTownVisitor, TOWN_BUILDINGS, TOWN_MAX_VISITORS, TOWN_TRAIN_COOLDOWN_MS, upgradeTownFacility } from '../lib/townGame';
 import type { TownBuildingId, TownVisitor } from '../lib/townTypes';
 import TownScenery from './TownScenery';
@@ -18,13 +19,7 @@ function remaining(milliseconds: number) {
   return `${minutes}:${String(seconds % 60).padStart(2, '0')}`;
 }
 function sourceLabel(id: ItemId) {
-  if (id === 'honey') return '蜂箱';
-  const item = getItem(id);
-  if (item.category === 'crop') return '农田';
-  if (item.category === 'animal') return '牧场';
-  const recipe = RECIPES.find(entry => entry.output === id);
-  if (recipe) return MACHINES.find(entry => entry.id === recipe.machine)?.name ?? '工坊';
-  return '仓库';
+  return getItemSource(id).label;
 }
 
 /** The previous original vector art stays available when a bundled image cannot load. */
@@ -132,8 +127,7 @@ export function FarmTown({ game, now, onChange, notify, onRequestItem, onNavigat
   const requestItem = (id: ItemId, visitor: TownVisitor) => {
     if (onRequestItem) { onRequestItem(id, { buildingId: visitor.buildingId, visitorId: visitor.id, visitorName: visitor.name }); return; }
     if (!onNavigate) return;
-    const category = getItem(id).category;
-    onNavigate(id === 'honey' ? 'explore' : category === 'crop' ? 'farm' : category === 'animal' ? 'livestock' : RECIPES.some(entry => entry.output === id) ? 'production' : 'storage');
+    onNavigate(getItemSource(id).tab);
   };
   return <section className="farm-town-panel" aria-label="游戏访客小镇">
     <header className="ft-header"><span className="ft-town-seal"><TrainFront size={23} aria-hidden="true" /></span><div className="ft-heading"><h2>风禾小镇</h2><p>本机模拟访客 · 把农场的好东西带进小镇</p></div><div className="ft-town-stats"><span><Award size={16} aria-hidden="true" />声望 <b>{town.reputation}</b></span><span><Coins size={16} aria-hidden="true" />游戏金币 <b>{game.coins.toLocaleString()}</b></span></div></header>

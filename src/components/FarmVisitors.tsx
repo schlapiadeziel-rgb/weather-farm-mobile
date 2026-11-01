@@ -5,6 +5,7 @@ import { ArrowLeft, ArrowRight, Check, Clock3, Coins, DoorOpen, HandHeart, Leaf,
 import type { Game, ItemId } from '../lib/farmTypes';
 import type { FarmVisitor } from '../lib/farmVisitorTypes';
 import { getItem } from '../lib/farmContent';
+import { getItemSource } from '../lib/itemSource';
 import { FARM_VISITOR_CROP_RESERVE, FARM_VISITOR_PROFILES, getFarmVisitorProfile, getFarmVisitorSaleBlock } from '../lib/farmVisitors';
 import { FarmVisitorGateArt, FarmVisitorPortrait } from './FarmVisitorArt';
 import './farm-visitors.css';
@@ -33,8 +34,9 @@ function countdown(milliseconds: number) {
 }
 
 function sourceLabel(item: ItemId) {
-  const category = getItem(item).category;
-  return category === 'crop' ? '去农田补货' : category === 'animal' ? '去牧场收取' : category === 'product' ? '去工坊制作' : '去探索收集';
+  const source = getItemSource(item);
+  const action = source.tab === 'farm' ? '补货' : source.tab === 'livestock' ? '收取' : source.tab === 'production' ? '制作' : source.tab === 'explore' ? '收集' : '查看';
+  return `去${source.label}${action}`;
 }
 
 function RequestedItemArt({ item }: { item: ItemId }) {

@@ -46,6 +46,7 @@ import UpdatePanel from './components/UpdatePanel';
 import type { TownFocus, TownSupplyOrigin } from './components/FarmTown';
 import FarmAssistantPortal from './components/FarmAssistantPortal';
 import { getItem, RECIPES } from './lib/farmContent';
+import { getItemSource } from './lib/itemSource';
 import { getFarmActivity } from './lib/farmActivity';
 import type { FarmActivityTarget } from './lib/farmActivity';
 import { readSelectedLocation, saveSelectedLocation, locationFromPosition, parseManualLocation, formatCoordinates } from './lib/location';
@@ -257,19 +258,17 @@ export default function App() {
   const supplyReturn = supplyTrail.length ? <SupplyReturn item={supplyTrail[supplyTrail.length - 1]} depth={supplyTrail.length} onReturn={returnToSupplyRecipe} onClear={clearSupplyTrail} /> : townSupplyOrigin ? <SupplyReturn town={townSupplyOrigin} onReturn={returnToTownGuest} onClear={clearSupplyTrail} /> : null;
   function requestItem(id: ItemId, preserveSupply = false) {
     if (!preserveSupply) clearSupplyTrail();
-    const item = getItem(id), recipe = RECIPES.find(entry => entry.output === id);
-    if (recipe) { focusProduction({ item: id }, preserveSupply); return; }
-    if (item.category === 'crop') {
+    const source = getItemSource(id);
+    if (source.tab === 'production') { focusProduction({ item: id, machineId: source.machineId }, preserveSupply); return; }
+    if (source.tab === 'farm') {
       const plots = game.plots.slice(0, game.unlockedPlots);
-      navigate('farm', preserveSupply); setSeed(id as CropId); setSelected((plots.find(plot => plot.crop === id) ?? plots.find(plot => !plot.crop) ?? plots[0]).id); setDetailsOpen(true); return;
+      navigate('farm', preserveSupply); setSeed(source.cropId); setSelected((plots.find(plot => plot.crop === id) ?? plots.find(plot => !plot.crop) ?? plots[0]).id); setDetailsOpen(true); return;
     }
-    const sourceAnimal = LIVESTOCK.find(entry => entry.product === id);
-    if (sourceAnimal) {
-      navigate('livestock', preserveSupply); setAnimalSeed(sourceAnimal.id); setSelectedPen((game.animals.find(pen => pen.animal === sourceAnimal.id) ?? game.animals.find(pen => !pen.animal) ?? game.animals[0]).id); setDetailsOpen(true); return;
+    if (source.tab === 'livestock') {
+      navigate('livestock', preserveSupply); setAnimalSeed(source.animalId); setSelectedPen((game.animals.find(pen => pen.animal === source.animalId) ?? game.animals.find(pen => !pen.animal) ?? game.animals[0]).id); setDetailsOpen(true); return;
     }
-    const section = id === 'honey' ? 'honey' : item.category === 'fruit' ? 'orchard' : item.category === 'fish' ? 'fishing' : ['coal', 'iron_ore', 'gold_ore'].includes(id) ? 'mine' : null;
-    if (section) { setExploreView({ section, requestId: ++navigationRequest.current }); navigate('explore', preserveSupply); }
-    else { setStorageView({ section: 'inventory', requestId: ++navigationRequest.current }); navigate('storage', preserveSupply); }
+    if (source.tab === 'explore') { setExploreView({ section: source.section, requestId: ++navigationRequest.current }); navigate('explore', preserveSupply); }
+    else { setStorageView({ section: source.section, requestId: ++navigationRequest.current }); navigate('storage', preserveSupply); }
   }
   function chooseFieldMode(mode: FieldMode) { setFieldMode(mode); if (mode !== 'browse') setDetailsOpen(false); }
   const activeFieldMode = guideOpen || activityOpen || updateOpen || locationOpen || resetOpen || layoutOpen || visitorsOpen || gameMenuOpen ? 'browse' : fieldMode;
