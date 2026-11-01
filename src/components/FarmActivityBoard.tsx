@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowRight, Factory, Info, NotebookPen, Store, Timer, Tractor, Truck, Warehouse, Wheat, X } from 'lucide-react';
+import { ArrowRight, Building2, Factory, Info, NotebookPen, Store, Timer, Tractor, Truck, Warehouse, Wheat, X } from 'lucide-react';
 import type { Game } from '../lib/farmTypes';
 import { getFarmActivity, type FarmActivityTarget } from '../lib/farmActivity';
 import './farm-activity.css';
@@ -19,6 +19,7 @@ const sectionArt = {
   production: { Icon: Factory, action: '去工坊', label: '加工成品' },
   orders: { Icon: Truck, action: '去订单板', label: '交货安排' },
   storage: { Icon: Store, action: '去路边小店', label: '小店收款' },
+  town: { Icon: Building2, action: '去小镇查看', label: '小镇接待' },
 } as const;
 
 function BoardIllustration() {

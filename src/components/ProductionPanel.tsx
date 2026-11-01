@@ -3,6 +3,7 @@ import { Apple, ArrowRight, Check, ChevronDown, ChefHat, Clock3, Coins, CookingP
 import type { LucideIcon } from 'lucide-react';
 import type { Game, ItemId, MachineDefinition, MachineId, ProductionJob, RecipeDefinition } from '../lib/farmTypes';
 import { MACHINES, RECIPES, getItem } from '../lib/farmContent';
+import { getItemSource } from '../lib/itemSource';
 import { cancelQueuedProduction, collectProduction, expandProductionSlots, getLevel, productionSlotCost, queueProduction, speedUpMachine, storageUsed, unlockMachine } from '../lib/game';
 import GemConfirmation from './GemConfirmation';
 import CompletionButton from './CompletionButton';
@@ -79,13 +80,8 @@ function ProductArt({ item, Icon }: { item: ItemId; Icon: LucideIcon }) {
 
 type Confirmation = { kind: 'expand'; machine: MachineId } | { kind: 'speed' | 'cancel'; machine: MachineId; job: string };
 function ingredientSource(id: ItemId): { label: string; tab?: SupplyTab; machine?: MachineId } {
-  const item = getItem(id);
-  if (item.category === 'crop') return { label: '农田', tab: 'farm' };
-  if (item.category === 'animal') return { label: '牧场', tab: 'livestock' };
-  const recipe = RECIPES.find(entry => entry.output === id);
-  if (recipe) return { label: MACHINES.find(entry => entry.id === recipe.machine)?.name ?? '工坊', machine: recipe.machine };
-  if (item.category === 'fruit' || item.category === 'fish' || ['honey', 'coal', 'iron_ore', 'gold_ore'].includes(id)) return { label: '探索', tab: 'explore' };
-  return { label: '仓库', tab: 'storage' };
+  const source = getItemSource(id);
+  return source.tab === 'production' ? { label: source.label, machine: source.machineId } : { label: source.label, tab: source.tab };
 }
 
 export function ProductionPanel({ game, onChange, notify, now, onNavigate, onRequestItem, focus }: ProductionPanelProps) {

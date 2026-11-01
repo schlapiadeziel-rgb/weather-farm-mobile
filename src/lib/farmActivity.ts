@@ -2,13 +2,17 @@
 import { getItem, LIVESTOCK, MACHINES } from './farmContent';
 import { storageUsed } from './game';
 import type { Game, ItemId, MachineId } from './farmTypes';
+import { getTownVisitorPhase } from './townGame';
+import { getTownBuilding, TOWN_BUILDINGS } from './townState';
+import type { TownBuildingId } from './townTypes';
 
 export type FarmActivityTarget =
   | { tab: 'farm'; plotId: number }
   | { tab: 'livestock'; penId: number }
   | { tab: 'production'; machineId: MachineId }
   | { tab: 'orders'; kind: 'truck' | 'boat' }
-  | { tab: 'storage'; section: 'roadside' };
+  | { tab: 'storage'; section: 'roadside' }
+  | { tab: 'town'; buildingId: TownBuildingId; visitorId: string };
 
 export interface FarmActivitySection {
   id: FarmActivityTarget['tab'];
@@ -36,7 +40,7 @@ const MAX_DATE = 8_640_000_000_000_000;
 const isTime = (value: unknown): value is number => typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 && value <= MAX_DATE;
 const hasTimer = (start: unknown, readyAt: unknown): readyAt is number => isTime(start) && isTime(readyAt) && readyAt >= start;
 
-/** Array order is the tie breaker, matching the order of fields, pens and queues in the game. */
+/** Existing activity order, then saved visitor order, breaks ties without sorting game data. */
 export function getFarmActivity(game: Game, now: number): FarmActivity {
   if (!isTime(now)) throw new Error('农场看板时间无效。');
 
@@ -76,10 +80,22 @@ export function getFarmActivity(game: Game, now: number): FarmActivity {
   const sold = listings.filter(listing => listing.soldAt <= now);
   for (const listing of listings) remember(`路边摊 · ${getItem(listing.item).name}`, listing.soldAt, { tab: 'storage', section: 'roadside' });
 
+  // Waiting visitors and train availability are not completed services. Looking at this
+  // board never pays rewards, frees seats, summons trains or spends requested goods.
+  const townServices = game.town.visitors.filter(visitor =>
+    TOWN_BUILDINGS.some(building => building.id === visitor.buildingId)
+    && game.town.buildings.some(building => building.id === visitor.buildingId && building.level > 0)
+    && hasTimer(visitor.arrivedAt, visitor.startedAt) && hasTimer(visitor.startedAt, visitor.readyAt));
+  const townReady = townServices.filter(visitor => getTownVisitorPhase(visitor, now) === 'ready');
+  for (const visitor of townServices) {
+    remember(`${getTownBuilding(visitor.buildingId).name} · ${visitor.name}接待完成`, visitor.readyAt!, { tab: 'town', buildingId: visitor.buildingId, visitorId: visitor.id });
+  }
+
   const firstPlot = ripe[0];
   const firstPen = products[0];
   const firstJob = completed[0];
   const firstOrder = deliverable[0];
+  const firstTownVisitor = townReady[0];
   return {
     sections: [
       {
@@ -106,6 +122,11 @@ export function getFarmActivity(game: Game, now: number): FarmActivity {
         id: 'storage', title: '路边摊货款', count: sold.length, unit: '笔',
         detail: sold.length ? '本机 NPC 已模拟购买，前往路边摊收取游戏货款。' : '还没有待收货款；上架后按本机 NPC 购买计时等待。',
         target: sold.length ? { tab: 'storage', section: 'roadside' } : null,
+      },
+      {
+        id: 'town', title: '小镇接待报酬', count: townReady.length, unit: '位',
+        detail: firstTownVisitor ? `${getTownBuilding(firstTownVisitor.buildingId).name}的${firstTownVisitor.name}已完成服务，前往小镇手动领取报酬。` : '还没有待领接待报酬；到小镇提供所需商品，再等待服务完成。',
+        target: firstTownVisitor ? { tab: 'town', buildingId: firstTownVisitor.buildingId, visitorId: firstTownVisitor.id } : null,
       },
     ],
     next,

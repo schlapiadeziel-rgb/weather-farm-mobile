@@ -43,11 +43,10 @@ import FarmGuide from './components/FarmGuide';
 import FarmActivityBoard from './components/FarmActivityBoard';
 import GameBackupControls from './components/GameBackupControls';
 import UpdatePanel from './components/UpdatePanel';
-import FarmTown from './components/FarmTown';
+import type { TownFocus, TownSupplyOrigin } from './components/FarmTown';
 import FarmAssistantPortal from './components/FarmAssistantPortal';
-import ProductionPanel from './components/ProductionPanel';
-import { OrdersPanel, StoragePanel, ExplorationPanel } from './components/EconomyPanels';
 import { getItem, RECIPES } from './lib/farmContent';
+import { getItemSource } from './lib/itemSource';
 import { getFarmActivity } from './lib/farmActivity';
 import type { FarmActivityTarget } from './lib/farmActivity';
 import { readSelectedLocation, saveSelectedLocation, locationFromPosition, parseManualLocation, formatCoordinates } from './lib/location';
@@ -63,6 +62,11 @@ const DiagnosticPanel = lazy(() => import('./components/DiagnosticPanel'));
 const NewsPanel = lazy(() => import('./components/NewsPanel'));
 const MarketPanel = lazy(() => import('./components/MarketPanel'));
 const FieldAdvicePanel = lazy(() => import('./components/FieldAdvicePanel'));
+const FarmTown = lazy(() => import('./components/FarmTown'));
+const ProductionPanel = lazy(() => import('./components/ProductionPanel'));
+const OrdersPanel = lazy(() => import('./components/EconomyPanels').then(module => ({ default: module.OrdersPanel })));
+const StoragePanel = lazy(() => import('./components/EconomyPanels').then(module => ({ default: module.StoragePanel })));
+const ExplorationPanel = lazy(() => import('./components/EconomyPanels').then(module => ({ default: module.ExplorationPanel })));
 
 type PlayTab = 'farm' | 'livestock' | 'production' | 'orders' | 'storage' | 'explore' | 'journal' | 'town';
 type Tab = 'assistant' | 'home' | 'clinic' | 'news' | 'market' | 'advice' | 'weather' | PlayTab;
@@ -107,6 +111,7 @@ export default function App() {
   const [guideOpen, setGuideOpen] = useState(false);
   const [activityOpen, setActivityOpen] = useState(false);
   const [productionFocus, setProductionFocus] = useState<{ machineId?: MachineId; item?: ItemId; requestId: number }>();
+  const [townFocus, setTownFocus] = useState<TownFocus>();
   const [storageView, setStorageView] = useState<{ section: 'inventory' | 'supplies' | 'roadside' | 'upgrade'; requestId: number }>({ section: 'inventory', requestId: 0 });
   const [exploreView, setExploreView] = useState<{ section: 'orchard' | 'fishing' | 'mine' | 'honey' | 'achievements'; requestId: number }>({ section: 'orchard', requestId: 0 });
   const [orderView, setOrderView] = useState<{ kind: 'truck' | 'boat'; requestId: number }>({ kind: 'truck', requestId: 0 });
@@ -134,6 +139,8 @@ export default function App() {
   const [gameMenuOpen, setGameMenuOpen] = useState(false);
   const [supplyTrail, setSupplyTrail] = useState<ItemId[]>([]);
   const supplyTrailRef = useRef<ItemId[]>([]);
+  const [townSupplyOrigin, setTownSupplyOrigin] = useState<TownSupplyOrigin | null>(null);
+  const townSupplyOriginRef = useRef<TownSupplyOrigin | null>(null);
   const [updateOpen, setUpdateOpen] = useState(false);
   const [availableUpdate, setAvailableUpdate] = useState<AppUpdate | null>(null);
   const [exportingGame, setExportingGame] = useState(false);
@@ -170,12 +177,14 @@ export default function App() {
   useEffect(() => {
     if (guideOpen || activityOpen || updateOpen || locationOpen || resetOpen || layoutOpen || visitorsOpen || gameMenuOpen || speedRequest) { setPlotFeedback({}); setActionFeedback(null); }
   }, [guideOpen, activityOpen, updateOpen, locationOpen, resetOpen, layoutOpen, visitorsOpen, gameMenuOpen, speedRequest]);
-  function navigate(next: Tab) {
+  function navigate(next: Tab, preserveSupply = false) {
+    if (!preserveSupply) clearSupplyTrail();
     const mode = next === 'assistant' && simulation ? 'open' : tab === 'assistant' && PLAY_TABS.includes(next) ? 'return' : 'reveal';
     prepareNavigation(next);
     pageTransition.navigate(next, mode);
   }
   function prepareNavigation(next: Tab) {
+    if (next !== 'town') setTownFocus(undefined);
     if (!PLAY_TABS.includes(next)) clearSupplyTrail();
     if (PLAY_TABS.includes(next) !== simulation) { clearTimeout(timeout.current); setNotice(''); }
     if (locationOpen || locating || searching) closeLocation();
@@ -203,7 +212,7 @@ export default function App() {
     setLayoutOpen(false);
     showNotice(saved ? '农场布置已保存。' : '本次布置已应用，但本机无法保存。请在农场日记导出游戏备份。');
   }
-  function focusProduction(focus: { machineId?: MachineId; item?: ItemId }) { setProductionFocus({ ...focus, requestId: ++navigationRequest.current }); navigate('production'); }
+  function focusProduction(focus: { machineId?: MachineId; item?: ItemId }, preserveSupply = false) { setProductionFocus({ ...focus, requestId: ++navigationRequest.current }); navigate('production', preserveSupply); }
   function visitMapArea(area: FarmMapArea) {
     const signal = getFarmMapSignals(gameRef.current, Date.now()).find(item => item.area === area);
     if (signal) visitActivity(signal.target);
@@ -214,40 +223,52 @@ export default function App() {
     else if (target.tab === 'livestock') { navigate('livestock'); setSelectedPen(target.penId); setDetailsOpen(true); }
     else if (target.tab === 'production') focusProduction({ machineId: target.machineId });
     else if (target.tab === 'orders') { setOrderView({ kind: target.kind, requestId: ++navigationRequest.current }); navigate('orders'); }
+    else if (target.tab === 'town') { navigate('town'); setTownFocus({ buildingId: target.buildingId, visitorId: target.visitorId, requestId: ++navigationRequest.current }); }
     else { setStorageView({ section: target.section, requestId: ++navigationRequest.current }); navigate('storage'); }
   }
   function updateSupplyTrail(next: ItemId[]) { supplyTrailRef.current = next; setSupplyTrail(next); }
-  function clearSupplyTrail() { updateSupplyTrail([]); }
+  function clearSupplyTrail() { updateSupplyTrail([]); townSupplyOriginRef.current = null; setTownSupplyOrigin(null); }
+  function requestTownIngredient(id: ItemId, origin: TownSupplyOrigin) {
+    updateSupplyTrail([]);
+    townSupplyOriginRef.current = origin;
+    setTownSupplyOrigin(origin);
+    requestItem(id, true);
+  }
   function requestProductionIngredient(id: ItemId, returnTo?: ItemId) {
     if (returnTo && RECIPES.some(recipe => recipe.output === returnTo)) {
       const previous = supplyTrailRef.current;
       const existing = previous.indexOf(returnTo);
       updateSupplyTrail(existing >= 0 ? previous.slice(0, existing + 1) : [...previous, returnTo].slice(-8));
     }
-    requestItem(id);
+    requestItem(id, true);
   }
   function returnToSupplyRecipe() {
     const previous = supplyTrailRef.current;
     const target = previous.at(-1);
     if (!target) return;
     updateSupplyTrail(previous.slice(0, -1));
-    focusProduction({ item: target });
+    focusProduction({ item: target }, true);
   }
-  const supplyReturn = supplyTrail.length ? <SupplyReturn item={supplyTrail[supplyTrail.length - 1]} depth={supplyTrail.length} onReturn={returnToSupplyRecipe} onClear={clearSupplyTrail} /> : null;
-  function requestItem(id: ItemId) {
-    const item = getItem(id), recipe = RECIPES.find(entry => entry.output === id);
-    if (recipe) { focusProduction({ item: id }); return; }
-    if (item.category === 'crop') {
+  function returnToTownGuest() {
+    const origin = townSupplyOriginRef.current;
+    if (!origin) return;
+    navigate('town');
+    setTownFocus({ buildingId: origin.buildingId, visitorId: origin.visitorId, requestId: ++navigationRequest.current });
+  }
+  const supplyReturn = supplyTrail.length ? <SupplyReturn item={supplyTrail[supplyTrail.length - 1]} depth={supplyTrail.length} onReturn={returnToSupplyRecipe} onClear={clearSupplyTrail} /> : townSupplyOrigin ? <SupplyReturn town={townSupplyOrigin} onReturn={returnToTownGuest} onClear={clearSupplyTrail} /> : null;
+  function requestItem(id: ItemId, preserveSupply = false) {
+    if (!preserveSupply) clearSupplyTrail();
+    const source = getItemSource(id);
+    if (source.tab === 'production') { focusProduction({ item: id, machineId: source.machineId }, preserveSupply); return; }
+    if (source.tab === 'farm') {
       const plots = game.plots.slice(0, game.unlockedPlots);
-      navigate('farm'); setSeed(id as CropId); setSelected((plots.find(plot => plot.crop === id) ?? plots.find(plot => !plot.crop) ?? plots[0]).id); setDetailsOpen(true); return;
+      navigate('farm', preserveSupply); setSeed(source.cropId); setSelected((plots.find(plot => plot.crop === id) ?? plots.find(plot => !plot.crop) ?? plots[0]).id); setDetailsOpen(true); return;
     }
-    const sourceAnimal = LIVESTOCK.find(entry => entry.product === id);
-    if (sourceAnimal) {
-      navigate('livestock'); setAnimalSeed(sourceAnimal.id); setSelectedPen((game.animals.find(pen => pen.animal === sourceAnimal.id) ?? game.animals.find(pen => !pen.animal) ?? game.animals[0]).id); setDetailsOpen(true); return;
+    if (source.tab === 'livestock') {
+      navigate('livestock', preserveSupply); setAnimalSeed(source.animalId); setSelectedPen((game.animals.find(pen => pen.animal === source.animalId) ?? game.animals.find(pen => !pen.animal) ?? game.animals[0]).id); setDetailsOpen(true); return;
     }
-    const section = id === 'honey' ? 'honey' : item.category === 'fruit' ? 'orchard' : item.category === 'fish' ? 'fishing' : ['coal', 'iron_ore', 'gold_ore'].includes(id) ? 'mine' : null;
-    if (section) { setExploreView({ section, requestId: ++navigationRequest.current }); navigate('explore'); }
-    else { setStorageView({ section: 'inventory', requestId: ++navigationRequest.current }); navigate('storage'); }
+    if (source.tab === 'explore') { setExploreView({ section: source.section, requestId: ++navigationRequest.current }); navigate('explore', preserveSupply); }
+    else { setStorageView({ section: source.section, requestId: ++navigationRequest.current }); navigate('storage', preserveSupply); }
   }
   function chooseFieldMode(mode: FieldMode) { setFieldMode(mode); if (mode !== 'browse') setDetailsOpen(false); }
   const activeFieldMode = guideOpen || activityOpen || updateOpen || locationOpen || resetOpen || layoutOpen || visitorsOpen || gameMenuOpen ? 'browse' : fieldMode;
@@ -471,7 +492,7 @@ export default function App() {
 
 
       <Suspense fallback={<main className="content-view service-loading" role="status"><span className="brand-icon"><Building2 size={26} /></span><h2>{simulation ? '正在准备农场…' : '正在打开农场助手…'}</h2><p>{simulation ? '继续今天的经营。' : '真实现场资料独立保存。'}</p></main>}>
-      {tab === 'assistant' ? <FarmAssistantPortal weather={serviceWeather} loading={loading} weatherError={weatherError || (stale ? '天气数据已过时，请刷新后核对。' : '')} locationName={location.name} locationChosen={locationChosen} onNavigate={navigate} onChooseLocation={() => { setSearchError(''); setLocationOpen(true); }} /> : tab === 'town' ? <FarmTown game={game} now={clock} onChange={commitGame} notify={showNotice} onRequestItem={requestItem} onNavigate={navigate} /> : tab === 'home' ? <FarmDashboard weather={serviceWeather} loading={loading} weatherError={serviceWeatherError} refresh={() => locationChosen ? void loadWeather(location) : setLocationOpen(true)} navigate={navigate} /> : tab === 'clinic' ? null : tab === 'news' ? <NewsPanel /> : tab === 'market' ? <MarketPanel locationName={locationChosen ? location.name : '请先设置真实农场位置'} /> : tab === 'advice' ? <FieldAdvicePanel weather={serviceWeather} weatherError={serviceWeatherError} navigate={() => navigate('clinic')} /> : tab === 'production' ? <ProductionPanel game={game} now={clock} onChange={commitGame} notify={showNotice} onNavigate={navigate} focus={productionFocus} onRequestItem={requestProductionIngredient} /> : tab === 'orders' ? <OrdersPanel requestId={orderView.requestId} game={game} now={clock} onChange={commitGame} notify={showNotice} onRequestItem={requestItem} initialKind={orderView.kind} /> : tab === 'storage' ? <StoragePanel requestId={storageView.requestId} game={game} now={clock} onChange={commitGame} notify={showNotice} initialTab={storageView.section} /> : tab === 'explore' ? <ExplorationPanel requestId={exploreView.requestId} game={game} now={clock} onChange={commitGame} notify={showNotice} initialTab={exploreView.section} /> : tab === 'farm' ? <>
+      {tab === 'assistant' ? <FarmAssistantPortal weather={serviceWeather} loading={loading} weatherError={weatherError || (stale ? '天气数据已过时，请刷新后核对。' : '')} locationName={location.name} locationChosen={locationChosen} onNavigate={navigate} onChooseLocation={() => { setSearchError(''); setLocationOpen(true); }} /> : tab === 'town' ? <FarmTown focus={townFocus} game={game} now={clock} onChange={commitGame} notify={showNotice} onRequestItem={requestTownIngredient} onNavigate={navigate} /> : tab === 'home' ? <FarmDashboard weather={serviceWeather} loading={loading} weatherError={serviceWeatherError} refresh={() => locationChosen ? void loadWeather(location) : setLocationOpen(true)} navigate={navigate} /> : tab === 'clinic' ? null : tab === 'news' ? <NewsPanel /> : tab === 'market' ? <MarketPanel locationName={locationChosen ? location.name : '请先设置真实农场位置'} /> : tab === 'advice' ? <FieldAdvicePanel weather={serviceWeather} weatherError={serviceWeatherError} navigate={() => navigate('clinic')} /> : tab === 'production' ? <ProductionPanel game={game} now={clock} onChange={commitGame} notify={showNotice} onNavigate={navigate} focus={productionFocus} onRequestItem={requestProductionIngredient} /> : tab === 'orders' ? <OrdersPanel requestId={orderView.requestId} game={game} now={clock} onChange={commitGame} notify={showNotice} onRequestItem={requestItem} initialKind={orderView.kind} /> : tab === 'storage' ? <StoragePanel requestId={storageView.requestId} game={game} now={clock} onChange={commitGame} notify={showNotice} initialTab={storageView.section} /> : tab === 'explore' ? <ExplorationPanel requestId={exploreView.requestId} game={game} now={clock} onChange={commitGame} notify={showNotice} initialTab={exploreView.section} /> : tab === 'farm' ? <>
         <main className={`farm-scene map-scene farm-gate-scene ${activeFieldMode !== 'browse' ? 'field-mode-active' : ''}`}>
           <FarmSceneHud game={game} onMenu={openGameMenu} onAssistant={() => navigate('assistant')} onActivity={openActivity} ready={readyTotal > 0} hasUpdate={!!availableUpdate} context={supplyReturn} />
           {actionFeedback && <FarmActionFeedback key={actionFeedback.key} data={actionFeedback.data} />}
