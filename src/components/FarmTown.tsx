@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { ArrowRight, Award, Check, Clock3, Coffee, Coins, Hammer, House, LockKeyhole, PackageCheck, ShoppingBasket, Star, TrainFront, Users } from 'lucide-react';
 import type { Game, ItemId } from '../lib/farmTypes';
 import { getItem, MACHINES, RECIPES } from '../lib/farmContent';
@@ -7,7 +7,8 @@ import type { TownBuildingId, TownVisitor } from '../lib/townTypes';
 import TownScenery from './TownScenery';
 import './farm-town.css';
 
-export type FarmTownProps = { game: Game; now: number; onChange(game: Game): void | boolean; notify(text: string): void; onRequestItem?(item: ItemId): void; onNavigate?(tab: 'farm' | 'storage' | 'production' | 'orders'): void };
+export type TownFocus = { buildingId: TownBuildingId; visitorId: string; requestId: number };
+export type FarmTownProps = { game: Game; now: number; onChange(game: Game): void | boolean; notify(text: string): void; onRequestItem?(item: ItemId): void; onNavigate?(tab: 'farm' | 'storage' | 'production' | 'orders'): void; focus?: TownFocus };
 const looks = { store: { color: '#5d9d92', Icon: ShoppingBasket }, cafe: { color: '#cc826d', Icon: Coffee }, inn: { color: '#8a8eaf', Icon: House } };
 
 function remaining(milliseconds: number) {
@@ -73,8 +74,31 @@ function VisitorAvatar({ visitor, index = 0 }: { visitor: TownVisitor; index?: n
   return <svg className="ft-visitor-avatar" viewBox="0 0 52 60" aria-hidden="true" focusable="false"><ellipse cx="26" cy="55" rx="20" ry="4" fill="#677f4b" opacity=".14" /><path d="M9 54c0-15 6-22 17-22s17 7 17 22" fill={tint} /><path d="m17 35 9 8 9-8" fill="#ece7c9" /><rect x="22" y="28" width="8" height="11" rx="3" fill="#e4be96" /><ellipse cx="26" cy="21" rx="12" ry="14" fill="#edcca5" /><path d="M14 21C11 4 31 1 37 13l2 9-6-7c-4 4-10 3-15 1l-3 6Z" fill={index % 2 ? '#735c4c' : '#8d7355'} /><path d="M22 28q4 3 8 0" fill="none" stroke="#bd876b" strokeWidth="1.2" strokeLinecap="round" /><circle cx="21" cy="22" r="1" fill="#695e4c" /><circle cx="31" cy="22" r="1" fill="#695e4c" />{visitor.id.length % 2 === 0 && <><path d="M11 14q2-16 16-13 13 3 12 13Z" fill={tint} /><path d="M9 14h32" stroke="#e3cc91" strokeWidth="3" strokeLinecap="round" /></>}</svg>;
 }
 
-export function FarmTown({ game, now, onChange, notify, onRequestItem, onNavigate }: FarmTownProps) {
-  const [selected, setSelected] = useState<TownBuildingId>('store');
+export function FarmTown({ game, now, onChange, notify, onRequestItem, onNavigate, focus }: FarmTownProps) {
+  const [selected, setSelected] = useState<TownBuildingId>(focus?.buildingId ?? 'store');
+  const [pendingFocus, setPendingFocus] = useState<TownFocus | null>(null);
+  const receptionRef = useRef<HTMLDivElement>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  // A navigation request selects and locates once; clock ticks must not undo browsing.
+  useEffect(() => {
+    if (!focus) return;
+    setSelected(focus.buildingId);
+    setPendingFocus(focus);
+  }, [focus]);
+  useEffect(() => {
+    if (!pendingFocus || selected !== pendingFocus.buildingId) return;
+    const container = receptionRef.current;
+    const visitor = Array.from(container?.querySelectorAll<HTMLElement>('[data-town-visitor]') ?? [])
+      .find(node => node.dataset.townVisitor === pendingFocus.visitorId);
+    if (container && visitor) {
+      container.scrollTop += visitor.getBoundingClientRect().top - container.getBoundingClientRect().top - 8;
+      visitor.focus({ preventScroll: true });
+    } else {
+      // The visitor may have left since the board opened; never substitute an action.
+      headingRef.current?.focus({ preventScroll: true });
+    }
+    setPendingFocus(null);
+  }, [pendingFocus, selected]);
   const gameRef = useRef(game);
   const lastPropRef = useRef(game);
   // Keep successful actions current even when a second tap precedes React's next paint.
@@ -125,9 +149,9 @@ export function FarmTown({ game, now, onChange, notify, onRequestItem, onNavigat
         <div className="ft-map-footer"><Users size={14} aria-hidden="true" /><span>{readyCount ? `${readyCount} 份接待报酬等你领取` : '选中建筑，查看访客与接待需求'}</span></div>
       </div></aside>
       <div className="ft-reception" data-town-selected={selected}>
-        <div className="ft-reception-heading"><span className="ft-facility-icon"><Icon size={21} aria-hidden="true" /></span><div><h3>{building.name}</h3><p>{building.description}</p></div><span className="ft-facility-level">{level ? `Lv.${level}` : '待建造'}</span></div>
+        <div className="ft-reception-heading"><span className="ft-facility-icon"><Icon size={21} aria-hidden="true" /></span><div><h3 ref={headingRef} tabIndex={-1}>{building.name}</h3><p>{building.description}</p></div><span className="ft-facility-level">{level ? `Lv.${level}` : '待建造'}</span></div>
         <div className="ft-facility-tabs" role="group" aria-label="接待建筑">{TOWN_BUILDINGS.map(entry => <button key={entry.id} aria-pressed={selected === entry.id} onClick={() => setSelected(entry.id)}>{entry.name}{town.visitors.some(visitor => visitor.buildingId === entry.id && getTownVisitorPhase(visitor, now) === 'ready') && <span className="ft-tab-ready" aria-label="有报酬可领取" />}</button>)}</div>
-        <div className="ft-reception-scroll">
+        <div className="ft-reception-scroll" ref={receptionRef}>
           {!level ? <div className="ft-build-site"><TownBuildingArt id={selected} /><h4>{locked ? `声望 ${building.unlockReputation} 解锁` : '给小镇添一座新建筑'}</h4><p>{locked ? `接待访客并领取报酬可以获得声望，当前 ${town.reputation} / ${building.unlockReputation}。` : `建造后可同时接待 ${getTownFacilityCapacity(1)} 位访客，每次服务约 ${Math.round(building.serviceMs / 60000 * 10) / 10} 分钟。`}</p>{locked && <progress max={building.unlockReputation} value={town.reputation} aria-label={`${building.name}解锁声望进度`} />}<button className="ft-primary" disabled={locked || game.coins < building.buildCost} data-town-action="build" onClick={() => apply(current => buildTownFacility(current, selected, Date.now()), `${building.name}建成了！下一班火车可以带来新访客。`)}><Hammer size={16} aria-hidden="true" />建造 · <Coins size={15} aria-hidden="true" />{building.buildCost.toLocaleString()}</button>{!locked && game.coins < building.buildCost && <small>还差 {(building.buildCost - game.coins).toLocaleString()} 游戏金币，可通过交货和售货赚取。</small>}</div> : <>
             <div className="ft-facility-summary"><div><strong><Users size={15} aria-hidden="true" />接待位 {occupied}/{capacity}</strong><small>服务约 {Math.round(building.serviceMs / 60000 * 10) / 10} 分钟 · 完成后手动领取</small></div>{upgradeCost !== null ? <button className="ft-upgrade" disabled={game.coins < upgradeCost} data-town-action="upgrade" onClick={() => apply(current => upgradeTownFacility(current, selected, Date.now()), `${building.name}已升级，新增一个接待位。`)} aria-label={`升级${building.name}至${level + 1}级，需要${upgradeCost}游戏金币${game.coins < upgradeCost ? `，还差${upgradeCost - game.coins}` : ''}`}><Hammer size={14} aria-hidden="true" />升级 <Coins size={13} aria-hidden="true" />{upgradeCost}</button> : <span className="ft-max-level"><Check size={13} aria-hidden="true" />已满级</span>}</div>
             {visitors.length === 0 ? <div className="ft-empty-visitors"><Users size={35} aria-hidden="true" /><h4>等一班载着故事的火车</h4><p>{town.visitors.length ? '这座建筑暂时没有访客。先到其他建筑完成接待，再迎接下一班火车。' : trainRemaining > 0 ? `车站正在准备下一班火车，${remaining(trainRemaining)} 后可手动迎接。` : '去车站迎接火车，新的模拟访客会带来农产品需求。'}</p>{!trainFull && trainRemaining <= 0 && <button className="ft-primary" onClick={callTrain}><TrainFront size={16} aria-hidden="true" />迎接新访客</button>}</div> : <div className="ft-visitor-list" aria-label={`${building.name}访客`}>{visitors.map(visitor => {
@@ -136,7 +160,7 @@ export function FarmTown({ game, now, onChange, notify, onRequestItem, onNavigat
               const missing = entries.filter(([id, quantity]) => (game.inventory[id] ?? 0) < quantity);
               const full = occupied >= capacity;
               const progress = visitor.startedAt !== undefined && visitor.readyAt !== undefined ? Math.max(0, Math.min(100, (now - visitor.startedAt) / Math.max(1, visitor.readyAt - visitor.startedAt) * 100)) : 0;
-              return <article className={`ft-visitor ft-visitor-${phase}`} key={visitor.id} data-town-visitor={visitor.id}><div className="ft-visitor-heading"><VisitorAvatar visitor={visitor} index={town.visitors.findIndex(entry => entry.id === visitor.id)} /><div><h4>{visitor.name}</h4><span>{phase === 'waiting' ? '等候接待' : phase === 'serving' ? '正在享受小镇时光' : '接待完成'}</span></div><span className={`ft-visitor-phase ${phase}`}>{phase === 'ready' ? <><Check size={13} aria-hidden="true" />可领取</> : phase === 'serving' ? <><Clock3 size={12} aria-hidden="true" />{remaining((visitor.readyAt ?? now) - now)}</> : <><Users size={12} aria-hidden="true" />等候中</>}</span></div>
+              return <article className={`ft-visitor ft-visitor-${phase}`} key={visitor.id} data-town-visitor={visitor.id} tabIndex={-1} aria-label={`小镇访客 · ${visitor.name}`}><div className="ft-visitor-heading"><VisitorAvatar visitor={visitor} index={town.visitors.findIndex(entry => entry.id === visitor.id)} /><div><h4>{visitor.name}</h4><span>{phase === 'waiting' ? '等候接待' : phase === 'serving' ? '正在享受小镇时光' : '接待完成'}</span></div><span className={`ft-visitor-phase ${phase}`}>{phase === 'ready' ? <><Check size={13} aria-hidden="true" />可领取</> : phase === 'serving' ? <><Clock3 size={12} aria-hidden="true" />{remaining((visitor.readyAt ?? now) - now)}</> : <><Users size={12} aria-hidden="true" />等候中</>}</span></div>
                 {phase === 'waiting' ? <><div className="ft-requirements">{entries.map(([id, quantity]) => <div key={id} className={(game.inventory[id] ?? 0) < quantity ? 'is-short' : ''}><span>{getItem(id).icon}<b>{getItem(id).name}</b></span><span><small>库存</small> {game.inventory[id] ?? 0}<i>/</i><strong>{quantity}</strong></span></div>)}</div>{missing.length > 0 && <div className="ft-missing-items">{missing.map(([id, quantity]) => <div key={id}><span>还缺{getItem(id).name} ×{quantity - (game.inventory[id] ?? 0)}</span>{onRequestItem || onNavigate ? <button onClick={() => requestItem(id)}>去{onRequestItem ? sourceLabel(id) : getItem(id).category === 'crop' ? '农田' : RECIPES.some(entry => entry.output === id) ? '工坊' : '仓库'}<ArrowRight size={12} aria-hidden="true" /></button> : <small>来自{sourceLabel(id)}</small>}</div>)}</div>}</> : <p className="ft-consumed-note">接待用品已交付：{entries.map(([id, quantity]) => `${getItem(id).name} ×${quantity}`).join('、')}</p>}
                 {phase === 'serving' && <div className="ft-service-progress" role="progressbar" aria-label={`${visitor.name}接待进度`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.floor(progress)}><span style={{ width: `${progress}%` }} /></div>}
                 <div className="ft-visitor-bottom"><div className="ft-rewards" aria-label={`报酬：${visitor.coins}游戏金币，${visitor.xp}经验，${visitor.reputation}声望`}><span><Coins size={13} aria-hidden="true" />{visitor.coins}</span><span><Star size={12} aria-hidden="true" />{visitor.xp} XP</span><span><Award size={12} aria-hidden="true" />+{visitor.reputation}</span></div>{phase === 'waiting' ? <button className="ft-primary ft-serve" disabled={missing.length > 0 || full} data-town-action="serve" onClick={() => apply(current => serveTownVisitor(current, visitor.id, Date.now()), `已交付接待用品，${visitor.name}开始在${building.name}享受小镇时光。`)}>{missing.length ? '补齐货物后接待' : full ? '接待位已满' : '交付并接待'}</button> : phase === 'ready' ? <button className="ft-primary ft-collect" data-town-action="collect" onClick={() => apply(current => collectTownVisitor(current, visitor.id, Date.now()), `已领取 ${visitor.coins} 游戏金币、${visitor.xp} 经验和 ${visitor.reputation} 声望。${visitor.name}满意离开了小镇。`)}><PackageCheck size={15} aria-hidden="true" />领取报酬</button> : <span className="ft-service-time"><Clock3 size={13} aria-hidden="true" />剩余 {remaining((visitor.readyAt ?? now) - now)}</span>}</div>{phase === 'waiting' && full && <p className="ft-capacity-note">先领取已完成的接待报酬，或升级建筑增加接待位。</p>}

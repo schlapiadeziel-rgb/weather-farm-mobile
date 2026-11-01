@@ -4,10 +4,12 @@ import { getFarmActivity } from '../src/lib/farmActivity.ts';
 import { collectProduct, collectProduction, harvest, initialGame, storageUsed } from '../src/lib/game.ts';
 import { collectSale, deliverOrder } from '../src/lib/farmEconomy.ts';
 import type { Game } from '../src/lib/farmTypes.ts';
+import { arriveTownTrain, buildTownFacility, collectTownVisitor, serveTownVisitor } from '../src/lib/townGame.ts';
+import type { TownVisitor } from '../src/lib/townTypes.ts';
 
 const NOW = Date.parse('2026-10-15T08:00:00Z');
 const MAX_DATE = 8_640_000_000_000_000;
-const section = (game: Game, id: 'farm' | 'livestock' | 'production' | 'orders' | 'storage', now = NOW) => getFarmActivity(game, now).sections.find(item => item.id === id)!;
+const section = (game: Game, id: 'farm' | 'livestock' | 'production' | 'orders' | 'storage' | 'town', now = NOW) => getFarmActivity(game, now).sections.find(item => item.id === id)!;
 const emptyGame = (): Game => {
   const game = initialGame(NOW);
   game.plots = game.plots.map(plot => ({ id: plot.id, crop: null, growth: 0, health: 100, moisture: 50 }));
@@ -25,6 +27,7 @@ test('activity uses fixed sections, unit counts and actual storage without chang
     { id: 'production', title: '工坊成品', unit: '批' },
     { id: 'orders', title: '可交订单', unit: '份' },
     { id: 'storage', title: '路边摊货款', unit: '笔' },
+    { id: 'town', title: '小镇接待报酬', unit: '位' },
   ]);
   assert.deepEqual(activity.silo, { used: storageUsed(game, 'silo'), capacity: game.siloCapacity });
   assert.deepEqual(activity.barn, { used: storageUsed(game, 'barn'), capacity: game.barnCapacity });
@@ -115,7 +118,7 @@ test('roadside sold count excludes collected listings and respects the exact sal
   assert.equal(section(collected, 'storage', NOW + 1).count, 1);
 });
 
-test('next selects the earliest remaining timer from all five activity classes and uses content names', () => {
+test('next selects the earliest remaining farm timers and uses content names', () => {
   const game = emptyGame();
   game.plots[0] = { ...game.plots[0], crop: 'corn', plantedAt: NOW, readyAt: NOW + 400 };
   game.animals[0] = { ...game.animals[0], animal: 'chicken', fedAt: NOW, readyAt: NOW + 300 };
@@ -126,6 +129,139 @@ test('next selects the earliest remaining timer from all five activity classes a
   assert.deepEqual(getFarmActivity(game, NOW + 200).next, { label: '1 号畜栏 · 鸡蛋', readyAt: NOW + 300, target: { tab: 'livestock', penId: 1 } });
   assert.deepEqual(getFarmActivity(game, NOW + 300).next, { label: '1 号田 · 玉米', readyAt: NOW + 400, target: { tab: 'farm', plotId: 1 } });
   assert.equal(getFarmActivity(game, NOW + 400).next, null);
+});
+
+function townActivityGame(): Game {
+  const game = emptyGame();
+  game.inventory = { wheat: 10, corn: 10, soybean: 5, radish: 5, bread: 8, egg: 8 };
+  game.coins = 5000;
+  game.town.reputation = 8;
+  return arriveTownTrain(buildTownFacility(buildTownFacility(game, 'cafe', NOW), 'inn', NOW), NOW);
+}
+
+const townTarget = (visitor: TownVisitor) => ({ tab: 'town', buildingId: visitor.buildingId, visitorId: visitor.id });
+
+test('town board distinguishes waiting, serving and exact completion without paying or spending anything', () => {
+  let game = townActivityGame();
+  const visitor = game.town.visitors.find(item => item.buildingId === 'cafe')!;
+  assert.equal(section(game, 'town').count, 0);
+  assert.equal(section(game, 'town').target, null);
+  assert.equal(getFarmActivity(game, NOW).next, null, 'train cooldown and unserved visitors are not service timers');
+  game = serveTownVisitor(game, visitor.id, NOW);
+  const readyAt = game.town.visitors.find(item => item.id === visitor.id)!.readyAt!;
+  const before = structuredClone(game);
+  assert.equal(section(game, 'town', readyAt - 1).count, 0);
+  assert.equal(section(game, 'town', readyAt - 1).target, null);
+  const ready = section(game, 'town', readyAt);
+  assert.equal(ready.count, 1);
+  assert.equal(ready.unit, '位');
+  assert.deepEqual(ready.target, townTarget(visitor));
+  assert.match(ready.detail, /林荫咖啡馆/);
+  assert.ok(ready.detail.includes(visitor.name));
+  assert.match(ready.detail, /手动领取/);
+  assert.equal(getFarmActivity(game, readyAt).next, null);
+  assert.equal(section(game, 'town', readyAt + 86_400_000).count, 1, 'offline time does not claim or expire rewards');
+  assert.deepEqual(game, before, 'looking at service completion cannot alter inventory, seats, rewards, train or save data');
+});
+
+test('town service completion competes with existing timers and targets the exact facility and visitor', () => {
+  let game = townActivityGame();
+  const cafe = game.town.visitors.find(item => item.buildingId === 'cafe')!;
+  const inn = game.town.visitors.find(item => item.buildingId === 'inn')!;
+  game = serveTownVisitor(serveTownVisitor(game, inn.id, NOW), cafe.id, NOW);
+  const cafeReadyAt = game.town.visitors.find(item => item.id === cafe.id)!.readyAt!;
+  const innReadyAt = game.town.visitors.find(item => item.id === inn.id)!.readyAt!;
+  game.plots[0] = { ...game.plots[0], crop: 'wheat', plantedAt: NOW, readyAt: cafeReadyAt + 1 };
+  assert.deepEqual(getFarmActivity(game, NOW).next, {
+    label: `林荫咖啡馆 · ${cafe.name}接待完成`, readyAt: cafeReadyAt, target: townTarget(cafe),
+  });
+  assert.deepEqual(getFarmActivity(game, cafeReadyAt).next!.target, { tab: 'farm', plotId: game.plots[0].id });
+  assert.deepEqual(getFarmActivity(game, cafeReadyAt + 1).next, {
+    label: `河畔旅舍 · ${inn.name}接待完成`, readyAt: innReadyAt, target: townTarget(inn),
+  });
+  assert.equal(section(game, 'town', innReadyAt).count, 2);
+});
+
+test('town count and target move only after manual collection, never while merely navigating', () => {
+  let game = townActivityGame();
+  const store = game.town.visitors.find(item => item.buildingId === 'store')!;
+  const inn = game.town.visitors.find(item => item.buildingId === 'inn')!;
+  game = serveTownVisitor(serveTownVisitor(game, store.id, NOW), inn.id, NOW);
+  const readyAt = Math.max(...game.town.visitors.map(item => item.readyAt ?? 0));
+  assert.equal(section(game, 'town', readyAt).count, 2);
+  assert.deepEqual(section(game, 'town', readyAt).target, townTarget(store));
+  const claimed = collectTownVisitor(game, store.id, readyAt);
+  assert.equal(section(claimed, 'town', readyAt).count, 1);
+  assert.deepEqual(section(claimed, 'town', readyAt).target, townTarget(inn));
+  assert.equal(claimed.coins, game.coins + store.coins);
+  const allClaimed = collectTownVisitor(claimed, inn.id, readyAt);
+  assert.equal(section(allClaimed, 'town', readyAt).count, 0);
+  assert.equal(section(allClaimed, 'town', readyAt).target, null);
+});
+
+test('town ready targets and tied completions follow saved visitor order and preserve existing timer priority', () => {
+  let game = townActivityGame();
+  const cafe = game.town.visitors.find(item => item.buildingId === 'cafe')!;
+  const inn = game.town.visitors.find(item => item.buildingId === 'inn')!;
+  game = serveTownVisitor(game, inn.id, NOW);
+  const readyAt = game.town.visitors.find(item => item.id === inn.id)!.readyAt!;
+  game = serveTownVisitor(game, cafe.id, readyAt - 90_000);
+  game.town.visitors.reverse();
+  const before = structuredClone(game);
+  assert.deepEqual(getFarmActivity(game, NOW).next!.target, townTarget(inn));
+  assert.deepEqual(section(game, 'town', readyAt).target, townTarget(inn));
+  assert.deepEqual(game, before);
+  game.shopListings = [{ id: 'tied-sale', item: 'wheat', quantity: 1, unitPrice: 1, listedAt: NOW, soldAt: readyAt, collected: false }];
+  assert.deepEqual(getFarmActivity(game, NOW).next!.target, { tab: 'storage', section: 'roadside' });
+});
+
+test('invalid or incomplete town service times and absent facilities never create false readiness', () => {
+  const base = townActivityGame();
+  const visitor = base.town.visitors.find(item => item.buildingId === 'cafe')!;
+  for (const bad of [undefined, Number.NaN, Number.POSITIVE_INFINITY, -1, 0.1, MAX_DATE + 1, '123']) {
+    for (const field of ['arrivedAt', 'startedAt', 'readyAt'] as const) {
+      const game = structuredClone(base);
+      game.town.visitors = [{ ...visitor, arrivedAt: NOW - 100, startedAt: NOW - 90, readyAt: NOW - 1, [field]: bad as number }];
+      assert.equal(section(game, 'town').count, 0);
+      assert.equal(section(game, 'town').target, null);
+      assert.equal(getFarmActivity(game, NOW).next, null);
+    }
+  }
+  const ignored: TownVisitor[] = [
+    { ...visitor },
+    { ...visitor, startedAt: NOW },
+    { ...visitor, readyAt: NOW },
+    { ...visitor, startedAt: NOW - 1, readyAt: NOW },
+    { ...visitor, startedAt: NOW + 1, readyAt: NOW },
+    { ...visitor, buildingId: 'missing' as TownVisitor['buildingId'], startedAt: NOW, readyAt: NOW },
+  ];
+  for (const service of ignored) {
+    const game = structuredClone(base);
+    game.town.visitors = [service];
+    assert.equal(section(game, 'town').count, 0);
+    assert.equal(getFarmActivity(game, NOW).next, null);
+  }
+  const unbuilt = structuredClone(base);
+  unbuilt.town.visitors = [{ ...visitor, startedAt: NOW, readyAt: NOW }];
+  unbuilt.town.buildings.find(building => building.id === 'cafe')!.level = 0;
+  assert.equal(section(unbuilt, 'town').count, 0);
+  assert.equal(getFarmActivity(unbuilt, NOW).next, null);
+});
+
+test('town derivation accepts frozen data and returns target objects detached from the save', () => {
+  let game = townActivityGame();
+  const visitor = game.town.visitors.find(item => item.buildingId === 'cafe')!;
+  game = serveTownVisitor(game, visitor.id, NOW);
+  const readyAt = game.town.visitors.find(item => item.id === visitor.id)!.readyAt!;
+  const freeze = (value: unknown): void => {
+    if (value && typeof value === 'object') { Object.freeze(value); for (const item of Object.values(value)) freeze(item); }
+  };
+  freeze(game);
+  const first = getFarmActivity(game, NOW).next!;
+  assert.deepEqual(first.target, townTarget(visitor));
+  if (first.target.tab === 'town') first.target.visitorId = 'changed';
+  assert.deepEqual(getFarmActivity(game, NOW).next!.target, townTarget(visitor));
+  assert.deepEqual(section(game, 'town', readyAt).target, townTarget(visitor));
 });
 
 test('ready targets and tied countdowns preserve array order without sorting input', () => {

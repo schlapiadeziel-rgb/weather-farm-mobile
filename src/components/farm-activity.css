@@ -63,6 +63,7 @@
 .fa-activity-production.fa-activity-ready .fa-activity-icon { color: #8a9d90; background: #e5ede2; border-color: #d4e1d1; }
 .fa-activity-orders.fa-activity-ready .fa-activity-icon { color: #b18b63; background: #f3e3c9; border-color: #e8d7b5; }
 .fa-activity-storage.fa-activity-ready .fa-activity-icon { color: #ae9372; background: #f1e5d0; border-color: #e4d8bd; }
+.fa-activity-town.fa-activity-ready .fa-activity-icon { color: #8e85a2; background: #eee8f1; border-color: #ddd4e5; }
 .fa-board-order-note { display: flex; align-items: flex-start; gap: 7px; margin: 13px 1px 0; color: #a19373; font-size: 10px; line-height: 1.75; }
 .fa-board-order-note svg { flex: none; margin-top: 2px; }
 .fa-board-footer { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 70px; padding: 11px 23px; border-top: 1px solid #e1d2ae; background: #f9f1db; }
@@ -74,7 +75,6 @@
   .fa-section-intro { margin-top: 12px; margin-bottom: 8px; }
   .fa-board-sections { grid-template-columns: repeat(6, minmax(0, 1fr)); }
   .fa-activity-card { grid-column: span 2; }
-  .fa-activity-card:nth-last-child(-n + 2) { grid-column: span 3; }
 }
 @media (max-width: 800px) {
   .fa-board-illustration { width: 140px; height: 80px; margin-right: 0; }
