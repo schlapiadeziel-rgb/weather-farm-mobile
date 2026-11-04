@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Axe, Check, Coins, Fish, Gem, Leaf, Package, Pickaxe, Plus, RefreshCw, Ship, ShoppingBag, Sprout, Store, Timer, Trees, Trophy, Truck, Warehouse, Wheat } from 'lucide-react';
 import type { Game, ItemId, OrchardPlot, StorageKind } from '../lib/farmTypes';
+import type { OrderSupplyOrigin } from '../lib/orderSupply';
 import { ITEMS, getItem } from '../lib/farmContent';
 import { getLevel, storageUsed } from '../lib/game';
 import { ACHIEVEMENTS, BEEHIVE_COST, BEEKEEPING_LEVEL, BOAT_LEVEL, FISHING_LEVEL, HONEY_COOLDOWN_MS, MAX_STORAGE_CAPACITY, MINING_LEVEL, ORCHARD_FRUITS, ORCHARD_LIMIT, ROADSIDE_LIMIT, SALE_DELAY_MS, achievementProgress, buildBeehive, buySupply, catchFish, claimAchievement, clearOrchard, collectHoney, collectSale, deliverOrder, discardOrder, ensureOrders, expandFarm, farmExpansionCost, harvestOrchard, listForSale, mineOre, plantOrchard, reviveOrchard, storageUpgradeCost, upgradeStorage } from '../lib/farmEconomy';
@@ -16,7 +17,7 @@ export interface EconomyPanelProps {
 
 export type StorageTab = 'inventory' | 'supplies' | 'roadside' | 'upgrade';
 export type ExplorationTab = 'orchard' | 'fishing' | 'mine' | 'honey' | 'achievements';
-export type OrdersPanelProps = EconomyPanelProps & { initialKind?: 'truck' | 'boat'; requestId?: number; onRequestItem?(item: ItemId): void };
+export type OrdersPanelProps = EconomyPanelProps & { initialKind?: 'truck' | 'boat'; requestId?: number; focusOrderId?: string; onRequestItem?(item: ItemId, origin: OrderSupplyOrigin): void };
 export type StoragePanelProps = EconomyPanelProps & { initialTab?: StorageTab; requestId?: number };
 export type ExplorationPanelProps = EconomyPanelProps & { initialTab?: ExplorationTab; requestId?: number };
 
@@ -61,13 +62,37 @@ export function OrdersPanel(props: OrdersPanelProps) {
     } catch (error) { props.notify(error instanceof Error ? error.message : '这次订单操作没有完成，请再试一次。'); }
   };
   const [kind, setKind] = useState<'truck' | 'boat'>(props.initialKind ?? 'truck');
-  useEffect(() => { if (props.initialKind !== undefined) setKind(props.initialKind); }, [props.initialKind, props.requestId]);
-  useEffect(() => setReadyOnly(false), [kind, props.requestId]);
+  const [focusedOrderId, setFocusedOrderId] = useState<string | null>(null);
+  const [pendingFocus, setPendingFocus] = useState<{ orderId: string; kind?: 'truck' | 'boat' } | null>(null);
+  const panelRef = useRef<HTMLElement>(null);
+  const orderRefs = useRef(new Map<string, HTMLElement>());
+  // A return request selects once; inventory updates and clock ticks must not
+  // reset the player's filter or repeatedly move keyboard focus and scrolling.
+  useEffect(() => {
+    const targetKind = props.initialKind ?? latestGame.current.orders.find(order => order.id === props.focusOrderId)?.kind;
+    if (targetKind !== undefined) setKind(targetKind);
+    setReadyOnly(false);
+    setFocusedOrderId(props.focusOrderId ?? null);
+    setPendingFocus(props.focusOrderId ? { orderId: props.focusOrderId, kind: targetKind } : null);
+  }, [props.initialKind, props.focusOrderId, props.requestId]);
+  useEffect(() => setReadyOnly(false), [kind]);
+  useEffect(() => {
+    if (!pendingFocus || readyOnly || (pendingFocus.kind && kind !== pendingFocus.kind)) return;
+    const target = orderRefs.current.get(pendingFocus.orderId);
+    const panel = panelRef.current;
+    if (target && panel) {
+      // Scroll only the order panel. This also keeps navigation instant for
+      // reduced-motion users and leaves the fixed game header in place.
+      panel.scrollTop += target.getBoundingClientRect().top - panel.getBoundingClientRect().top - 12;
+      target.focus({ preventScroll: true });
+    }
+    setPendingFocus(null);
+  }, [pendingFocus, kind, readyOnly]);
   const orders = game.orders.filter(order => order.kind === kind);
   const isReady = (order: typeof orders[number]) => { const needs = Object.entries(order.requirements) as [ItemId, number][]; return needs.length > 0 && needs.every(([id, quantity]) => (game.inventory[id] ?? 0) >= quantity); };
   const readyCount = orders.filter(isReady).length;
   const visibleOrders = orders.map((order, index) => ({ order, index })).filter(({ order }) => !readyOnly || isReady(order));
-  return <main className="fe-panel fe-orders">
+  return <main className="fe-panel fe-orders" ref={panelRef}>
     <PanelHeading icon={<Truck size={29} />} title="今天的订单" description="把田里的收成变成好东西，再送到需要它们的地方。"><span className="fe-level-stamp">已送达 <strong>{game.ordersDelivered}</strong> 单</span></PanelHeading>
     <nav className="fe-tabs" aria-label="配送方式"><button className={kind === 'truck' ? 'is-active' : ''} aria-pressed={kind === 'truck'} onClick={() => setKind('truck')}><Truck size={17} />卡车订单<span>{game.orders.filter(order => order.kind === 'truck').length}</span></button><button className={kind === 'boat' ? 'is-active' : ''} aria-pressed={kind === 'boat'} onClick={() => setKind('boat')}><Ship size={17} />货船订单<span>{game.orders.filter(order => order.kind === 'boat').length}</span></button></nav>
     {orders.length > 0 && <div className="fe-order-toolbar"><p><strong>{readyCount}</strong> 张可交货 <span>／ 共 {orders.length} 张</span></p><button type="button" aria-pressed={readyOnly} onClick={() => setReadyOnly(value => !value)}>只看可交货{readyOnly && <Check size={14} aria-hidden="true" />}</button></div>}
@@ -77,14 +102,16 @@ export function OrdersPanel(props: OrdersPanelProps) {
         const needs = Object.entries(order.requirements) as [ItemId, number][];
         const prepared = needs.filter(([id, quantity]) => (game.inventory[id] ?? 0) >= quantity).length;
         const ready = isReady(order);
-        return <article className={`fe-order-card ${ready ? 'is-ready' : ''}`} key={order.id} data-order-id={order.id}>
+        const focused = order.id === focusedOrderId;
+        return <article className={`fe-order-card ${ready ? 'is-ready' : ''} ${focused ? 'is-focused' : ''}`} key={order.id} data-order-id={order.id} ref={element => { if (element) orderRefs.current.set(order.id, element); else orderRefs.current.delete(order.id); }} tabIndex={-1} aria-label={focused ? `当前备货订单，${kind === 'truck' ? '卡车' : '货船'}${index + 1}号订单` : undefined}>
           <div className="fe-order-top"><span className="fe-paper-pin" /><span>{kind === 'truck' ? '田间小货车' : '河畔货船'} · {index + 1} 号</span>{ready && <span className="fe-ready-label"><Check size={13} />备齐了</span>}</div>
+          {focused && <p className="fe-order-focus-label"><Check size={13} aria-hidden="true" />当前备货订单</p>}
           <h3>{kind === 'truck' ? '邻镇需要这些' : '下一程的货物'}</h3>
           <div className="fe-order-items">{needs.map(([id, quantity]) => {
             const item = getItem(id);
             const owned = game.inventory[id] || 0;
             const shortage = Math.max(0, quantity - owned);
-            return <div className={`fe-order-item ${shortage === 0 ? 'has-stock' : ''}`} key={id}><div className="fe-order-item-line"><span className="fe-item-icon" aria-hidden="true">{item.icon}</span><strong>{item.name}</strong><span className="fe-stock-count">{owned}<small> / {quantity}</small></span></div>{shortage > 0 && <div className="fe-order-shortage"><span>还缺 {shortage} 份</span>{props.onRequestItem && <button type="button" className="fe-order-source" aria-label={`为${item.name}备货，还缺${shortage}份，查看来源`} onClick={() => props.onRequestItem?.(id)}>查看来源</button>}</div>}</div>;
+            return <div className={`fe-order-item ${shortage === 0 ? 'has-stock' : ''}`} key={id}><div className="fe-order-item-line"><span className="fe-item-icon" aria-hidden="true">{item.icon}</span><strong>{item.name}</strong><span className="fe-stock-count">{owned}<small> / {quantity}</small></span></div>{shortage > 0 && <div className="fe-order-shortage"><span>还缺 {shortage} 份</span>{props.onRequestItem && <button type="button" className="fe-order-source" aria-label={`为${item.name}备货，还缺${shortage}份，查看来源`} onClick={() => props.onRequestItem?.(id, { orderId: order.id, kind: order.kind, orderNumber: index + 1 })}>查看来源</button>}</div>}</div>;
           })}</div>
           <div className="fe-order-progress"><span>已备齐 <b>{prepared}/{needs.length}</b> 种</span><span role="progressbar" aria-label={`${index + 1}号订单备货进度`} aria-valuemin={0} aria-valuemax={Math.max(1, needs.length)} aria-valuenow={prepared} aria-valuetext={`已备齐 ${prepared} 种，共需 ${needs.length} 种商品`}><i style={{ width: `${prepared / Math.max(1, needs.length) * 100}%` }} /></span></div>
           <Reward coins={order.coins} xp={order.xp} />

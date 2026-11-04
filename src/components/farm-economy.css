@@ -29,6 +29,9 @@
 .fe-order-progress [role=progressbar]{display:block;flex:1;min-width:25px;height:5px;border-radius:5px;background:#e8dfc1;overflow:hidden}
 .fe-order-progress i{display:block;height:100%;border-radius:inherit;background:#b9bc7d;transition:width 180ms ease}
 .fe-order-card.is-ready .fe-order-progress i{background:#84a35a}
+.fe-order-card.is-focused{border-color:#8a9b57;box-shadow:0 0 0 3px #d9e4aa,2px 4px 5px #533d2826;transform:none;scroll-margin-block:12px}
+.fe-order-card:focus-visible{outline:3px solid #57743e;outline-offset:4px}
+.fe-order-focus-label{display:flex;align-items:center;gap:5px;width:fit-content;max-width:100%;margin:0 0 9px!important;padding:5px 8px;border:1px solid #c8d49b;border-radius:7px;background:#e8edcc;color:#526e3a;font-size:11px;font-weight:700;line-height:1.4;overflow-wrap:anywhere}
 .fe-order-filter-empty{color:#f6e8c5}.fe-order-filter-empty .fe-empty{color:inherit}
 @media(prefers-reduced-motion:reduce){.fe-order-progress i{transition:none}}
 

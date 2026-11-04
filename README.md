@@ -2,7 +2,9 @@
 
 中文横屏农场经营游戏。参考 Hay Day 的播种、喂养、库存、加工排队、交订单和路边摊循环，代码与场景美术独立原创。农田与牧场采用全屏地图，等级、货币和圆形入口悬浮在边角；田地、牧场、工坊、河塘与小镇通过道路相连。播种、收获、投喂和收取后短暂显示本次实际结果，工坊收取后可手动再做一批。工坊与牧场的待收提示跟随建筑，点击可找到有成品的机器或畜栏。农场门口可接待原创邻居，小镇经营列车访客与店铺。真实天气、本机图文 AI、官方资讯和实际农场记录全部放在独立的“农场助手”界面。
 
-[下载 v0.29.0 独立安装 APK](https://github.com/schlapiadeziel-rgb/weather-farm-mobile/releases/download/v0.29.0/field-letter-next.apk) · [安装与迁移](docs/parallel-installation.md) · [验证范围](docs/validation-parallel-v0.29.md) · [旧版 v0.28.0](https://github.com/schlapiadeziel-rgb/weather-farm-mobile/releases/tag/v0.28.0)
+[下载 v0.30.0 APK](https://github.com/schlapiadeziel-rgb/weather-farm-mobile/releases/download/v0.30.0/field-letter-next.apk) · [安装与迁移](docs/parallel-installation.md) · [验证范围](docs/validation-parallel-v0.29.md) · [旧版 v0.28.0](https://github.com/schlapiadeziel-rgb/weather-farm-mobile/releases/tag/v0.28.0)
+
+v0.30.0 完成[订单补货返回](docs/order-supply-return.md)：从卡车或货船查找缺货来源，经过多层配方后仍可返回并定位原订单。v0.29.0独立新版可直接覆盖更新。
 
 v0.28.0 补齐十类后期设施，全部 22 类工坊建筑统一为原创插画。[查看实际画面对比](docs/workshop-art-v0.28.md)。
 
