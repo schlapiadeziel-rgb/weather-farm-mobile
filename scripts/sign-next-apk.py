@@ -29,7 +29,9 @@ def main():
     pathlib.Path(args.output).parent.mkdir(parents=True, exist_ok=True)
     subprocess.run([
         apksigner, "sign", "--ks", str(key), "--ks-key-alias", "fieldletter-next-release",
-        "--ks-pass", "file:" + str(password), "--key-pass", "file:" + str(password),
+        # PKCS12 uses the store password for its key. Reusing one file for both
+        # options makes apksigner consume a second line from the same stream.
+        "--ks-pass", "file:" + str(password),
         "--v4-signing-enabled", "false", "--out", args.output, args.apk,
     ], check=True, env=os.environ.copy())
     subprocess.run([sys.executable, str(root / "scripts/verify-next-apk.py"), args.apk, args.output, apksigner], check=True)
