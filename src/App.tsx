@@ -49,6 +49,7 @@ import { getItem, RECIPES } from './lib/farmContent';
 import { getItemSource } from './lib/itemSource';
 import { getFarmActivity } from './lib/farmActivity';
 import type { FarmActivityTarget } from './lib/farmActivity';
+import { APP_DISPLAY_NAME } from './lib/appDistribution';
 import { readSelectedLocation, saveSelectedLocation, locationFromPosition, parseManualLocation, formatCoordinates } from './lib/location';
 import { getDevicePosition, cancelDevicePosition } from './lib/deviceLocation';
 import { readGameSave, writeGameSave, exportGameBackup } from './lib/gameSave';
@@ -480,7 +481,7 @@ export default function App() {
   return <div className={`game-shell ${simulation ? 'game-mode' : 'assistant-shell'}${worldView ? ' game-world-mode' : ''}`} onPointerDownCapture={pageTransition.onPointerDownCapture} onKeyDownCapture={pageTransition.onKeyDownCapture}>
     {!worldView && <header className={`topbar ${simulation ? 'game-topbar' : 'assistant-topbar'}`}>
       {simulation && <button className="icon-button game-menu-entry" aria-label="打开农场菜单" aria-haspopup="dialog" aria-expanded={gameMenuOpen} onClick={openGameMenu}><Menu size={23} />{(readyTotal > 0 || availableUpdate) && <span className="game-menu-dot" aria-hidden="true" />}</button>}
-      {simulation && supplyReturn ? supplyReturn : <div className="brand"><span className="brand-icon"><Sprout size={26} /></span><div><h1>{simulation ? '田野来信' : '农场助手'}</h1><span>{simulation ? 'WEATHER FARM' : 'REAL FARM SERVICES'}</span></div></div>}
+      {simulation && supplyReturn ? supplyReturn : <div className="brand"><span className="brand-icon"><Sprout size={26} /></span><div><h1>{simulation ? APP_DISPLAY_NAME : '农场助手'}</h1><span>{simulation ? 'WEATHER FARM' : 'REAL FARM SERVICES'}</span></div></div>}
       {!simulation && <><button className="location-button" onClick={() => { setSearchError(''); setLocationOpen(true); }} aria-label={`设置农场位置：${locationChosen ? location.name : '尚未设置'}`}><MapPin size={15} /><span>{locationChosen ? location.name : '设置农场位置'}</span><ChevronRight size={13} /></button><div className="live-status"><span className={loading ? 'pulse-dot pending' : bundle && locationChosen ? 'pulse-dot' : 'pulse-dot error'} />{loading ? '连接天气中' : !locationChosen ? '请选择真实位置' : bundle ? stale || weatherError ? '上次天气' : '区域天气' : '天气未连接'}</div></>}
       {simulation && <div className="wallet"><Coins size={20} /><strong>{game.coins}</strong><span>金币</span><Diamond size={17} /><strong>{game.gems}</strong><span>钻石</span></div>}
       {!simulation && <button className={`icon-button update-button ${availableUpdate ? 'has-update' : ''}`} aria-label={availableUpdate ? '应用更新：发现新版本' : '应用更新'} aria-haspopup="dialog" onClick={() => setUpdateOpen(true)}><Download size={19} />{availableUpdate && <span className="update-dot" />}</button>}

@@ -8,10 +8,11 @@ import java.util.regex.Pattern;
 
 /** Small, platform-independent rules shared by the updater and its unit tests. */
 final class UpdatePolicy {
+    static final String APK_ASSET_NAME = "field-letter-next.apk";
     static final long MAX_APK_BYTES = 200_000_000L;
     private static final String VERSION_NUMBER = "(0|[1-9][0-9]{0,5})\\.(0|[1-9][0-9]{0,5})\\.(0|[1-9][0-9]{0,5})";
     private static final Pattern RELEASE_PATH = Pattern.compile(
-        "/schlapiadeziel-rgb/weather-farm-mobile/releases/download/v" + VERSION_NUMBER + "/field-letter\\.apk"
+        "/schlapiadeziel-rgb/weather-farm-mobile/releases/download/v" + VERSION_NUMBER + "/" + Pattern.quote(APK_ASSET_NAME)
     );
     private static final Pattern HASH = Pattern.compile("[a-fA-F0-9]{64}");
     private static final Pattern VERSION = Pattern.compile(VERSION_NUMBER);

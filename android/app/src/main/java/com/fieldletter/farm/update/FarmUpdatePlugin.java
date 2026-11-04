@@ -103,7 +103,7 @@ public final class FarmUpdatePlugin extends Plugin {
                 UpdatePolicy.expectedHash(call.getString("sha256")),
                 UpdatePolicy.expectedSize(call.getDouble("size")),
                 UpdatePolicy.expectedVersion(call.getString("versionName")));
-            if (!request.uri.getRawPath().endsWith("/v" + request.versionName + "/field-letter.apk")) {
+            if (!request.uri.getRawPath().endsWith("/v" + request.versionName + "/" + UpdatePolicy.APK_ASSET_NAME)) {
                 throw new IllegalArgumentException("更新版本与 APK 发布地址不一致。");
             }
         } catch (IllegalArgumentException error) {
@@ -383,7 +383,7 @@ public final class FarmUpdatePlugin extends Plugin {
             Intent installer = new Intent(Intent.ACTION_VIEW);
             installer.setDataAndType(apk, "application/vnd.android.package-archive");
             installer.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            installer.setClipData(ClipData.newRawUri("田野来信更新", apk));
+            installer.setClipData(ClipData.newRawUri("田野来信·新版更新", apk));
             if (!request.update.file.setLastModified(System.currentTimeMillis())) {
                 throw new IllegalStateException("Unable to retain installer cache");
             }

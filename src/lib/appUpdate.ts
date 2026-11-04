@@ -1,6 +1,7 @@
 import { Capacitor, CapacitorHttp, registerPlugin, type PluginListenerHandle } from '@capacitor/core';
 import packageInfo from '../../package.json';
 import { validTimestamp } from './publicDataHttp';
+import { APK_ASSET_NAME, APP_DISPLAY_NAME, CHECKSUM_ASSET_NAME } from './appDistribution';
 
 export const UPDATE_REPOSITORY = 'schlapiadeziel-rgb/weather-farm-mobile';
 export const UPDATE_RELEASES_URL = `https://github.com/${UPDATE_REPOSITORY}/releases`;
@@ -73,10 +74,11 @@ function secureUrl(value: unknown): URL | null {
 
 /** Initial assets must belong to this repository, not just use a GitHub-like host. */
 export function trustedUpdateAssetUrl(value: unknown, tag: string, name: string): string | null {
+  if (name !== APK_ASSET_NAME && name !== CHECKSUM_ASSET_NAME) return null;
   const url = secureUrl(value);
   if (!url || !/^v(?:0|[1-9]\d{0,5})\.(?:0|[1-9]\d{0,5})\.(?:0|[1-9]\d{0,5})$/.test(tag)) return null;
   if (url.hostname === 'github.com' && !url.search && url.pathname === `/${UPDATE_REPOSITORY}/releases/download/${tag}/${name}`) return url.href;
-  if (name === 'SHA256SUMS.txt' && url.hostname === 'api.github.com' && !url.search && new RegExp(`^/repos/${UPDATE_REPOSITORY}/releases/assets/[1-9]\\d{0,18}$`).test(url.pathname)) return url.href;
+  if (name === CHECKSUM_ASSET_NAME && url.hostname === 'api.github.com' && !url.search && new RegExp(`^/repos/${UPDATE_REPOSITORY}/releases/assets/[1-9]\\d{0,18}$`).test(url.pathname)) return url.href;
   return null;
 }
 
@@ -100,12 +102,14 @@ export function parseUpdateRelease(value: unknown, currentVersion: string): Pend
   const htmlUrl = secureUrl(release.html_url);
   if (!htmlUrl || htmlUrl.href !== `https://github.com/${UPDATE_REPOSITORY}/releases/tag/${tag}`) return null;
   if (typeof release.published_at !== 'string' || !validTimestamp(release.published_at) || !Array.isArray(release.assets) || release.assets.length > 100) return null;
-  const apkAssets = release.assets.filter(asset => object(asset)?.name === 'field-letter.apk');
-  const checksumAssets = release.assets.filter(asset => object(asset)?.name === 'SHA256SUMS.txt');
+  // A release mixing old and independent install channels is ambiguous and must be repaired.
+  if (release.assets.some(asset => ['field-letter.apk', 'SHA256SUMS.txt'].includes(String(object(asset)?.name)))) return null;
+  const apkAssets = release.assets.filter(asset => object(asset)?.name === APK_ASSET_NAME);
+  const checksumAssets = release.assets.filter(asset => object(asset)?.name === CHECKSUM_ASSET_NAME);
   if (apkAssets.length !== 1 || checksumAssets.length !== 1) return null;
   const apk = object(apkAssets[0])!, checksum = object(checksumAssets[0])!;
-  const apkUrl = trustedUpdateAssetUrl(apk.browser_download_url, tag, 'field-letter.apk');
-  const checksumUrl = trustedUpdateAssetUrl(checksum.browser_download_url, tag, 'SHA256SUMS.txt');
+  const apkUrl = trustedUpdateAssetUrl(apk.browser_download_url, tag, APK_ASSET_NAME);
+  const checksumUrl = trustedUpdateAssetUrl(checksum.browser_download_url, tag, CHECKSUM_ASSET_NAME);
   if (!apkUrl || !checksumUrl || !Number.isSafeInteger(apk.size) || (apk.size as number) < 1 || (apk.size as number) > MAX_UPDATE_BYTES || !Number.isSafeInteger(checksum.size) || (checksum.size as number) < 1 || (checksum.size as number) > 64_000) return null;
   if (apk.state !== 'uploaded' || checksum.state !== 'uploaded') return null;
   return {
@@ -122,9 +126,9 @@ export function parseUpdateChecksum(text: string): string {
   if (typeof text !== 'string' || text.length > 64_000 || text.includes('\0')) throw new AppUpdateError('更新校验文件无效，请稍后重试。', 'invalid_checksum');
   const entries: string[] = [];
   for (const line of text.split(/\r?\n/)) {
-    const match = /^([a-fA-F0-9]{64})[ \t]+\*?field-letter\.apk[ \t]*$/.exec(line);
-    if (match) entries.push(match[1].toLowerCase());
-    else if (/field-letter\.apk/.test(line)) throw new AppUpdateError('APK 校验信息格式不正确，已停止更新。', 'invalid_checksum');
+    const match = /^([a-fA-F0-9]{64})[ \t]+\*?([^ \t]+)[ \t]*$/.exec(line);
+    if (match?.[2] === APK_ASSET_NAME) entries.push(match[1].toLowerCase());
+    else if (line.includes(APK_ASSET_NAME)) throw new AppUpdateError('APK 校验信息格式不正确，已停止更新。', 'invalid_checksum');
   }
   if (entries.length !== 1) throw new AppUpdateError('没有找到唯一的 APK 校验值，已停止更新。', 'invalid_checksum');
   return entries[0];
@@ -216,18 +220,18 @@ export function updateErrorCode(error: unknown): string {
 export function updateErrorMessage(error: unknown): string {
   const messages: Record<string, string> = {
     signature_mismatch: '这个安装包与已安装版本的签名不同，无法直接覆盖。请先备份游戏和现实农场记录；应用不会替你卸载或清除数据。',
-    version_not_newer: '安装包不是更新的版本，请重新检查更新。', package_mismatch: '安装包不属于田野来信，已停止安装。',
+    version_not_newer: '安装包不是更新的版本，请重新检查更新。', package_mismatch: `安装包不属于${APP_DISPLAY_NAME}，已停止安装。`,
     hash_mismatch: '安装包校验失败，已删除这次下载。请重新下载。', size_mismatch: '安装包大小不符合发布信息，请重新下载。',
     invalid_update: '更新下载信息无效，请重新检查版本。', download_failed: '安装包下载失败，请检查网络、存储空间后重试。',
     busy: '还有一个下载正在进行，请等待或取消后重试。', cancelled: '下载已取消。', no_download: '还没有可安装的更新，请先下载。',
-    install_permission_required: '已打开系统设置。请允许田野来信安装应用，返回后再点“继续安装”。',
+    install_permission_required: `已打开系统设置。请允许${APP_DISPLAY_NAME}安装应用，返回后再点“继续安装”。`,
     install_unavailable: '此设备暂时无法打开安装程序，可以到 GitHub 发布页下载安装包。',
   };
   return messages[updateErrorCode(error)] || (error instanceof Error ? error.message : '这次更新操作没有完成，请稍后重试。');
 }
 export async function downloadAppUpdate(update: AppUpdate): Promise<{ versionName: string }> {
   if (Capacitor.getPlatform() !== 'android') throw new AppUpdateError('APK 更新仅支持 Android。', 'unsupported');
-  if (!trustedUpdateAssetUrl(update.apkUrl, update.tag, 'field-letter.apk') || !/^[a-f0-9]{64}$/.test(update.sha256) || !Number.isSafeInteger(update.size) || update.size < 1 || update.size > MAX_UPDATE_BYTES || update.versionName !== update.tag.slice(1)) throw new AppUpdateError('更新下载信息无效，请重新检查版本。', 'invalid_update');
+  if (!trustedUpdateAssetUrl(update.apkUrl, update.tag, APK_ASSET_NAME) || !/^[a-f0-9]{64}$/.test(update.sha256) || !Number.isSafeInteger(update.size) || update.size < 1 || update.size > MAX_UPDATE_BYTES || update.versionName !== update.tag.slice(1)) throw new AppUpdateError('更新下载信息无效，请重新检查版本。', 'invalid_update');
   return nativeUpdater.download({ url: update.apkUrl, sha256: update.sha256, size: update.size, versionName: update.versionName });
 }
 export async function listenToUpdateProgress(listener: (progress: UpdateProgress) => void): Promise<PluginListenerHandle> {

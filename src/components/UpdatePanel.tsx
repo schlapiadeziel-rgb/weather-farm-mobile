@@ -9,6 +9,7 @@ import {
 } from '../lib/appUpdate';
 import './app-update.css';
 import { openSource } from '../lib/deviceUi';
+import { APP_DISPLAY_NAME } from '../lib/appDistribution';
 
 export interface UpdatePanelProps {
   onClose?: () => void;
@@ -193,7 +194,7 @@ export function UpdatePanel({ onClose, beforeInstall, onBackup, initialUpdate }:
       const result = await installAppUpdate();
       if (!mountedRef.current || operationRef.current !== operation) return;
       if (!result.opened) throw new Error('没有打开安装程序，请稍后重试。');
-      setStage('installer'); setStatus('系统安装页面已打开。请确认更新；完成后重新打开田野来信。');
+      setStage('installer'); setStatus(`系统安装页面已打开。请确认更新；完成后重新打开${APP_DISPLAY_NAME}。`);
     } catch (issue) {
       if (!mountedRef.current || operationRef.current !== operation) return;
       const code = updateErrorCode(issue);
@@ -213,15 +214,16 @@ export function UpdatePanel({ onClose, beforeInstall, onBackup, initialUpdate }:
   const percentage = Math.round((progress?.progress ?? 0) * 100);
   return createPortal(<div className="au-overlay" ref={overlayRef}>
     <section className="au-dialog" role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={descriptionId} ref={dialogRef} tabIndex={-1}>
-      <header className="au-header"><span className="au-emblem"><HardDriveDownload size={23} aria-hidden="true" /></span><div><h2 id={titleId}>游戏更新</h2><p id={descriptionId}>让农场继续成长 · 保留已有存档</p></div>{onClose && <button ref={closeRef} className="au-close" aria-label="关闭游戏更新" onClick={onClose}><X size={21} /></button>}</header>
+      <header className="au-header"><span className="au-emblem"><HardDriveDownload size={23} aria-hidden="true" /></span><div><h2 id={titleId}>游戏更新</h2><p id={descriptionId}>{APP_DISPLAY_NAME} · 保留本应用存档</p></div>{onClose && <button ref={closeRef} className="au-close" aria-label="关闭游戏更新" onClick={onClose}><X size={21} /></button>}</header>
       <div className="au-body">
         <div className="au-versions"><span>当前版本<strong>{info ? `v${info.versionName}` : '读取中…'}</strong></span><span>{update ? '发现新版本' : '发布来源'}<strong>{update ? `v${update.versionName}` : 'GitHub 官方仓库'}</strong></span>{update && <span>安装包<strong>{sizeLabel(update.size)}</strong></span>}</div>
+        <div className="au-notice" data-app-distribution="parallel"><Smartphone size={19} /><p><strong>{APP_DISPLAY_NAME}与旧版并存。</strong>游戏进度、真实农场记录和诊断案例需从旧版分别导出，再在新版手动导入。本地 AI 模型需重新导入或下载。</p></div>
         <p className="au-status" role="status">{working ? <LoaderCircle className="au-spin" size={18} /> : stage === 'current' || downloaded ? <CheckCircle2 size={18} /> : <RefreshCw size={18} />}{status}</p>
         {info && !android && <div className="au-notice"><Smartphone size={19} /><p>这是网页预览。APK 只适用于 Android，iPad / iPhone 请继续使用网页；这里无法安装 Android 更新，也不会下载 APK。</p></div>}
         {progress && <div className="au-download-progress"><div><strong>{percentage === 100 && stage === 'downloading' ? '下载完成，正在校验…' : downloaded ? '安装包已校验' : `下载进度 ${percentage}%`}</strong><span>{sizeLabel(progress.received)} / {sizeLabel(progress.total)}</span></div><progress aria-label="更新安装包下载进度" max={1} value={progress.progress} /><small>更新包只下载到此设备，不上传游戏存档、定位、照片或农场记录。</small></div>}
         {error && <div className={`au-error ${errorCode === 'signature_mismatch' ? 'au-signature-warning' : ''}`} role="alert"><p>{error}</p>{errorCode === 'signature_mismatch' && <p>可先保留当前版本继续使用。若决定手动更换安装，务必分别备份游戏存档和农场工作室记录。</p>}</div>}
-        {update && <article className="au-release"><div><h3>{update.title || `田野来信 ${update.tag}`}</h3>{update.prerelease && <span className="au-test-build">测试版本</span>}</div><p className="au-date">发布于 {new Date(update.publishedAt).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</p><pre className="au-notes">{update.notes || '发布者尚未提供更新说明，可打开发布页核对。'}</pre></article>}
-        {android && <div className="au-safety"><ShieldCheck size={19} /><div><strong>先核对，再安装</strong><p>应用会核对安装包、版本与签名。安装需要你的系统确认；覆盖更新会保留数据，建议提前导出备份。</p><p>Android 8 及以上首次安装时，系统可能要求允许“安装未知应用”。只允许田野来信后返回，再点继续安装。</p>{info && !info.canInstall && <small>当前尚未取得此安装来源的权限，下载完成后可在系统设置授权。</small>}</div></div>}
+        {update && <article className="au-release"><div><h3>{update.title || `${APP_DISPLAY_NAME} ${update.tag}`}</h3>{update.prerelease && <span className="au-test-build">测试版本</span>}</div><p className="au-date">发布于 {new Date(update.publishedAt).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</p><pre className="au-notes">{update.notes || '发布者尚未提供更新说明，可打开发布页核对。'}</pre></article>}
+        {android && <div className="au-safety"><ShieldCheck size={19} /><div><strong>先核对，再安装</strong><p>本页检查独立新版的安装包、版本与签名。安装需要你的系统确认；后续覆盖更新保留本应用数据，建议提前导出备份。</p><p>Android 8 及以上首次安装时，系统可能要求允许“安装未知应用”。允许{APP_DISPLAY_NAME}后返回，再点继续安装。</p>{info && !info.canInstall && <small>当前尚未取得此安装来源的权限，下载完成后可在系统设置授权。</small>}</div></div>}
       </div>
       <footer className="au-footer"><div className="au-links"><a href={update?.releaseUrl ?? UPDATE_RELEASES_URL} target="_blank" rel="noopener noreferrer" onClick={event => { if (android) { event.preventDefault(); void openSource(update?.releaseUrl ?? UPDATE_RELEASES_URL).catch(issue => setError(updateErrorMessage(issue))); } }}>查看发布页<ArrowUpRight size={14} /></a>{onBackup && <button className="au-backup" disabled={stage === 'installing'} onClick={onBackup}>导出游戏备份</button>}</div><div className="au-actions">
         {stage === 'downloading' || stage === 'cancelling' ? <button className="au-secondary" onClick={() => void cancelDownload()} disabled={stage === 'cancelling'}>取消下载</button> : <button className="au-secondary" onClick={() => void check()} disabled={working}><RefreshCw size={16} />{stage === 'error' && !update ? '重试检查' : '检查更新'}</button>}

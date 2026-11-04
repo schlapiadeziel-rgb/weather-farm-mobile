@@ -5,7 +5,7 @@ android {
     compileSdk rootProject.ext.compileSdkVersion
     ndkVersion "28.2.13676358"
     defaultConfig {
-        applicationId "com.fieldletter.farm"
+        applicationId "com.fieldletter.farm.next"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 30

@@ -13,7 +13,7 @@
 
         <activity
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation"
-            android:name=".MainActivity"
+            android:name="com.fieldletter.farm.MainActivity"
             android:label="@string/title_activity_main"
             android:theme="@style/AppTheme.NoActionBarLaunch"
             android:screenOrientation="sensorLandscape"
@@ -37,7 +37,7 @@
                 android:resource="@xml/file_paths"></meta-data>
         </provider>
         <provider
-            android:name=".update.UpdateFileProvider"
+            android:name="com.fieldletter.farm.update.UpdateFileProvider"
             android:authorities="${applicationId}.updates"
             android:exported="false"
             android:grantUriPermissions="true">
