@@ -1,0 +1,87 @@
+name: Publish Independent Android Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag matching the independent APK source commit
+        required: true
+        type: string
+      build_run_id:
+        description: Successful Build Android APK run ID
+        required: true
+        type: string
+      signed_apk_ref:
+        description: Optional delivery commit with field-letter-next.apk and source-commit.txt
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+      - name: Verify build provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_RUN_ID: ${{ inputs.build_run_id }}
+        run: |
+          build_commit=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BUILD_RUN_ID" --jq .head_sha)
+          test "$build_commit" = "$(git rev-parse HEAD)"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BUILD_RUN_ID" --jq .conclusion)" = success
+          actual_workflow=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BUILD_RUN_ID" --jq .workflow_id)
+          expected_workflow=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/android.yml" --jq .id)
+          test "$actual_workflow" = "$expected_workflow"
+      - uses: actions/download-artifact@v4
+        with:
+          name: 田野来信-新版-Android
+          path: release
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.build_run_id }}
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: build-tools;35.0.0
+          log-accepted-android-sdk-licenses: false
+      - name: Verify independent signed package
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SIGNED_APK_REF: ${{ inputs.signed_apk_ref }}
+        run: |
+          if [ -n "$SIGNED_APK_REF" ]; then
+            [[ "$SIGNED_APK_REF" =~ ^[0-9a-f]{40}$ ]]
+            gh api -H 'Accept: application/vnd.github.raw+json' "repos/$GITHUB_REPOSITORY/contents/source-commit.txt?ref=$SIGNED_APK_REF" > release/source-commit.txt
+            test "$(cat release/source-commit.txt)" = "$(git rev-parse HEAD)"
+            curl --fail --silent --show-error --location --retry 3 --max-time 120 \
+              --header "Authorization: Bearer $GH_TOKEN" \
+              --header 'Accept: application/vnd.github.raw+json' \
+              "https://api.github.com/repos/$GITHUB_REPOSITORY/contents/field-letter-next.apk?ref=$SIGNED_APK_REF" \
+              --output release/field-letter-next.apk
+          else
+            cp release/田野来信-新版.apk release/field-letter-next.apk
+          fi
+          python scripts/verify-next-apk.py release/田野来信-新版.apk release/field-letter-next.apk "$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          rm release/田野来信-新版.apk
+      - name: Package independent source and checksums
+        run: |
+          git archive --format=zip --prefix=weather-farm-next/ --output=release/weather-farm-next-source.zip HEAD
+          cd release
+          sha256sum field-letter-next.apk weather-farm-next-source.zip > SHA256SUMS-next.txt
+      - name: Publish independent installation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          if ! gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            gh release create "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --verify-tag --draft --prerelease --title "田野来信·新版 $RELEASE_TAG · 独立安装版" --notes-file docs/release-next-notes.md
+          fi
+          legacy_assets=$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '[.assets[].name] | map(select(. == "field-letter.apk" or . == "SHA256SUMS.txt")) | length')
+          test "$legacy_assets" = 0
+          gh release upload "$RELEASE_TAG" release/field-letter-next.apk release/weather-farm-next-source.zip release/SHA256SUMS-next.txt --repo "$GITHUB_REPOSITORY" --clobber
+          gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false --prerelease --title "田野来信·新版 $RELEASE_TAG · 独立安装版" --notes-file docs/release-next-notes.md

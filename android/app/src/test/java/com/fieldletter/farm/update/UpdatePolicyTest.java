@@ -7,20 +7,29 @@ import java.util.Set;
 import org.junit.Test;
 
 public class UpdatePolicyTest {
-    private static final String APK = "https://github.com/schlapiadeziel-rgb/weather-farm-mobile/releases/download/v0.4.0/field-letter.apk";
+    private static final String APK = "https://github.com/schlapiadeziel-rgb/weather-farm-mobile/releases/download/v0.4.0/field-letter-next.apk";
 
     @Test public void initialUrlOnlyAcceptsThisRepositoriesReleaseApk() {
         assertEquals(URI.create(APK), UpdatePolicy.initialUri(APK));
         for (String address : new String[] {
             APK.replace("https:", "http:"), APK.replace("github.com", "github.com.evil.test"),
             APK.replace("weather-farm-mobile/", "another-repository/"), APK + "?other=1",
-            APK + "#fragment", APK.replace("field-letter.apk", "source.zip"),
+            APK + "#fragment", APK.replace("field-letter-next.apk", "source.zip"),
             APK.replace("v0.4.0", "%2e%2e"), APK.replace("v0.4.0", ".."), APK.replace("v0.4.0", "v0.4.0/../v0.3.0"),
             APK.replace("github.com", "user@github.com"), APK.replace("github.com", "github.com:8443"),
             APK.replace("v0.4.0", "v00.4.0"), APK.replace("v0.4.0", "v0.4.0-beta"),
             APK.replace("v0.4.0", "0.4.0"), APK.replace("v0.4.0", "v1000000.4.0")
         }) {
             assertThrows(address, IllegalArgumentException.class, () -> UpdatePolicy.initialUri(address));
+        }
+    }
+
+    @Test public void independentReleaseStreamRejectsLegacyAndSimilarAssetNames() {
+        assertEquals("field-letter-next.apk", UpdatePolicy.APK_ASSET_NAME);
+        assertEquals(URI.create(APK), UpdatePolicy.initialUri(APK));
+        for (String filename : new String[] { "field-letter.apk", "field-letter-next.apk.zip", "field-letter-next.apk.exe", "field-letter-next.APK" }) {
+            String legacyOrLookalike = APK.replace(UpdatePolicy.APK_ASSET_NAME, filename);
+            assertThrows(legacyOrLookalike, IllegalArgumentException.class, () -> UpdatePolicy.initialUri(legacyOrLookalike));
         }
     }
 
@@ -33,7 +42,7 @@ public class UpdatePolicyTest {
         for (String redirect : new String[] {
             "http://release-assets.githubusercontent.com/file", "https://evil.test/file",
             "https://release-assets.githubusercontent.com.evil.test/file", "https://api.github.com/file",
-            "https://github.com/another/repository/releases/download/v1/field-letter.apk",
+            "https://github.com/another/repository/releases/download/v1/field-letter-next.apk",
             "https://user@release-assets.githubusercontent.com/file", "https://release-assets.githubusercontent.com:8443/file",
             "file:///tmp/update.apk", "", "https://release-assets.githubusercontent.com/file#fragment"
         }) {

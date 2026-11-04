@@ -17,3 +17,7 @@ __pycache__/
 *.jks
 *.keystore
 keystore-password
+recovery-code
+*.pfx
+*.pkcs12
+*signing-backup*.zip

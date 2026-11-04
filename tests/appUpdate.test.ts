@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
+import { Capacitor } from '@capacitor/core';
+import { APK_ASSET_NAME, CHECKSUM_ASSET_NAME, APPLICATION_ID } from '../src/lib/appDistribution.ts';
 import {
   AppUpdateError, MAX_UPDATE_BYTES, UPDATE_API_URL, UPDATE_REPOSITORY, checkForUpdate, compareUpdateVersions,
   downloadAppUpdate, matchesDownloadedUpdate, parseDownloadedUpdate, parseUpdateChecksum, parseUpdateRelease, parseUpdateVersion, trustedUpdateAssetUrl, updateErrorMessage,
@@ -7,15 +9,15 @@ import {
 
 const originalFetch = globalThis.fetch;
 const hash = 'a1'.repeat(32);
-const checksums = `${hash}  field-letter.apk\n${'b2'.repeat(32)}  weather-farm-source.zip\n`;
+const checksums = `${hash}  field-letter-next.apk\n${'b2'.repeat(32)}  weather-farm-source.zip\n`;
 const assetUrl = (tag: string, name: string) => `https://github.com/${UPDATE_REPOSITORY}/releases/download/${tag}/${name}`;
 function release(tag = 'v0.4.0') {
   return {
     tag_name: tag, draft: false, prerelease: true, name: `田野来信 ${tag}`, body: '<script>remote()</script>\n种植与工坊改进。',
     html_url: `https://github.com/${UPDATE_REPOSITORY}/releases/tag/${tag}`, published_at: '2026-10-13T10:15:00Z',
     assets: [
-      { name: 'field-letter.apk', browser_download_url: assetUrl(tag, 'field-letter.apk'), size: 20_000_000, state: 'uploaded' },
-      { name: 'SHA256SUMS.txt', browser_download_url: assetUrl(tag, 'SHA256SUMS.txt'), size: checksums.length, state: 'uploaded' },
+      { name: 'field-letter-next.apk', browser_download_url: assetUrl(tag, 'field-letter-next.apk'), size: 20_000_000, state: 'uploaded' },
+      { name: 'SHA256SUMS-next.txt', browser_download_url: assetUrl(tag, 'SHA256SUMS-next.txt'), size: checksums.length, state: 'uploaded' },
     ],
   };
 }
@@ -105,38 +107,38 @@ test('APK and checksum assets enforce size bounds and exact trusted URLs', () =>
   assert.equal(parseUpdateRelease(valid, '0.3.0')?.size, MAX_UPDATE_BYTES);
   const invalidChecksum = release(); invalidChecksum.assets[1].size = 64_001;
   assert.equal(parseUpdateRelease(invalidChecksum, '0.3.0'), null);
-  const wrongApk = release(); wrongApk.assets[0].browser_download_url = assetUrl('v0.3.0', 'field-letter.apk');
+  const wrongApk = release(); wrongApk.assets[0].browser_download_url = assetUrl('v0.3.0', 'field-letter-next.apk');
   assert.equal(parseUpdateRelease(wrongApk, '0.3.0'), null);
 });
 test('GitHub-like domains, foreign repositories, credentials and alternate paths are never trusted as initial assets', () => {
-  assert.equal(trustedUpdateAssetUrl(assetUrl('v0.4.0', 'field-letter.apk'), 'v0.4.0', 'field-letter.apk'), assetUrl('v0.4.0', 'field-letter.apk'));
+  assert.equal(trustedUpdateAssetUrl(assetUrl('v0.4.0', 'field-letter-next.apk'), 'v0.4.0', 'field-letter-next.apk'), assetUrl('v0.4.0', 'field-letter-next.apk'));
   const apiAsset = `https://api.github.com/repos/${UPDATE_REPOSITORY}/releases/assets/123`;
-  assert.equal(trustedUpdateAssetUrl(apiAsset, 'v0.4.0', 'field-letter.apk'), null);
-  assert.equal(trustedUpdateAssetUrl(apiAsset, 'v0.4.0', 'SHA256SUMS.txt'), apiAsset);
+  assert.equal(trustedUpdateAssetUrl(apiAsset, 'v0.4.0', 'field-letter-next.apk'), null);
+  assert.equal(trustedUpdateAssetUrl(apiAsset, 'v0.4.0', 'SHA256SUMS-next.txt'), apiAsset);
   for (const url of [
-    assetUrl('v0.4.0', 'field-letter.apk').replace('github.com', 'github.com.evil.example'),
-    assetUrl('v0.4.0', 'field-letter.apk').replace('https:', 'http:'),
-    assetUrl('v0.4.0', 'field-letter.apk').replace('github.com', 'user:password@github.com'),
-    assetUrl('v0.4.0', 'field-letter.apk').replace('schlapiadeziel-rgb', 'someone-else'),
-    `${assetUrl('v0.4.0', 'field-letter.apk')}?redirect=elsewhere`, `${assetUrl('v0.4.0', 'field-letter.apk')}#fragment`,
-    'https://raw.githubusercontent.com/attacker/field-letter.apk', 'https://release-assets.githubusercontent.com/unrelated.apk',
+    assetUrl('v0.4.0', 'field-letter-next.apk').replace('github.com', 'github.com.evil.example'),
+    assetUrl('v0.4.0', 'field-letter-next.apk').replace('https:', 'http:'),
+    assetUrl('v0.4.0', 'field-letter-next.apk').replace('github.com', 'user:password@github.com'),
+    assetUrl('v0.4.0', 'field-letter-next.apk').replace('schlapiadeziel-rgb', 'someone-else'),
+    `${assetUrl('v0.4.0', 'field-letter-next.apk')}?redirect=elsewhere`, `${assetUrl('v0.4.0', 'field-letter-next.apk')}#fragment`,
+    'https://raw.githubusercontent.com/attacker/field-letter-next.apk', 'https://release-assets.githubusercontent.com/unrelated.apk',
     `https://api.github.com/repos/someone-else/weather-farm-mobile/releases/assets/123`,
-  ]) assert.equal(trustedUpdateAssetUrl(url, 'v0.4.0', 'field-letter.apk'), null);
+  ]) assert.equal(trustedUpdateAssetUrl(url, 'v0.4.0', 'field-letter-next.apk'), null);
 });
 test('SHA-256 parsing requires 64 hex characters and one exact APK filename', () => {
   assert.equal(parseUpdateChecksum(checksums), hash);
-  assert.equal(parseUpdateChecksum(`${hash.toUpperCase()} *field-letter.apk\r\n`), hash);
+  assert.equal(parseUpdateChecksum(`${hash.toUpperCase()} *field-letter-next.apk\r\n`), hash);
   for (const value of [
-    `${hash.slice(1)}  field-letter.apk`, `${hash}  field-letter.apk.old`, `${hash}  ./field-letter.apk`,
-    `${hash}  not-field-letter.apk`, `${hash}  field-letter.apk\n${hash}  field-letter.apk`,
-    `${'z'.repeat(64)}  field-letter.apk`, 'no checksum', `${hash}  field-letter.apk\0`, 'x'.repeat(64_001),
+    `${hash.slice(1)}  field-letter-next.apk`, `${hash}  field-letter-next.apk.old`, `${hash}  ./field-letter-next.apk`,
+    `${hash}  not-field-letter-next.apk`, `${hash}  field-letter-next.apk\n${hash}  field-letter-next.apk`,
+    `${'z'.repeat(64)}  field-letter-next.apk`, 'no checksum', `${hash}  field-letter-next.apk\0`, 'x'.repeat(64_001),
   ]) assert.throws(() => parseUpdateChecksum(value), AppUpdateError);
 });
 test('checking selects the greatest numeric complete release, includes prereleases and never downloads an APK', async () => {
   const requests = installResponses([release('v0.9.0'), { ...release('v2.0.0'), draft: true }, release('v0.10.0'), release('v0.3.0')]);
   const result = await checkForUpdate({ currentVersion: '0.3.0' });
   assert.equal(result?.versionName, '0.10.0'); assert.equal(result?.sha256, hash);
-  assert.deepEqual(requests, [UPDATE_API_URL, assetUrl('v0.10.0', 'SHA256SUMS.txt')]);
+  assert.deepEqual(requests, [UPDATE_API_URL, assetUrl('v0.10.0', 'SHA256SUMS-next.txt')]);
 });
 test('an equal or older release returns no update without fetching any assets', async () => {
   const requests = installResponses([release('v0.2.0'), release('v0.3.0')]);
@@ -152,7 +154,7 @@ test('malicious or missing release metadata cannot create an update or trigger a
 test('a bad checksum on the newest release stops updating rather than silently offering another build', async () => {
   const requests = installResponses([release('v0.4.0'), release('v0.5.0')], 'malformed');
   await assert.rejects(checkForUpdate({ currentVersion: '0.3.0' }), error => error instanceof AppUpdateError && error.code === 'invalid_checksum');
-  assert.equal(requests[1], assetUrl('v0.5.0', 'SHA256SUMS.txt')); assert.equal(requests.length, 2);
+  assert.equal(requests[1], assetUrl('v0.5.0', 'SHA256SUMS-next.txt')); assert.equal(requests.length, 2);
 });
 test('GitHub rate limiting is an explicit retryable error, never a fake latest-version result', async () => {
   for (const status of [403, 429]) {
@@ -195,4 +197,62 @@ test('the web never invokes native APK download and signature/permission failure
   assert.match(updateErrorMessage({ code: 'signature_mismatch' }), /先备份/);
   assert.match(updateErrorMessage({ code: 'signature_mismatch' }), /不会替你卸载或清除数据/);
   assert.match(updateErrorMessage({ code: 'install_permission_required' }), /返回后再点/);
+});
+
+test('independent distribution identity and release assets cannot satisfy the legacy channel', () => {
+  assert.equal(APPLICATION_ID, 'com.fieldletter.farm.next');
+  assert.equal(APK_ASSET_NAME, 'field-letter-next.apk');
+  assert.equal(CHECKSUM_ASSET_NAME, 'SHA256SUMS-next.txt');
+  const next = release('v0.29.0');
+  assert.equal(next.assets.some(asset => asset.name === 'field-letter.apk'), false);
+  assert.equal(next.assets.some(asset => asset.name === 'SHA256SUMS.txt'), false);
+  assert.ok(parseUpdateRelease(next, '0.28.0'));
+});
+
+function legacyRelease(tag = 'v0.30.0') {
+  const item = release(tag);
+  item.assets = [
+    { name: 'field-letter.apk', browser_download_url: assetUrl(tag, 'field-letter.apk'), size: 20_000_000, state: 'uploaded' },
+    { name: 'SHA256SUMS.txt', browser_download_url: assetUrl(tag, 'SHA256SUMS.txt'), size: checksums.length, state: 'uploaded' },
+  ];
+  return item;
+}
+
+test('legacy and mixed-channel release metadata is rejected even with a newer version', () => {
+  const old = legacyRelease('v9.0.0');
+  assert.equal(parseUpdateRelease(old, '0.29.0'), null);
+  for (const legacyAsset of old.assets) {
+    const mixed = release('v9.0.0');
+    mixed.assets.push(legacyAsset);
+    assert.equal(parseUpdateRelease(mixed, '0.29.0'), null);
+  }
+  const crossed = release('v0.30.0');
+  crossed.assets[0].browser_download_url = assetUrl('v0.30.0', 'field-letter.apk');
+  assert.equal(parseUpdateRelease(crossed, '0.29.0'), null);
+});
+
+test('asset trust and checksum validation reject exact legacy names', () => {
+  assert.equal(trustedUpdateAssetUrl(assetUrl('v0.30.0', 'field-letter.apk'), 'v0.30.0', 'field-letter.apk'), null);
+  assert.equal(trustedUpdateAssetUrl(assetUrl('v0.30.0', 'SHA256SUMS.txt'), 'v0.30.0', 'SHA256SUMS.txt'), null);
+  assert.equal(trustedUpdateAssetUrl(assetUrl('v0.30.0', 'unrelated.apk'), 'v0.30.0', 'unrelated.apk'), null);
+  assert.throws(() => parseUpdateChecksum(`${hash}  field-letter.apk\n`), AppUpdateError);
+  assert.equal(parseUpdateChecksum(`${'b2'.repeat(32)}  field-letter.apk\n${hash}  field-letter-next.apk\n`), hash);
+});
+
+test('checks ignore a newer legacy release and select only the independent channel', async () => {
+  const requests = installResponses([legacyRelease('v9.0.0'), release('v0.30.0')]);
+  const update = await checkForUpdate({ currentVersion: '0.29.0' });
+  assert.equal(update?.versionName, '0.30.0');
+  assert.deepEqual(requests, [UPDATE_API_URL, assetUrl('v0.30.0', 'SHA256SUMS-next.txt')]);
+});
+
+test('direct Android download metadata cannot bypass channel validation with a legacy APK', async () => {
+  const originalPlatform = Capacitor.getPlatform;
+  Capacitor.getPlatform = () => 'android';
+  try {
+    const metadata = { ...parseUpdateRelease(release('v0.30.0'), '0.29.0')!, sha256: hash };
+    await assert.rejects(downloadAppUpdate({ ...metadata, apkUrl: assetUrl('v0.30.0', 'field-letter.apk') }), error => error instanceof AppUpdateError && error.code === 'invalid_update');
+  } finally {
+    Capacitor.getPlatform = originalPlatform;
+  }
 });
