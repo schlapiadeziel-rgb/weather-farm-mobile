@@ -1,0 +1,67 @@
+/* Landscape-phone targets for field, pasture and economy actions.
+   Plot and pen geometry stay on their existing rules. */
+.plot-panel .panel-heading { padding-right: 48px; }
+.plot-panel .panel-close {
+  top: 4px;
+  right: 4px;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+}
+.plot-panel .primary-action,
+.plot-panel .seed-cycle-note button,
+.animal-actions .primary-action,
+.feed-button {
+  min-width: 44px;
+  min-height: 44px;
+}
+.plot-panel .seed-cycle-note button { padding: 8px 12px; }
+.plot-panel .primary-action:focus-visible,
+.plot-panel .panel-close:focus-visible,
+.plot-panel .seed-cycle-note button:focus-visible,
+.plot-panel .seed-card:focus-visible,
+.plot-panel .animal-option:focus-visible {
+  outline: 3px solid #315c42;
+  outline-offset: 2px;
+}
+
+.fe-panel .fe-button,
+.fe-panel .fe-button-small,
+.fe-panel .fe-icon-button,
+.fe-panel .fe-tabs > button,
+.fe-panel .fe-filter button,
+.fe-panel .fe-inventory-sell,
+.fe-panel .fe-upgrade-card .fe-button,
+.fe-panel .fe-sale-form .fe-button,
+.fe-panel .fe-sale-form input,
+.fe-panel .fe-sale-form select,
+.fe-panel .fe-tree-actions .fe-button,
+.fe-panel .fe-honey-footer .fe-button {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+@media (max-height: 550px) {
+  .plot-panel .primary-action,
+  .animal-actions .primary-action,
+  .feed-button,
+  .fe-panel .fe-tabs > button,
+  .fe-panel .fe-filter button,
+  .fe-panel .fe-button,
+  .fe-panel .fe-button-small,
+  .fe-panel .fe-icon-button,
+  .fe-panel .fe-inventory-sell,
+  .fe-panel .fe-tree-actions .fe-button,
+  .fe-panel .fe-honey-footer .fe-button {
+    min-height: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .plot-panel .primary-action:active:not(:disabled),
+  .fe-panel .fe-button:active:not(:disabled),
+  .plot-panel .seed-cycle-note button:active {
+    transform: none;
+  }
+}

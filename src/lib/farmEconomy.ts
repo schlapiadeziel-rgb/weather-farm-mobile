@@ -1,5 +1,5 @@
 /** Local game economy only. NPC trades, help and rewards are simulated, never real orders. */
-import { getItem, ITEMS } from './farmContent';
+import { getItem, ITEMS, RECIPES } from './farmContent';
 import type { Game, GameOrder, ItemId, OrchardPlot, StorageKind } from './farmTypes';
 
 export const SALE_DELAY_MS = 3 * 60_000;
@@ -83,13 +83,22 @@ export function generateOrders(gameOrLevel: Game | number, serial: number, kind:
   const eligible = ITEMS.filter(item => item.level <= currentLevel && ['crop', 'animal', 'product', 'fruit', 'fish'].includes(item.category));
   if (!eligible.length) throw new Error('当前等级没有可交付的游戏商品。');
   const amount = Math.min(8, 1 + Math.floor(currentLevel / 6));
+  // Before level 9, a line stays within one harvest, collection or recipe batch.
+  // Level 9 and above keep the previous demand curve.
+  const countFor = (item: (typeof eligible)[number]) => {
+    const requested = amount + (kind === 'boat' ? 2 : 0);
+    if (currentLevel >= 9) return requested;
+    const recipe = RECIPES.find(entry => entry.output === item.id);
+    const batch = item.category === 'crop' ? 2 : item.category === 'fruit' ? 3 : recipe ? recipe.quantity : 1;
+    return Math.min(requested, batch);
+  };
   return Array.from({ length: kind === 'truck' ? 3 : 1 }, (_, index) => {
     const requirements: GameOrder['requirements'] = {};
     const lines = Math.min(eligible.length, kind === 'boat' ? 3 : 2);
     let value = 0;
     for (let line = 0; line < lines; line++) {
       const item = eligible[((serial % eligible.length) + index * lines + line) % eligible.length];
-      const count = amount + (kind === 'boat' ? 2 : 0);
+      const count = countFor(item);
       requirements[item.id] = count;
       value += item.price * count;
     }
@@ -178,8 +187,12 @@ export function storageUpgradeCost(game: Game, kind: StorageKind): { coins: numb
   if (kind !== 'silo' && kind !== 'barn') throw new Error('仓库类型无效。');
   const capacity = integer(kind === 'silo' ? game.siloCapacity : game.barnCapacity, '仓库容量', 1, MAX_STORAGE_CAPACITY);
   if (capacity >= MAX_STORAGE_CAPACITY) throw new Error('仓库已达到本机游戏容量上限。');
-  const amount = 1 + Math.floor(Math.max(0, capacity - 80) / 25);
-  return { coins: 200 + amount * 100, materials: kind === 'barn' ? { plank: amount, bolt: amount, duct_tape: amount } : { nail: amount, wood_panel: amount, screw: amount }, capacity: Math.min(MAX_STORAGE_CAPACITY, capacity + 25) };
+  const tier = 1 + Math.floor(Math.max(0, capacity - 80) / 25);
+  // 100, 125 and 150 ask for one of each material. A new barn only refills a given
+  // material every 65 harvests, so the old jump to 2 at 125 and 3 at 150 stalled
+  // the next upgrades after the starter pair was spent. From 175 the count matches the coin tier again.
+  const materialsEach = capacity < 175 ? 1 : tier;
+  return { coins: 200 + tier * 100, materials: kind === 'barn' ? { plank: materialsEach, bolt: materialsEach, duct_tape: materialsEach } : { nail: materialsEach, wood_panel: materialsEach, screw: materialsEach }, capacity: Math.min(MAX_STORAGE_CAPACITY, capacity + 25) };
 }
 export function upgradeStorage(game: Game, kind: StorageKind): Game {
   guard(game);

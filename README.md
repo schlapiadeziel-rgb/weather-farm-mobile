@@ -4,7 +4,7 @@
 
 [下载 v0.31.0 APK](https://github.com/schlapiadeziel-rgb/weather-farm-mobile/releases/download/v0.31.0/field-letter-next.apk) · [安装与迁移](docs/parallel-installation.md) · [验证范围](docs/validation-parallel-v0.29.md) · [旧版 v0.28.0](https://github.com/schlapiadeziel-rgb/weather-farm-mobile/releases/tag/v0.28.0)
 
-v0.31.0 完成[经营体验整合优化](docs/quality-pass-v0.31.md)：第一轮经营提示、库存查找与快捷上架、轻量时钟刷新，并明确游戏内更新入口。
+v0.31.0 完成[经营体验整合优化](docs/quality-pass-v0.31.md)：第一轮经营提示、库存查找与快捷上架、轻量时钟刷新，并明确游戏内更新入口。当前源码为 v0.32.0，见[中期经营与触控验收](docs/quality-pass-v0.32.md)；上面的安装包仍是已公开发布的 v0.31.0。
 
 v0.30.0 完成[订单补货返回](docs/order-supply-return.md)：从卡车或货船查找缺货来源，经过多层配方后仍可返回并定位原订单。v0.29.0独立新版可直接覆盖更新。
 

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { Game, ItemId, StorageKind } from '../src/lib/farmTypes.ts';
-import { getItem } from '../src/lib/farmContent.ts';
+import { RECIPES, getItem } from '../src/lib/farmContent.ts';
 import {
   ACHIEVEMENTS, BEEHIVE_COST, BEEKEEPING_LEVEL, BOAT_LEVEL, FISHING_COOLDOWN_MS, FISHING_LEVEL,
   HONEY_COOLDOWN_MS, MAX_STORAGE_CAPACITY, MINING_COOLDOWN_MS, MINING_LEVEL,
@@ -331,6 +331,50 @@ test('failed storage upgrades do not consume available materials and respect the
     assertAtomicFailure(capped, () => upgradeStorage(capped, kind));
   }
   assert.equal(MAX_STORAGE_CAPACITY, 1000);
+});
+
+test('early orders stay within one production batch and level nine keeps the later demand curve', () => {
+  const batchYield = (id: string) => {
+    const item = getItem(id as ItemId);
+    if (item.category === 'crop') return 2;
+    if (item.category === 'fruit') return 3;
+    return RECIPES.find(entry => entry.output === item.id)?.quantity ?? 1;
+  };
+  for (const currentLevel of [1, 5, 6, 8]) {
+    for (const kind of ['truck', 'boat'] as const) {
+      if (kind === 'boat' && currentLevel < BOAT_LEVEL) continue;
+      const requested = Math.min(8, 1 + Math.floor(currentLevel / 6)) + (kind === 'boat' ? 2 : 0);
+      for (const order of generateOrders(currentLevel, 4, kind)) {
+        assert.ok(Object.keys(order.requirements).length > 0);
+        for (const [id, count] of Object.entries(order.requirements)) {
+          const batch = batchYield(id);
+          assert.equal(count, Math.min(requested, batch));
+          assert.ok(count! >= 1 && count! <= batch);
+        }
+      }
+    }
+  }
+  for (const kind of ['truck', 'boat'] as const) {
+    const requested = Math.min(8, 1 + Math.floor(9 / 6)) + (kind === 'boat' ? 2 : 0);
+    assert.equal(requested, kind === 'boat' ? 4 : 2);
+    for (const order of generateOrders(9, 4, kind)) {
+      for (const count of Object.values(order.requirements)) assert.equal(count, requested);
+    }
+  }
+  for (const count of Object.values(generateOrders(42, 2, 'truck')[0].requirements)) assert.equal(count, 8);
+});
+
+test('the second storage tier still costs one material while its coin price stays on the old tier', () => {
+  const at = (capacity: number, kind: StorageKind) => storageUpgradeCost(farm({ siloCapacity: capacity, barnCapacity: capacity }), kind);
+  assert.equal(at(100, 'silo').coins, 300);
+  assert.deepEqual(at(100, 'silo').materials, { nail: 1, wood_panel: 1, screw: 1 });
+  assert.equal(at(125, 'silo').capacity, 150);
+  assert.equal(at(125, 'silo').coins, 400);
+  assert.deepEqual(at(125, 'silo').materials, { nail: 1, wood_panel: 1, screw: 1 });
+  assert.deepEqual(at(125, 'barn').materials, { plank: 1, bolt: 1, duct_tape: 1 });
+  assert.equal(at(150, 'barn').coins, 500);
+  assert.deepEqual(at(150, 'barn').materials, { plank: 1, bolt: 1, duct_tape: 1 });
+  assert.equal(at(175, 'silo').materials.nail, 4);
 });
 
 test('the final storage upgrade reaches the cap without exceeding it or allowing another charge', () => {
