@@ -22,7 +22,7 @@ REAL = {
     'field-notes.diagnosis-cases.v1': '[]',
 }
 SOURCE = r'''
-import {initialGame,restoreGame} from './src/lib/game.ts';
+import {initialGame,restoreGame,storageUsed} from './src/lib/game.ts';
 import {getItem} from './src/lib/farmContent.ts';
 const now=%s;
 const fresh=initialGame(now);
@@ -35,7 +35,18 @@ stored.inventory={wheat:12,corn:5,carrot:3,egg:2,chicken_feed:1,saw:1};
 const full=structuredClone(fresh);full.inventory={wheat:100};
 const waiting=structuredClone(fresh);
 waiting.plots[0]={...waiting.plots[0],growth:0,plantedAt:now,readyAt:now+120000};
-console.log(JSON.stringify({fresh:restoreGame(fresh,now),stored:restoreGame(stored,now),full:restoreGame(full,now),waiting:restoreGame(waiting,now),wheatPrice:getItem('wheat').price,eggPrice:getItem('egg').price}));
+const season=initialGame(now);
+season.harvests=season.productsCollected=season.ordersDelivered=1;
+const seasonFull=structuredClone(season);
+seasonFull.coins=0;
+for (const id of ['nail','wood_panel','screw','plank','bolt','duct_tape']) seasonFull.inventory[id]=0;
+seasonFull.barnCapacity=storageUsed(seasonFull,'barn');
+const seasoned=structuredClone(season);
+seasoned.unlockedPlots=7;
+seasoned.ordersDelivered=4;
+seasoned.xp=80;
+seasoned.machines=[...seasoned.machines,{id:'dairy',slots:2,queue:[]}];
+console.log(JSON.stringify({fresh:restoreGame(fresh,now),stored:restoreGame(stored,now),full:restoreGame(full,now),waiting:restoreGame(waiting,now),season:restoreGame(season,now),seasonFull:restoreGame(seasonFull,now),seasoned:restoreGame(seasoned,now),wheatPrice:getItem('wheat').price,eggPrice:getItem('egg').price}));
 ''' % NOW
 DATA = json.loads(subprocess.check_output(['node','--import','tsx','--input-type=module','-e',SOURCE],cwd=ROOT,text=True))
 PASSED, ERRORS, FAILED_LOCAL = [], [], []
@@ -249,6 +260,110 @@ def check_storage(browser,size):
     ctx.close()
 
 
+def season_card(page, step):
+    page.wait_for_selector(f'.farm-season[data-season-step="{step}"]')
+    invariant(page)
+    return page.locator('.farm-season')
+
+
+def check_season_geometry(page):
+    overlaps = page.locator('.farm-season').evaluate('''card => {
+      const r=card.getBoundingClientRect();
+      return [...document.querySelectorAll('.fsh-menu,.fsh-assistant,.advance-button,[data-plot-id],[data-pen-id]')]
+        .filter(el=>el.getClientRects().length).filter(el=>{const b=el.getBoundingClientRect();return Math.min(r.right,b.right)-Math.max(r.left,b.left)>1 && Math.min(r.bottom,b.bottom)-Math.max(r.top,b.top)>1;})
+        .map(el=>el.getAttribute('aria-label')||el.className);
+    }''')
+    assert not overlaps, f'Season card covers existing interactive targets: {overlaps}'
+    for button in page.locator('.farm-season button').all():
+        box = button.bounding_box()
+        assert box and box['width'] >= 44 and box['height'] >= 44, box
+
+
+def assert_box(locator):
+    box = locator.bounding_box()
+    assert box and box['width'] >= 43.5 and box['height'] >= 43.5, box
+
+
+def check_season(browser, size, motion='reduce'):
+    label = f'{size[0]}x{size[1]}/{motion}'
+    ctx, page = start(browser, size, 'season', motion)
+    baseline = read_game(page)
+    assert page.locator('.farm-journey').count() == 0
+    season_card(page, 'expand')
+    check_season_geometry(page)
+    assert page.locator('.farm-season').get_attribute('data-season-target') == 'storage'
+    assert page.locator('.farm-season').get_attribute('data-season-section') == 'upgrade'
+    activate(page.locator('.farm-season .fj-collapse'), True)
+    assert page.locator('.farm-season').get_attribute('data-season-collapsed') == 'true'
+    activate(page.locator('.farm-season .fj-expand'), True)
+    invariant(page, baseline)
+    if size == (844, 390) and motion == 'reduce':
+        page.screenshot(path=str(ROOT / 'docs/quality-season.png'))
+    activate(page.locator('.farm-season .fj-action'), True)
+    page.wait_for_selector('.fe-upgrade-grid')
+    invariant(page, baseline)
+    for button in page.locator('.fe-tabs button, .fe-upgrade-grid .fe-button').all():
+        assert_box(button)
+    passed(f'{label}: mid-game card opens storage upgrade without spending; upgrade actions stay at 44px')
+    ctx.close()
+
+
+def check_season_edges(browser):
+    ctx, page = start(browser, (640, 360), 'seasonFull')
+    before = read_game(page)
+    season_card(page, 'expand')
+    assert any(word in page.locator('.farm-season').inner_text() for word in ['材料', '空位'])
+    activate(page.locator('.farm-season .fj-action'))
+    page.wait_for_selector('.fe-inventory-section')
+    invariant(page, before)
+    for button in page.locator('.fe-filter button, .fe-inventory-sell').all():
+        assert_box(button)
+    passed('full barn: mid-game guide leads to inventory without spending; filters and listing buttons stay at 44px')
+    ctx.close()
+
+    ctx, page = start(browser, (844, 390), 'season')
+    page.locator('[data-plot-id="2"]').click()
+    page.wait_for_selector('.plot-panel')
+    assert page.locator('.farm-season').count() == 0
+    assert page.locator('.farm-journey').count() == 0
+    assert_box(page.locator('.panel-close'))
+    assert_box(page.locator('.plot-panel .primary-action'))
+    assert_box(page.locator('.seed-cycle-note button'))
+    assert page.locator('.panel-close').get_attribute('aria-label')
+    assert page.locator('.plot-panel .primary-action').get_attribute('aria-describedby') == 'field-action-note'
+    page.locator('.panel-close').click()
+    page.wait_for_selector('.farm-season')
+    passed('field details hide the season card; close, harvest action and warehouse link stay at 44px')
+    menu(page, 'livestock')
+    page.wait_for_selector('.farm-season')
+    page.locator('[data-pen-id="2"]').click()
+    page.wait_for_selector('.plot-panel')
+    assert page.locator('.farm-season').count() == 0
+    assert_box(page.locator('.panel-close'))
+    assert_box(page.locator('.plot-panel .primary-action'))
+    assert page.locator('.plot-panel .primary-action').get_attribute('aria-describedby') == 'pasture-action-note'
+    page.locator('.panel-close').click()
+    menu(page, 'orders')
+    page.wait_for_selector('.fe-order-actions')
+    assert_box(page.locator('.fe-icon-button').first)
+    assert_box(page.locator('.fe-order-actions .fe-button').first)
+    passed('pasture details hide the season card; pasture action and order buttons stay at 44px')
+    ctx.close()
+
+    ctx, page = start(browser, (1280, 720), 'seasoned')
+    page.wait_for_selector('.fsh-level')
+    assert page.locator('.farm-season').count() == 0
+    assert page.locator('.farm-journey').count() == 0
+    passed('finished mid-game milestones hide the season card')
+    ctx.close()
+
+    ctx, page = start(browser, (844, 390), 'season', 'no-preference')
+    season_card(page, 'expand')
+    check_season_geometry(page)
+    passed('844x390/no-preference: season card stays visible when motion is allowed')
+    ctx.close()
+
+
 def check_edges(browser):
     ctx,page=start(browser,(640,360),'full')
     before=read_game(page);journey(page,'harvest')
@@ -272,8 +387,10 @@ if __name__=='__main__':
         for size in [(640,360),(844,390),(1280,720)]:
             check_journey(browser,size)
             check_storage(browser,size)
+            check_season(browser,size)
         check_journey(browser,(844,390),'no-preference')
         check_edges(browser)
+        check_season_edges(browser)
         browser.close()
     assert not ERRORS,ERRORS
     assert not FAILED_LOCAL,FAILED_LOCAL

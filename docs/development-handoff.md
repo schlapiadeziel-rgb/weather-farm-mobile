@@ -6,10 +6,11 @@
 
 - 仓库：https://github.com/schlapiadeziel-rgb/weather-farm-mobile
 - 本地源码：`/workspace/weather-farm-mobile`，主分支 `main`。
-- v0.31.0 源码提交：`cbf960db45f0769db09b2beb72f58f8d819f96bd`，Android versionCode32。
+- 源码版本：v0.32.0，Android versionName 0.32.0，versionCode 33。尚未跑 Android 构建和签名发布。
+- 已公开发布仍是 v0.31.0：源码提交 `cbf960db45f0769db09b2beb72f58f8d819f96bd`，Android versionCode 32。
 - APK：https://github.com/schlapiadeziel-rgb/weather-farm-mobile/releases/download/v0.31.0/field-letter-next.apk
 - 源码ZIP：https://github.com/schlapiadeziel-rgb/weather-farm-mobile/releases/download/v0.31.0/weather-farm-next-source.zip
-- 下一个版本从 v0.32.0 开始，递增 package.json/package-lock.json 和 android/app/build.gradle 的 versionName/versionCode。
+- 下一个版本从 v0.33.0 开始，递增 package.json/package-lock.json 和 android/app/build.gradle 的 versionName/versionCode。
 
 中文横屏单机经营游戏；原创地图、动物、小镇和22类工坊插画。真实天气、AI诊所、农业资讯、行情、农事与真实农场记录位于独立“农场助手”，不消耗游戏资源、不与游戏库存混用。React19、TypeScript5.7、Vite6、Capacitor7；规则集中在 src/lib，界面在 src/components，App.tsx连接导航、存档和全局状态。
 
@@ -19,12 +20,14 @@
 - v0.29：独立新版应用；小镇接待提醒、物品来源和补货返回、页面按需加载；旧资料可手动迁移。
 - v0.30：卡车/货船订单查缺货来源后，经过多层配方仍能返回并定位原订单。目标使用订单ID+配送类型，不能用卡片序号替代身份。
 - v0.31：第一轮经营引导、库存查找/排序与快捷上架、轻量时钟刷新、游戏内更新说明。详情与截图见 docs/quality-pass-v0.31.md。
+- v0.32：第一轮完成后的中期经营（扩仓或开新田、工坊连产、稳定交付）、农田/牧场/经营关键按钮的触控与读屏、早期扩仓材料与 9 级前订单批量。详情与截图见 docs/quality-pass-v0.32.md。尚未发布 APK。
 
-379项TypeScript规则、生产构建、154组浏览器检查通过，另有15项默认动画连续操作复查。截图全部来自隔离测试存档。云端代码基准显示时钟计算CPU耗时减少约62%–87%；未测真机帧率、内存、功耗、原生AI性能或系统安装器覆盖安装，不可将基准宣称为真机性能结果。
+v0.32 源码验收为 390 项 TypeScript 规则、生产构建、8 项 Python 策略测试，以及 162 组浏览器检查。截图来自隔离测试存档。v0.31 的云端时钟基准仍只说明 CPU 计算，不可宣称为真机性能。
 
 ## 关键实现与边界
 
 - `src/lib/farmJourney.ts` / `FarmJourneyCard.tsx`：以真实harvests/productsCollected/ordersDelivered推导三步目标，不写新存档字段、不发额外奖励。考虑真实readyAt、仓库容量、种子/饲料、动物购买与船单等级；完成后不显示；详情、工具、提示、弹窗和补货路径显示时隐藏。
+- `src/lib/farmSeason.ts` / `FarmSeasonCard.tsx`：第一轮完成后的中期三步。扩仓或开新田看容量和已解锁田块，工坊连产看队列长度、工坊数量或槽位，稳定交付看 ordersDelivered 达到 4。不写新存档字段、不发奖励。未解锁船单不能成为目标。队列收空后，若没有新工坊或额外槽位，连产提醒会再出现。显示和隐藏条件与第一轮相同。
 - `src/lib/inventoryView.ts` / EconomyPanels.tsx：库存搜索、Unicode规范化、仓库类别和数量稳定排序。“去上架”仅预填商品、数量1与标准价，最终listForSale提交才扣货，不能改成点击预览就出售。
 - `refreshGameClock`在`src/lib/game.ts`：专供App的时钟刷新，保留未改变分支引用；经济动作继续使用`tickGame`产生独立深副本。绝不能把plant/harvest/feed/collect/queue等动作里的tickGame直接替换为共享引用刷新，否则可能原地扣改旧存档。
 - `src/lib/orderSupply.ts` / SupplyReturn.tsx / App.tsx：配方返回栈与订单/访客来源；普通导航、取消与恢复存档清除上下文。时钟和库存刷新不能反复抢焦点。
@@ -72,7 +75,7 @@ v0.28及更早旧应用是`com.fieldletter.farm`，原密钥已丢失且搜索�
 
 ## 下一版建议
 
-先基于真机录屏/性能采样测启动、滑动、内存、功耗和原生模型，再决定绘制优化。继续进行新手到中后期的完整经营试玩、容量与生产节奏平衡、触摸反馈/无障碍和界面一致性验收。用户的“顶级游戏”是持续品质目标，不代表当前已达到商业大作的全部系统；每轮集中交付可验证的完整改进，不夸大真机结果。
+v0.32 已补上中期引导、关键按钮触控和 100/125/150 扩仓材料，以及 9 级前的订单批量。下一步先基于真机录屏和性能采样测启动、滑动、内存、功耗和原生模型，再决定绘制优化。175 起扩仓材料回到原档位（175 为每种 4 份），同一种材料仍约每 65 次收获出现一次。若这一档仍然偏慢，再单独调，不要整表重做。工坊连产收完队列后会再次提醒，除非新建工坊或增加槽位；若要让“曾经连产”永久完成，需要一个只增不减的计数，并同时改旧存档与备份测试。用户的“顶级游戏”是持续品质目标，不代表当前已达到商业大作的全部系统；每轮集中交付可验证的完整改进，不夸大真机结果。
 
 ## v0.31.0发布核验结果
 

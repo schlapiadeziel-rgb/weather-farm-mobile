@@ -4,5 +4,6 @@ import App from './App';
 import './styles.css';
 import './components/farm-game-polish.css';
 import './components/app-modes.css';
+import './components/farm-touch.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(<React.StrictMode><App /></React.StrictMode>);
