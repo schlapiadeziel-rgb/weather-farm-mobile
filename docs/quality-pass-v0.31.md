@@ -30,4 +30,15 @@ v0.29及之后的“田野来信·新版”使用同一固定签名，可通过�
 
 379项TypeScript规则、类型检查及生产构建通过，包含11项新手目标、8项轻量时钟及5项库存查询规则。新增34组新手／仓库浏览器检查通过，原有订单返回24组、小镇补货22组、按需加载27组、物品来源33组、小镇看板14组回归通过，合计154组，页面错误和本地资源请求失败为0。默认动画下额外连续三轮真实经营操作通过15项复查。
 
-公开安装包核验结果在发布后补录。截图使用隔离测试农场，不是玩家资料或真机照片。
+公开安装包核验已完成，详见下文。截图使用隔离测试农场，不是玩家资料或真机照片。
+
+## v0.31.0发布核验结果
+
+2026-11-05完成公开发布。[Android构建42011538425](https://github.com/schlapiadeziel-rgb/weather-farm-mobile/actions/runs/42011538425)及[发布流程42012584168](https://github.com/schlapiadeziel-rgb/weather-farm-mobile/actions/runs/42012584168)均成功。APK确认包名com.fieldletter.farm.next、versionName0.31.0、versionCode32、ARM64和minSDK23。
+
+公开三个附件重新下载后，大小与GitHub元数据一致、SHA-256清单通过；固定新证书、签名前后载荷与16KB对齐通过；源码ZIP与标签cbf960db45f0769db09b2beb72f58f8d819f96bd的git archive逐字节一致。实际v0.29/v0.30解析器均能识别公开v0.31.0并得到与下载APK一致的SHA；v0.28旧包名解析器返回null，当前v0.31.0不重复提示自身。临时公开APK交付分支已删除。
+
+```text
+9051c112ff1aef5b4ef63f03b48f59f8b5385c8961eb852c82ed642f71a00086  field-letter-next.apk
+3e040f2c1198e98e35ad507b8d91578e77bba5684d2d10469e3f6863f439ae7f  weather-farm-next-source.zip
+```
