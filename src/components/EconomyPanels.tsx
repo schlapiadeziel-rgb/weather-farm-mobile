@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Axe, Check, Coins, Fish, Gem, Leaf, Package, Pickaxe, Plus, RefreshCw, Ship, ShoppingBag, Sprout, Store, Timer, Trees, Trophy, Truck, Warehouse, Wheat } from 'lucide-react';
+import { Axe, Check, Coins, Fish, Gem, Leaf, Package, Pickaxe, Plus, RefreshCw, Search, Ship, ShoppingBag, Sprout, Store, Timer, Trees, Trophy, Truck, Warehouse, Wheat, X } from 'lucide-react';
 import type { Game, ItemId, OrchardPlot, StorageKind } from '../lib/farmTypes';
 import type { OrderSupplyOrigin } from '../lib/orderSupply';
 import { ITEMS, getItem } from '../lib/farmContent';
+import { inventoryItems, normalizeInventoryQuery } from '../lib/inventoryView';
+import type { InventorySort } from '../lib/inventoryView';
 import { getLevel, storageUsed } from '../lib/game';
 import { ACHIEVEMENTS, BEEHIVE_COST, BEEKEEPING_LEVEL, BOAT_LEVEL, FISHING_LEVEL, HONEY_COOLDOWN_MS, MAX_STORAGE_CAPACITY, MINING_LEVEL, ORCHARD_FRUITS, ORCHARD_LIMIT, ROADSIDE_LIMIT, SALE_DELAY_MS, achievementProgress, buildBeehive, buySupply, catchFish, claimAchievement, clearOrchard, collectHoney, collectSale, deliverOrder, discardOrder, ensureOrders, expandFarm, farmExpansionCost, harvestOrchard, listForSale, mineOre, plantOrchard, reviveOrchard, storageUpgradeCost, upgradeStorage } from '../lib/farmEconomy';
 import './farm-economy.css';
@@ -159,12 +161,36 @@ export function StoragePanel(props: StoragePanelProps) {
   const [tab, setTab] = useState<StorageTab>(props.initialTab ?? 'inventory');
   useEffect(() => { if (props.initialTab !== undefined) setTab(props.initialTab); }, [props.initialTab, props.requestId]);
   const [storage, setStorage] = useState<'all' | StorageKind>('all');
+  const [inventoryQuery, setInventoryQuery] = useState('');
+  const [inventorySort, setInventorySort] = useState<InventorySort>('catalog');
+  const inventorySearchRef = useRef<HTMLInputElement>(null);
+  const storagePanelRef = useRef<HTMLElement>(null);
+  const saleFormRef = useRef<HTMLFormElement>(null);
+  const saleSelectRef = useRef<HTMLSelectElement>(null);
+  const pendingSaleFocus = useRef(false);
+  const [saleFocusRequest, setSaleFocusRequest] = useState(0);
   const [saleItem, setSaleItem] = useState<ItemId>(() => ITEMS.find(item => (game.inventory[item.id] || 0) > 0)?.id || 'wheat');
   const [quantity, setQuantity] = useState('1');
   const [unitPrice, setUnitPrice] = useState(() => String(getItem(saleItem).price));
   const level = getLevel(game);
-  const ownedItems = ITEMS.filter(item => (game.inventory[item.id] || 0) > 0);
-  const filteredItems = ownedItems.filter(item => storage === 'all' || item.storage === storage);
+  const storageItems = inventoryItems(game.inventory, storage);
+  const filteredItems = inventoryItems(game.inventory, storage, inventoryQuery, inventorySort);
+  const searchingInventory = !!normalizeInventoryQuery(inventoryQuery);
+  const clearInventorySearch = () => { setInventoryQuery(''); inventorySearchRef.current?.focus({ preventScroll: true }); };
+  const selectSaleItem = (id: ItemId) => { setSaleItem(id); setQuantity('1'); setUnitPrice(String(getItem(id).price)); };
+  const prepareSale = (id: ItemId) => {
+    selectSaleItem(id);
+    pendingSaleFocus.current = true;
+    setSaleFocusRequest(value => value + 1);
+    setTab('roadside');
+  };
+  useEffect(() => {
+    if (tab !== 'roadside' || !pendingSaleFocus.current) return;
+    pendingSaleFocus.current = false;
+    const panel = storagePanelRef.current, form = saleFormRef.current;
+    if (panel && form) panel.scrollTop += form.getBoundingClientRect().top - panel.getBoundingClientRect().top - 12;
+    saleSelectRef.current?.focus({ preventScroll: true });
+  }, [tab, saleFocusRequest]);
   const supplies = ITEMS.filter(item => (item.category === 'crop' || item.category === 'feed') && item.level <= level);
   const expansion = game.unlockedPlots >= 12 ? null : farmExpansionCost(game);
   const listings = game.shopListings.filter(listing => !listing.collected);
@@ -174,14 +200,22 @@ export function StoragePanel(props: StoragePanelProps) {
   const priceValid = Number.isSafeInteger(price) && price >= 1 && price <= selectedItem.price * 3;
   const saleBlocked = listings.length >= ROADSIDE_LIMIT ? '六个货位已满，先收取已售货款。' : stock < 1 ? '当前商品没有库存，先补充再上架。' : !countValid ? `数量需要是 1–${maximum} 的整数，不能超过库存。` : !priceValid ? `每份价格需要是 1–${selectedItem.price * 3} 的整数。` : '';
   const previewValid = countValid && priceValid;
-  return <main className="fe-panel fe-storage">
+  return <main className="fe-panel fe-storage" ref={storagePanelRef}>
     <PanelHeading icon={<Warehouse size={29} />} title="把收成收好" description="从谷仓到路边摊，每一份收获都有自己的去处。"><span className="fe-level-stamp"><Coins size={15} /><strong>{game.coins}</strong> 金币</span></PanelHeading>
     <div className="fe-storage-meters"><StorageMeter game={game} kind="silo" /><StorageMeter game={game} kind="barn" /></div>
     <nav className="fe-tabs" aria-label="仓储与商店"><button className={tab === 'inventory' ? 'is-active' : ''} aria-pressed={tab === 'inventory'} onClick={() => setTab('inventory')}><Package size={16} />我的库存</button><button className={tab === 'supplies' ? 'is-active' : ''} aria-pressed={tab === 'supplies'} onClick={() => setTab('supplies')}><ShoppingBag size={16} />补给小铺</button><button className={tab === 'roadside' ? 'is-active' : ''} aria-pressed={tab === 'roadside'} onClick={() => setTab('roadside')}><Store size={16} />路边摊<span>{listings.length}</span></button><button className={tab === 'upgrade' ? 'is-active' : ''} aria-pressed={tab === 'upgrade'} onClick={() => setTab('upgrade')}><Plus size={16} />扩容与扩地</button></nav>
-    {tab === 'inventory' && <section className="fe-paper-section"><div className="fe-section-heading"><h3>库存小账本</h3><div className="fe-filter" aria-label="筛选仓库">{(['all', 'silo', 'barn'] as const).map(kind => <button key={kind} aria-pressed={storage === kind} className={storage === kind ? 'is-active' : ''} onClick={() => setStorage(kind)}>{kind === 'all' ? '全部' : kind === 'silo' ? '筒仓' : '谷仓'}</button>)}</div></div>{filteredItems.length ? <div className="fe-inventory-grid">{filteredItems.map(item => <article className="fe-inventory-item" key={item.id}><span className="fe-item-icon" aria-hidden="true">{item.icon}</span><div><strong>{item.name}</strong><small>{item.storage === 'silo' ? '筒仓' : '谷仓'}</small></div><b>×{game.inventory[item.id]}</b></article>)}</div> : <EmptyNote icon={<Package size={34} />}>这里还空着。去田里收获，或到工坊收取做好了的产品吧。</EmptyNote>}</section>}
+    {tab === 'inventory' && <section className="fe-paper-section fe-inventory-section">
+      <div className="fe-section-heading"><h3>库存小账本</h3><div className="fe-filter" aria-label="筛选仓库">{(['all', 'silo', 'barn'] as const).map(kind => <button key={kind} aria-pressed={storage === kind} className={storage === kind ? 'is-active' : ''} onClick={() => setStorage(kind)}>{kind === 'all' ? '全部' : kind === 'silo' ? '筒仓' : '谷仓'}</button>)}</div></div>
+      <div className="fe-inventory-toolbar">
+        <div className="fe-inventory-search"><Search size={17} aria-hidden="true" /><input ref={inventorySearchRef} type="search" aria-label="查找库存物品" placeholder="输入物品名称" maxLength={80} value={inventoryQuery} onChange={event => setInventoryQuery(event.target.value)} />{inventoryQuery && <button type="button" onClick={clearInventorySearch} aria-label="清除库存搜索"><X size={16} aria-hidden="true" /></button>}</div>
+        <label className="fe-inventory-sort"><span>排序</span><select aria-label="库存排序" value={inventorySort} onChange={event => setInventorySort(event.target.value as InventorySort)}><option value="catalog">物品顺序</option><option value="quantity">数量从多到少</option></select></label>
+      </div>
+      <p className="fe-inventory-results" role="status" aria-live="polite" aria-atomic="true">显示 <strong>{filteredItems.length}</strong> / {storageItems.length} 种{searchingInventory ? ' · 搜索结果' : ' · 当前仓库库存'}</p>
+      {filteredItems.length ? <div className="fe-inventory-grid">{filteredItems.map(item => <article className="fe-inventory-item" key={item.id} data-inventory-item={item.id}><span className="fe-item-icon" aria-hidden="true">{item.icon}</span><div><strong>{item.name}</strong><small>{item.storage === 'silo' ? '筒仓' : '谷仓'}</small></div><b>×{game.inventory[item.id]}</b><button className="fe-inventory-sell" type="button" aria-label={`将${item.name}带到路边摊`} onClick={() => prepareSale(item.id)}><Store size={14} aria-hidden="true" />去上架</button></article>)}</div> : searchingInventory ? <div className="fe-inventory-no-results"><EmptyNote icon={<Search size={30} />}>没有找到“{inventoryQuery.trim()}”。试试其他名称，或切换仓库。</EmptyNote><button type="button" className="fe-button fe-button-small" onClick={clearInventorySearch}>清除搜索</button></div> : <EmptyNote icon={<Package size={34} />}>{storage === 'all' ? '这里' : storage === 'silo' ? '筒仓' : '谷仓'}还空着。去田里收获，或到工坊收取做好了的产品吧。</EmptyNote>}
+    </section>}
     {tab === 'supplies' && <section className="fe-paper-section"><div className="fe-section-heading"><h3>急用的种子与饲料</h3><small>经营等级 {level}</small></div><p className="fe-section-intro">补给价格稍高；自己种植、加工更划算。工具和扩建材料会在经营奖励中出现。</p><div className="fe-supply-grid">{supplies.map(item => <article className="fe-supply-card" key={item.id}><span className="fe-item-icon" aria-hidden="true">{item.icon}</span><div><strong>{item.name}</strong><small>库存 {game.inventory[item.id] || 0}</small></div><button className="fe-button fe-button-small" disabled={game.coins < item.price * 3} onClick={() => applyStorage(current => buySupply(current, item.id, 1), `买到了${item.name}。`)}><Plus size={13} />1 份 · <Coins size={13} />{item.price * 3}</button></article>)}</div></section>}
-    {tab === 'roadside' && <section className="fe-paper-section fe-roadside-section"><div className="fe-stall-banner"><Store size={32} /><div><h3>田边的小摊位</h3><p>本地 NPC 商人约 {Math.round(SALE_DELAY_MS / 60000)} 分钟后来买；售出后记得收款。</p></div></div><form className="fe-sale-form" onSubmit={event => { event.preventDefault(); if (!saleBlocked) applyStorage(current => listForSale(current, saleItem, count, price, Date.now()), '商品摆上摊位了！'); }}><label>摆上什么<select value={saleItem} onChange={event => { const id = event.target.value as ItemId; setSaleItem(id); setQuantity('1'); setUnitPrice(String(getItem(id).price)); }}>{ITEMS.filter(item => (game.inventory[item.id] || 0) > 0 || item.id === saleItem).map(item => <option value={item.id} key={item.id}>{item.icon} {item.name} · {game.inventory[item.id] || 0} 份</option>)}</select></label><label>数量<input inputMode="numeric" type="number" min="1" max={Math.max(1, maximum)} step="1" aria-invalid={!countValid} aria-describedby={saleBlocked ? 'fe-sale-validation' : undefined} value={quantity} onChange={event => setQuantity(event.target.value)} required /></label><label>每份金币<input inputMode="numeric" type="number" min="1" max={getItem(saleItem).price * 3} step="1" aria-invalid={!priceValid} aria-describedby={saleBlocked ? 'fe-sale-validation' : undefined} value={unitPrice} onChange={event => setUnitPrice(event.target.value)} required /></label><button className="fe-button fe-button-green" type="submit" disabled={!!saleBlocked}><Plus size={16} />摆上摊位</button></form>
-      <div className="fe-sale-preview" aria-label="上架预览"><strong>{selectedItem.name}{previewValid ? ` ×${count}` : ''}</strong>{previewValid ? <><span>预计货款 <b>{count * price}</b> 游戏金币</span><span>上架后库存 <b>{stock - count}</b> 份</span>{selectedItem.category === 'crop' && stock === count && <small>这批会用完库存，注意留种。</small>}</> : <span>填写有效数量和单价后显示预计货款。</span>}</div>
+    {tab === 'roadside' && <section className="fe-paper-section fe-roadside-section"><div className="fe-stall-banner"><Store size={32} /><div><h3>田边的小摊位</h3><p>本地 NPC 商人约 {Math.round(SALE_DELAY_MS / 60000)} 分钟后来买；售出后记得收款。</p></div></div><form className="fe-sale-form" ref={saleFormRef} onSubmit={event => { event.preventDefault(); if (!saleBlocked) applyStorage(current => listForSale(current, saleItem, count, price, Date.now()), '商品摆上摊位了！'); }}><label>摆上什么<select ref={saleSelectRef} value={saleItem} onChange={event => selectSaleItem(event.target.value as ItemId)}>{ITEMS.filter(item => (game.inventory[item.id] || 0) > 0 || item.id === saleItem).map(item => <option value={item.id} key={item.id}>{item.icon} {item.name} · {game.inventory[item.id] || 0} 份</option>)}</select></label><label>数量<input inputMode="numeric" type="number" min="1" max={Math.max(1, maximum)} step="1" aria-invalid={!countValid} aria-describedby={saleBlocked ? 'fe-sale-validation' : undefined} value={quantity} onChange={event => setQuantity(event.target.value)} required /></label><label>每份金币<input inputMode="numeric" type="number" min="1" max={getItem(saleItem).price * 3} step="1" aria-invalid={!priceValid} aria-describedby={saleBlocked ? 'fe-sale-validation' : undefined} value={unitPrice} onChange={event => setUnitPrice(event.target.value)} required /></label><button className="fe-button fe-button-green" type="submit" disabled={!!saleBlocked}><Plus size={16} />摆上摊位</button></form>
+      <div className="fe-sale-preview" aria-label="上架预览"><strong>{selectedItem.name}{previewValid ? ` ×${count}` : ''}</strong><span>当前库存 <b>{stock}</b> 份</span>{previewValid ? <><span>预计货款 <b>{count * price}</b> 游戏金币</span><span>上架后库存 <b>{stock - count}</b> 份</span>{selectedItem.category === 'crop' && stock === count && <small>这批会用完库存，注意留种。</small>}</> : <span>填写有效数量和单价后显示预计货款。</span>}</div>
       <p className="fe-sale-validation" id="fe-sale-validation" hidden={!saleBlocked}>{saleBlocked}</p>
       {listings.length ? <div className="fe-listing-grid">{listings.map(listing => {
         const sold = now >= listing.soldAt;

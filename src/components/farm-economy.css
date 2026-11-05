@@ -38,3 +38,22 @@
 .fe-sale-preview{display:flex;align-items:center;flex-wrap:wrap;gap:8px 16px;padding:11px 13px;margin:0 0 12px;border:1px solid #d3d5af;border-radius:10px;background:#eef1d8;color:#738154;font-size:11px;line-height:1.6}.fe-sale-preview strong{color:#506c3c}.fe-sale-preview b{font-variant-numeric:tabular-nums;color:#8d6b31}.fe-sale-preview small{flex-basis:100%;color:#9b7449}.fe-sale-validation{padding:8px 11px;margin:0 0 13px!important;border:1px solid #e4c99b;border-radius:8px;background:#f7ead3;color:#966a3d;font-size:11px;line-height:1.6}.fe-sale-validation[hidden]{display:none}.fe-sale-form input[aria-invalid=true]{border-color:#be9764}
 
 .fe-orchard-status{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin:0 0 13px}.fe-orchard-status>span{padding:5px 9px;border:1px solid #d5d2ad;border-radius:18px;background:#f1ecd6;color:#8c8667;font-size:11px;line-height:1.4}.fe-orchard-status b{font-variant-numeric:tabular-nums}.fe-orchard-status [data-orchard-state=ready]{background:#e4edc8;color:#537540;border-color:#afc28a}.fe-orchard-status [data-orchard-state=help]{background:#f6e6c7;color:#98743d;border-color:#dfc89c}.fe-orchard-status [data-orchard-state=dead]{background:#e7e3d8;color:#817967}.fe-panel .fe-capacity-needed{display:block;margin:7px 0;color:#9c6f43;font-size:11px;line-height:1.6}
+
+/* Stock browsing and deliberate hand-off to the roadside sale form. */
+.fe-inventory-toolbar{display:grid;grid-template-columns:minmax(0,1fr) 175px;align-items:center;gap:10px;margin:0 0 10px}
+.fe-inventory-search{display:flex;align-items:center;gap:8px;min-width:0;min-height:44px;padding-left:12px;border:1px solid #d7ccaa;border-radius:10px;background:#fffdf3;color:#84936b}
+.fe-inventory-search:focus-within{border-color:#82985b;box-shadow:0 0 0 2px #dbe4bc}
+.fe-inventory-search input{flex:1;min-width:0;width:100%;min-height:44px;border:0;outline:0;background:transparent;color:#52633e;padding:9px 0;font-size:12px}
+.fe-inventory-search input::-webkit-search-cancel-button{-webkit-appearance:none}
+.fe-inventory-search>svg{flex-shrink:0}.fe-inventory-search>button{flex-shrink:0;display:grid;place-items:center;width:44px;min-height:44px;border:0;border-radius:9px;background:transparent;color:#7e8d63;cursor:pointer}
+.fe-inventory-search>button:hover{background:#edf0d9}
+.fe-inventory-sort{display:flex;align-items:center;gap:8px;min-width:0;color:#8b8366;font-size:11px}
+.fe-inventory-sort>span{flex-shrink:0}.fe-inventory-sort select{width:100%;min-width:0;min-height:44px;padding:8px;border:1px solid #d7ccaa;border-radius:9px;background:#fffdf3;color:#65734e;font-size:11px}
+.fe-inventory-results{margin:0 0 12px!important;color:#8d866a;font-size:11px;line-height:1.6}.fe-inventory-results strong{color:#607d42;font-variant-numeric:tabular-nums}
+.fe-inventory-item{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:7px;align-items:center}
+.fe-inventory-sell{grid-column:1/-1;display:flex;align-items:center;justify-content:center;gap:5px;min-width:0;min-height:40px;margin-top:3px;padding:6px 9px;border:1px solid #d3d6b4;border-radius:7px;background:#eaf0d7;color:#667d46;font-size:11px!important;cursor:pointer;touch-action:manipulation}
+.fe-inventory-sell:hover{background:#e0e9c5;border-color:#b9c695}.fe-inventory-sell:active{background:#d8e3b9}
+.fe-inventory-search>button:focus-visible,.fe-inventory-sort select:focus-visible,.fe-inventory-sell:focus-visible{outline:2px solid #789154;outline-offset:2px}
+.fe-inventory-no-results{text-align:center;padding-bottom:12px}.fe-inventory-no-results .fe-empty{padding-bottom:13px}.fe-inventory-no-results .fe-empty p{overflow-wrap:anywhere;max-width:100%}.fe-inventory-no-results>.fe-button{margin:auto}
+@media(max-width:700px){.fe-inventory-toolbar{grid-template-columns:minmax(0,1fr) 164px;gap:8px}.fe-inventory-search{padding-left:9px;gap:6px}.fe-inventory-search input{font-size:11px}}
+@media(max-width:480px){.fe-inventory-toolbar{grid-template-columns:minmax(0,1fr)}.fe-inventory-sort{justify-content:flex-end}.fe-inventory-sort select{width:auto;min-width:154px}.fe-inventory-sell{min-height:44px}}

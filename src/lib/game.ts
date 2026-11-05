@@ -85,6 +85,29 @@ export function initialGame(now = Date.now()): Game {
   };
 }
 
+/** Refresh a canonical in-memory farm for the UI clock without cloning unrelated
+ * inventory, orders or layouts. Actions still use tickGame's mutable deep copy. */
+export function refreshGameClock(game: Game, now = Date.now()): Game {
+  time(now); resources(game);
+  let plots = game.plots;
+  for (let index = 0; index < game.plots.length; index++) {
+    const plot = game.plots[index];
+    const growth = plot.crop && plot.plantedAt !== undefined && plot.readyAt !== undefined ? progress(plot.plantedAt, plot.readyAt, now) : 0;
+    if (plot.health === 100 && plot.growth === growth) continue;
+    if (plots === game.plots) plots = game.plots.slice();
+    plots[index] = { ...plot, health: 100, growth };
+  }
+  let animals = game.animals;
+  for (let index = 0; index < game.animals.length; index++) {
+    const pen = game.animals[index];
+    const nextProgress = pen.animal && pen.fedAt !== undefined && pen.readyAt !== undefined ? progress(pen.fedAt, pen.readyAt, now) : 0;
+    if (pen.health === 100 && pen.progress === nextProgress) continue;
+    if (animals === game.animals) animals = game.animals.slice();
+    animals[index] = { ...pen, health: 100, progress: nextProgress };
+  }
+  return plots === game.plots && animals === game.animals ? game : { ...game, plots, animals };
+}
+
 export function tickGame(game: Game, now = Date.now()): Game {
   time(now); resources(game); const next = clone(game);
   next.plots = next.plots.map(plot => ({ ...plot, health: 100, growth: plot.crop && plot.plantedAt !== undefined && plot.readyAt !== undefined ? progress(plot.plantedAt, plot.readyAt, now) : 0 }));

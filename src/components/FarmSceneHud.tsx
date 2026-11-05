@@ -22,7 +22,7 @@ function RollingNumber({ value, name }: { value: number; name: 'level' | 'coins'
 }
 
 /** Corner-only game HUD; the landscape stays behind every control. */
-export default function FarmSceneHud({ game, onMenu, onAssistant, onActivity, ready, hasUpdate, context }: { game: Game; onMenu(): void; onAssistant(): void; onActivity(): void; ready: boolean; hasUpdate: boolean; context?: ReactNode }) {
+export default function FarmSceneHud({ game, onMenu, onAssistant, onActivity, ready, hasUpdate, context, guidance }: { game: Game; onMenu(): void; onAssistant(): void; onActivity(): void; ready: boolean; hasUpdate: boolean; context?: ReactNode; guidance?: ReactNode }) {
   const level = getLevel(game);
   const base = 20 * (level - 1) ** 2;
   const target = 20 * level ** 2;
@@ -44,5 +44,6 @@ export default function FarmSceneHud({ game, onMenu, onAssistant, onActivity, re
     </div>}
     <button className="fsh-corner fsh-menu" onClick={onMenu} aria-label="打开农场菜单" aria-haspopup="dialog" title="农场菜单"><Menu size={24} aria-hidden="true" /><span>经营</span>{(ready || hasUpdate) && <i aria-hidden="true" />}</button>
     <button className="fsh-corner fsh-assistant" onClick={onAssistant} aria-label="进入农场助手" title="独立农场助手"><Leaf size={25} aria-hidden="true" /><span>助手</span></button>
+    {guidance}
   </div>;
 }
