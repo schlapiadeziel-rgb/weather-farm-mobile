@@ -23,8 +23,8 @@ v0.32 的中期经营用当前队列判断是否排过两份制作。玩家收�
 
 ## 发布状态
 
-本版源码配置为 v0.33.0 / Android versionCode 34。包名继续使用 `com.fieldletter.farm.next`，不改固定签名。当前公开 APK 仍为 v0.31.0；本轮尚未生成、签名或发布新版 APK。
+本版源码配置为 v0.33.0 / Android versionCode 34。包名继续使用 `com.fieldletter.farm.next`，不改固定签名。PR #4 已合并，[Android 构建 45555609874](https://github.com/schlapiadeziel-rgb/weather-farm-mobile/actions/runs/45555609874)成功；产物为调试签名候选包，未通过固定正式证书核验，不能覆盖已安装正式版。当前公开 APK 仍为 v0.31.0，详见[构建与签名核验](release-status-v0.33.md)。
 
-本环境没有找到上次交接中的私下签名备份路径。后续发布应使用维护者保管的既有签名备份，或已正确配置的 `ANDROID_NEXT_SIGNING_RECOVERY`；不能改签名来绕过更新校验。
+本环境没有找到上次交接中的私下签名备份路径。本次构建日志确认恢复 Secret 未配置。后续发布应使用维护者保管的既有签名备份或恢复码；不能改签名来绕过更新校验。
 
 本轮不包含 Android 真机安装、帧率、内存、功耗或原生模型性能测试。

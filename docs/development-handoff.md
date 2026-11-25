@@ -6,7 +6,8 @@
 
 - 仓库：https://github.com/schlapiadeziel-rgb/weather-farm-mobile
 - 本地源码：`/workspace/weather-farm-mobile`，主分支 `main`。
-- 源码版本：v0.33.0，Android versionName 0.33.0，versionCode 34。尚未跑 Android 构建和签名发布。
+- 源码版本：v0.33.0，Android versionName 0.33.0，versionCode 34。已合入 main，Android 构建成功，正式签名发布因缺少既有签名备份/恢复码受阻，详见 docs/release-status-v0.33.md。
+- 可继续签名的构建：源码 `4028b2ec1a16fad36bab01d6fd8bfaad27a35c51`，[run 45555609874](https://github.com/schlapiadeziel-rgb/weather-farm-mobile/actions/runs/45555609874)，artifact ID `14995608638`。候选 APK 为 Android Debug 证书，不能覆盖已有正式版，不能直接发布到更新通道。
 - 已公开发布仍是 v0.31.0：源码提交 `cbf960db45f0769db09b2beb72f58f8d819f96bd`，Android versionCode 32。
 - APK：https://github.com/schlapiadeziel-rgb/weather-farm-mobile/releases/download/v0.31.0/field-letter-next.apk
 - 源码ZIP：https://github.com/schlapiadeziel-rgb/weather-farm-mobile/releases/download/v0.31.0/weather-farm-next-source.zip
@@ -21,7 +22,7 @@
 - v0.30：卡车/货船订单查缺货来源后，经过多层配方仍能返回并定位原订单。目标使用订单ID+配送类型，不能用卡片序号替代身份。
 - v0.31：第一轮经营引导、库存查找/排序与快捷上架、轻量时钟刷新、游戏内更新说明。详情与截图见 docs/quality-pass-v0.31.md。
 - v0.32：第一轮完成后的中期经营（扩仓或开新田、工坊连产、稳定交付）、农田/牧场/经营关键按钮的触控与读屏、早期扩仓材料与 9 级前订单批量。详情与截图见 docs/quality-pass-v0.32.md。后续 [Android 构建 42026871355](https://github.com/schlapiadeziel-rgb/weather-farm-mobile/actions/runs/42026871355)已成功，源码为 `dc619af3d635b3f9bd54ece712f2a50c7c732add`；未公开发布 APK，本轮未核验其产物签名。
-- v0.33：工坊连产完成记录在收空、取消、重启和备份往返后保留；旧存档按现存有效队列补记。详情见 docs/quality-pass-v0.33.md。尚未发布 APK。
+- v0.33：工坊连产完成记录在收空、取消、重启和备份往返后保留；旧存档按现存有效队列补记。详情见 docs/quality-pass-v0.33.md。Android 构建与原生单元测试通过，尚未正式签名发布 APK。
 
 v0.32 源码验收为 390 项 TypeScript 规则、生产构建、8 项 Python 策略测试，以及 162 组浏览器检查。截图来自隔离测试存档。v0.31 的云端时钟基准仍只说明 CPU 计算，不可宣称为真机性能。
 
@@ -83,7 +84,7 @@ v0.28及更早旧应用是`com.fieldletter.farm`，原密钥已丢失且搜索�
 
 v0.32 已补上中期引导、关键按钮触控和 100/125/150 扩仓材料，以及 9 级前的订单批量。v0.33 修复工坊连产收空队列后的进度回退。下一步仍应先基于真机录屏和性能采样测启动、滑动、内存、功耗和原生模型，再决定绘制优化。175 起扩仓材料回到原档位（175 为每种 4 份），同一种材料仍约每 65 次收获出现一次。若这一档仍然偏慢，再单独调，不要整表重做。用户的“顶级游戏”是持续品质目标，不代表当前已达到商业大作的全部系统；每轮集中交付可验证的完整改进，不夸大真机结果。
 
-本环境没有找到交接中的 `/workspace/shared/downloads/fieldletter-next-signing-backup.zip`，不代表维护者的私下备份丢失。发布时仍须使用既有签名备份或已配置的恢复 Secret，不能另造证书。未验证恢复 Secret 是否已配置。
+本环境没有找到交接中的 `/workspace/shared/downloads/fieldletter-next-signing-backup.zip`，不代表维护者的私下备份丢失。本次 Android 构建日志已确认未配置恢复 Secret，产物仅有调试签名，固定证书检查拒绝发布。发布时仍须使用既有签名备份或恢复码，不能另造证书；找到后可直接签名已成功构建的 v0.33 产物，精确来源与核验见 docs/release-status-v0.33.md。
 
 ## v0.31.0发布核验结果
 
