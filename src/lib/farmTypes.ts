@@ -22,6 +22,8 @@ export interface RoadsideSlot { id:string;item:ItemId;quantity:number;unitPrice:
 export interface OrchardPlot { id:number;fruit:'apple'|'cherry'|'raspberry'|'blackberry'|'cacao'|'coffee_bean';harvests:number;readyAt:number;needsHelp:boolean;revived:boolean; }
 export interface Game {
  version:2; day:number;coins:number;gems:number;xp:number;harvests:number;waterUsed:number;productsCollected:number;
+ /** Largest single-workshop queue reached; collecting or canceling jobs never lowers it. */
+ productionQueuePeak:number;
  plots:Plot[];animals:AnimalPen[];log:string[];inventory:Partial<Record<ItemId,number>>;siloCapacity:number;barnCapacity:number;
  unlockedPlots:number;machines:FarmMachine[];orders:GameOrder[];ordersDelivered:number;orderSerial:number;shopListings:RoadsideSlot[];
  orchard:OrchardPlot[];fishingReadyAt:number;mineReadyAt:number;beehiveBuilt:boolean;beehiveReadyAt:number;achievements:string[];town:TownState;layout:FarmLayout;farmVisitors:FarmVisitorsState;

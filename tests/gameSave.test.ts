@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildPen, buyAnimal, feedAnimal, harvest, initialGame, plant, queueProduction, restoreGame, tickGame, unlockMachine } from '../src/lib/game.ts';
+import { buildPen, buyAnimal, cancelQueuedProduction, collectProduction, feedAnimal, harvest, initialGame, plant, queueProduction, restoreGame, tickGame, unlockMachine } from '../src/lib/game.ts';
 import { buildBeehive, catchFish, claimAchievement, deliverOrder, ensureOrders, listForSale, mineOre, plantOrchard } from '../src/lib/farmEconomy.ts';
 import { ITEMS } from '../src/lib/farmContent.ts';
 import { createGameBackup, GAME_RECOVERY_KEY, GAME_SAVE_KEY, parseGameBackup, readGameSave, writeGameSave } from '../src/lib/gameSave.ts';
@@ -116,6 +116,7 @@ test('valid version-one saves migrate balances fields and livestock without trea
   const result = readGameSave(storage, NOW);
   assert.equal(result.warning, undefined); assert.equal(result.game.version, 2); assert.equal(result.game.coins, 765); assert.equal(result.game.xp, 80);
   assert.equal(result.game.day, 7); assert.equal(result.game.animals[0].animal, 'chicken'); assert.equal(result.game.plots[0].crop, 'wheat');
+  assert.equal(result.game.productionQueuePeak, 0);
   assert.equal(storage.getItem(GAME_RECOVERY_KEY), null); assert.equal(JSON.parse(storage.getItem(GAME_SAVE_KEY)!).version, 1);
   assert.equal(writeGameSave(result.game, storage), true); assert.equal(JSON.parse(storage.getItem(GAME_SAVE_KEY)!).version, 2);
 });
@@ -169,4 +170,79 @@ test('import validates canonical calendar dates and the complete saved-game econ
   queue[1].startedAt = queue[0].readyAt - 1;
   assert.throws(() => parseGameBackup(overlapping, NOW), /时间重叠/);
   assert.deepEqual(parseGameBackup(backup, NOW), restoreGame(backup.game, NOW));
+});
+
+test('older version-two saves and format-one backups infer only their surviving production queues', () => {
+  let game = initialGame(NOW);
+  for (const expected of [0, 1, 2]) {
+    if (expected > 0) game = queueProduction(game, 'bakery', 'bread', NOW);
+    const { productionQueuePeak: _peak, ...oldGame } = structuredClone(game);
+    const before = structuredClone(oldGame);
+    const raw = JSON.stringify(oldGame);
+    const storage = new MemoryStorage();
+    storage.setItem(GAME_SAVE_KEY, raw);
+    storage.setItem('fieldletter.location.v1', 'LOCATION_STAYS');
+    storage.setItem('fieldletter.farm.v1', 'REAL_RECORDS_STAY');
+    const local = readGameSave(storage, NOW);
+    assert.equal(local.warning, undefined);
+    assert.equal(local.game.productionQueuePeak, expected);
+    assert.equal(storage.getItem(GAME_SAVE_KEY), raw, 'reading an old save does not rewrite it');
+    assert.equal(storage.getItem(GAME_RECOVERY_KEY), null);
+    const oldBackup = { app: 'fieldletter', kind: 'game', formatVersion: 1, exportedAt: new Date(NOW).toISOString(), game: oldGame };
+    const imported = parseGameBackup(oldBackup, NOW);
+    assert.equal(imported.productionQueuePeak, expected);
+    assert.deepEqual(imported.machines, game.machines);
+    assert.deepEqual(imported.inventory, game.inventory);
+    assert.deepEqual(oldGame, before, 'migration never mutates the supplied backup');
+    assert.equal(writeGameSave(imported, storage), true);
+    assert.equal(readGameSave(storage, NOW).game.productionQueuePeak, expected);
+    assert.equal(storage.getItem('fieldletter.location.v1'), 'LOCATION_STAYS');
+    assert.equal(storage.getItem('fieldletter.farm.v1'), 'REAL_RECORDS_STAY');
+  }
+});
+
+test('production history survives cancellation, collection, autosave and backup import after the queue empties', () => {
+  const first = queueProduction(initialGame(NOW), 'bakery', 'bread', NOW);
+  const queued = queueProduction(first, 'bakery', 'bread', NOW);
+  const before = structuredClone(queued);
+  const [active, waiting] = queued.machines.find(machine => machine.id === 'bakery')!.queue;
+  const canceled = cancelQueuedProduction(queued, 'bakery', waiting.id, NOW + 1);
+  const collected = collectProduction(canceled, 'bakery', active.id, active.readyAt);
+  assert.equal(collected.productionQueuePeak, 2);
+  assert.equal(collected.machines.find(machine => machine.id === 'bakery')!.queue.length, 0);
+  assert.deepEqual(queued, before);
+  const storage = new MemoryStorage();
+  assert.equal(writeGameSave(collected, storage), true);
+  const reloaded = readGameSave(storage, active.readyAt);
+  assert.equal(reloaded.warning, undefined);
+  assert.equal(reloaded.game.productionQueuePeak, 2);
+  const backup = createGameBackup(collected, active.readyAt);
+  const imported = parseGameBackup(JSON.parse(JSON.stringify(backup)), active.readyAt);
+  assert.equal(backup.formatVersion, 1);
+  assert.equal(imported.version, 2);
+  assert.deepEqual(imported, collected);
+  assert.deepEqual(backup.game, collected);
+});
+
+test('invalid production history is rejected without replacing progress or losing the corrupt recovery copy', () => {
+  const game = initialGame(NOW);
+  const backup = createGameBackup(game, NOW);
+  for (const peak of [-1, 21, 0.5, '2', null, true, Number.NaN, Infinity]) {
+    const invalid = { ...game, productionQueuePeak: peak };
+    assert.throws(() => parseGameBackup({ ...backup, game: invalid }, NOW), /工坊连产/);
+    const storage = new MemoryStorage();
+    const original = JSON.stringify(game);
+    storage.setItem(GAME_SAVE_KEY, original);
+    assert.equal(writeGameSave(invalid as Game, storage), false);
+    assert.equal(storage.getItem(GAME_SAVE_KEY), original);
+    const corrupt = JSON.stringify(invalid);
+    storage.setItem(GAME_SAVE_KEY, corrupt);
+    const recovered = readGameSave(storage, NOW);
+    assert.match(recovered.warning!, /原始内容已保留/);
+    assert.equal(recovered.game.productionQueuePeak, 0);
+    assert.equal(storage.getItem(GAME_SAVE_KEY), corrupt);
+    assert.equal(storage.getItem(GAME_RECOVERY_KEY), corrupt);
+  }
+  assert.throws(() => parseGameBackup({ ...backup, game: { ...game, productionQueuePeak: undefined } }, NOW), /工坊连产/);
+  assert.deepEqual(backup.game, game);
 });
