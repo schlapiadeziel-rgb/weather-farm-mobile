@@ -32,7 +32,7 @@ function result(title: string, detail: string, actionLabel: string, target: Farm
   return { title, detail, actionLabel, target };
 }
 
-/** Read-only mid-game guidance. It starts after the first journey and adds no save fields or rewards. */
+/** Read-only mid-game guidance. It starts after the first journey and grants no rewards. */
 export function getFarmSeason(game: Game, now: number): FarmSeason | null {
   if (!Number.isSafeInteger(now) || now < 0 || now > 8_640_000_000_000_000) throw new Error('经营引导时间无效。');
   if (!(game.harvests > 0 && game.productsCollected > 0 && game.ordersDelivered > 0)) return null;
@@ -48,9 +48,9 @@ function expanded(game: Game): boolean {
   return game.unlockedPlots > START_PLOTS || game.siloCapacity > START_CAPACITY || game.barnCapacity > START_CAPACITY;
 }
 
-/** A second queued job counts while it is still queued. A new workshop or extra slot keeps the step done. */
+/** Remember real queueing even after collection or cancellation. Existing expansions still count. */
 function workshopSettled(game: Game): boolean {
-  return game.machines.length >= 3 || game.machines.some(machine => machine.slots > 2 || machine.queue.length >= 2);
+  return game.productionQueuePeak >= 2 || game.machines.length >= 3 || game.machines.some(machine => machine.slots > 2 || machine.queue.length >= 2);
 }
 
 function quote(game: Game, kind: StorageKind) {
@@ -117,7 +117,7 @@ function workshopGuide(game: Game): SeasonCopy {
   if (continueOn) {
     const itemId = nextRecipe(game, continueOn.id)!;
     const name = MACHINES.find(entry => entry.id === continueOn.id)!.name;
-    return result('再排一份，让工坊连上', `${name}还有空位。排上${getItem(itemId).name}后，两份会依次完成。收完队列后，若还没新建工坊或加槽，这条提醒会再出现。`, '去连产', { type: 'production', machineId: continueOn.id, itemId });
+    return result('再排一份，让工坊连上', `${name}还有空位。排上${getItem(itemId).name}后，两份会依次完成；收完后也会记住这次连产。`, '去连产', { type: 'production', machineId: continueOn.id, itemId });
   }
   const fresh = game.machines.find(machine => machine.queue.length === 0 && nextRecipe(game, machine.id));
   if (fresh) {

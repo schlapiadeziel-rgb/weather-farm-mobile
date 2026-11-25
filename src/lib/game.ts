@@ -47,6 +47,7 @@ export function storageUsed(game: Pick<Game, 'inventory'>, kind: StorageKind): n
 function resources(game: Game): void {
   number(game.coins, '金币'); number(game.gems, '钻石'); number(game.xp, '经验');
   number(game.day, '游戏天数', 1); number(game.harvests, '收获次数'); number(game.productsCollected, '收集次数'); number(game.waterUsed, '游戏用水');
+  number(game.productionQueuePeak, '工坊连产记录', 0, 20);
   number(game.unlockedPlots, '已解锁地块', 1, game.plots.length); number(game.orderSerial, '订单序号'); number(game.ordersDelivered, '已完成订单');
   number(game.siloCapacity, '粮仓容量', 1, 1000); number(game.barnCapacity, '货仓容量', 1, 1000);
   if (storageUsed(game, 'silo') > game.siloCapacity || storageUsed(game, 'barn') > game.barnCapacity) throw new Error('库存超过仓库容量，请核实存档。');
@@ -75,7 +76,7 @@ export function initialGame(now = Date.now()): Game {
   plots[1] = { id: 2, crop: 'corn', growth: 0, health: 100, moisture: 50, plantedAt: now, readyAt: time(now + corn.durationMs) };
   plots[2] = { id: 3, crop: 'soybean', growth: 0, health: 100, moisture: 50, plantedAt: now, readyAt: time(now + soybean.durationMs) };
   return {
-    version: 2, day: 1, coins: 500, gems: 20, xp: 0, harvests: 0, waterUsed: 0, productsCollected: 0, plots,
+    version: 2, day: 1, coins: 500, gems: 20, xp: 0, harvests: 0, waterUsed: 0, productsCollected: 0, productionQueuePeak: 0, plots,
     animals: [{ id: 1, animal: 'chicken', health: 100, feed: 100, progress: 100, fedAt: Math.max(0, now - chicken.durationMs), readyAt: now }, { id: 2, animal: null, health: 100, feed: 0, progress: 0 }, { id: 3, animal: null, health: 100, feed: 0, progress: 0 }],
     log: ['欢迎来到田野来信！收获小麦、收取鸡蛋，再试试饲料坊和面包坊。'],
     inventory: { wheat: 12, corn: 10, soybean: 6, radish: 4, chicken_feed: 4, cow_feed: 2, egg: 2, saw: 2, axe: 2, shovel: 2, dynamite: 2, plank: 2, screw: 2, bolt: 2, duct_tape: 2, nail: 2, wood_panel: 2, land_deed: 2, mallet: 2, marker_stake: 2 },
@@ -175,7 +176,9 @@ export function queueProduction(game: Game, machineId: MachineId, recipeId: Item
   const next = tickGame(game, now); for (const [item, quantity] of Object.entries(recipe.inputs)) take(next, item as ItemId, quantity!);
   const target = findMachine(next, machineId); const startedAt = Math.max(now, target.queue.at(-1)?.readyAt ?? now); const readyAt = time(startedAt + recipe.durationMs);
   let serial = 0; let id: string; do { id = `${machineId}-${now}-${game.xp}-${game.gems}-${game.harvests}-${game.productsCollected}-${serial++}`; } while (next.machines.some(item => item.queue.some(job => job.id === id)));
-  target.queue.push({ id, recipe: recipeId, startedAt, readyAt }); log(next, `开始制作${itemById(recipe.output).name} ×${recipe.quantity}。`); return next;
+  target.queue.push({ id, recipe: recipeId, startedAt, readyAt });
+  next.productionQueuePeak = Math.max(next.productionQueuePeak, target.queue.length);
+  log(next, `开始制作${itemById(recipe.output).name} ×${recipe.quantity}。`); return next;
 }
 export function cancelQueuedProduction(game: Game, machineId: MachineId, jobId: string, now = Date.now()): Game {
   time(now); resources(game); const machine = findMachine(game, machineId); const index = machine.queue.findIndex(item => item.id === jobId); const job = machine.queue[index];
@@ -288,6 +291,10 @@ export function restoreGame(saved: unknown, now = Date.now()): Game {
       return { id: string(job.id, '生产任务编号', 200), recipe: recipe.id, startedAt, readyAt };
     }); unique(queue); for (let index = 1; index < queue.length; index++) if (queue[index].startedAt < queue[index - 1].readyAt) throw new Error('生产队列时间重叠。'); return { id, slots, queue };
   }); unique(game.machines); unique(game.machines.flatMap(machine => machine.queue));
+  const queuePeakField = Object.getOwnPropertyDescriptor(source, 'productionQueuePeak');
+  if (queuePeakField && !Object.hasOwn(queuePeakField, 'value')) throw new Error('工坊连产记录必须是普通数据。');
+  const savedQueuePeak = queuePeakField ? number(queuePeakField.value, '工坊连产记录', 0, 20) : 0;
+  game.productionQueuePeak = Math.max(savedQueuePeak, ...game.machines.map(machine => machine.queue.length));
   game.orders = array(source.orders, '订单', 0, 20).map(raw => { const item = object(raw); if (item.kind !== 'truck' && item.kind !== 'boat') throw new Error('订单类型无效。'); const requirements = stock(item.requirements, true); if (!Object.keys(requirements).length) throw new Error('订单需求不能为空。'); return { id: string(item.id, '订单编号', 200), kind: item.kind, requirements, coins: number(item.coins, '订单金币'), xp: number(item.xp, '订单经验') } as GameOrder; }); unique(game.orders);
   game.ordersDelivered = number(source.ordersDelivered, '已完成订单'); game.orderSerial = number(source.orderSerial, '订单序号');
   game.shopListings = array(source.shopListings, '货架', 0, 100).map(raw => { const item = object(raw); const id = itemById(item.item as ItemId).id; const listedAt = timestamp(item.listedAt, '上架时间'); const soldAt = timestamp(item.soldAt, '售出时间'); if (soldAt < listedAt) throw new Error('货架计时无效。'); return { id: string(item.id, '货架编号', 200), item: id, quantity: number(item.quantity, '上架数量', 1), unitPrice: number(item.unitPrice, '出售单价', 1), listedAt, soldAt, collected: boolean(item.collected) } as RoadsideSlot; }); unique(game.shopListings);

@@ -5,6 +5,64 @@ const NOW = Date.parse('2026-10-10T08:00:00Z');
 const bread = RECIPES.find(r => r.id === 'bread')!;
 const feed = RECIPES.find(r => r.id === 'chicken_feed')!;
 
+test('queue history tracks the longest single-workshop queue, not jobs spread across workshops', () => {
+  const game = initialGame(NOW);
+  const snapshot = structuredClone(game);
+  assert.equal(game.productionQueuePeak, 0);
+  const first = queueProduction(game, 'bakery', 'bread', NOW);
+  const spread = queueProduction(first, 'feed_mill', 'chicken_feed', NOW);
+  assert.equal(first.productionQueuePeak, 1);
+  assert.equal(spread.productionQueuePeak, 1);
+  const chained = queueProduction(spread, 'bakery', 'bread', NOW);
+  assert.equal(chained.productionQueuePeak, 2);
+  const expanded = expandProductionSlots(chained, 'bakery');
+  assert.equal(expanded.productionQueuePeak, 2, 'buying a slot does not invent queueing history');
+  const third = queueProduction(expanded, 'bakery', 'bread', NOW);
+  assert.equal(third.productionQueuePeak, 3);
+  assert.deepEqual(game, snapshot);
+  assert.equal(spread.productionQueuePeak, 1);
+});
+
+test('queue history survives cancellation, collection, acceleration and clock ticks', () => {
+  const queued = queueProduction(queueProduction(initialGame(NOW), 'bakery', 'bread', NOW), 'bakery', 'bread', NOW);
+  const [active, waiting] = queued.machines[1].queue;
+  const snapshot = structuredClone(queued);
+  const canceled = cancelQueuedProduction(queued, 'bakery', waiting.id, NOW);
+  const fast = speedUpMachine(canceled, 'bakery', active.id, NOW);
+  const collected = collectProduction(fast, 'bakery', active.id, NOW);
+  assert.equal(collected.machines[1].queue.length, 0);
+  assert.equal(collected.productionQueuePeak, 2);
+  const restarted = queueProduction(restoreGame(collected, NOW + 1), 'bakery', 'bread', NOW + 1);
+  assert.equal(restarted.productionQueuePeak, 2, 'a shorter later queue cannot lower the record');
+  assert.deepEqual(queued, snapshot);
+});
+
+test('failed queueing cannot advance history or mutate ingredients', () => {
+  const first = queueProduction(initialGame(NOW), 'bakery', 'bread', NOW);
+  const poor = { ...first, inventory: { ...first.inventory, wheat: 0 } };
+  const snapshot = structuredClone(poor);
+  assert.throws(() => queueProduction(poor, 'bakery', 'bread', NOW), /库存不足/);
+  assert.deepEqual(poor, snapshot);
+  assert.equal(poor.productionQueuePeak, 1);
+  const full = queueProduction(first, 'bakery', 'bread', NOW);
+  const before = structuredClone(full);
+  assert.throws(() => queueProduction(full, 'bakery', 'bread', NOW), /队列已满/);
+  assert.deepEqual(full, before);
+});
+
+test('restore preserves a higher queue record and repairs a lower record using validated work', () => {
+  const queued = queueProduction(queueProduction(initialGame(NOW), 'bakery', 'bread', NOW), 'bakery', 'bread', NOW);
+  assert.equal(restoreGame({ ...queued, productionQueuePeak: 0 }, NOW).productionQueuePeak, 2);
+  assert.equal(restoreGame({ ...queued, productionQueuePeak: 20 }, NOW).productionQueuePeak, 20);
+  const empty = initialGame(NOW);
+  empty.machines = [];
+  assert.equal(restoreGame(empty, NOW).productionQueuePeak, 0);
+  let getterCalled = false;
+  Object.defineProperty(empty, 'productionQueuePeak', { get() { getterCalled = true; return 2; } });
+  assert.throws(() => restoreGame(empty, NOW), /工坊连产记录必须是普通数据/);
+  assert.equal(getterCalled, false);
+});
+
 test('starter factories consume recipe inputs atomically and sequence real-time work', () => {
   const game = initialGame(NOW); const snapshot = structuredClone(game); const first = queueProduction(game, 'bakery', 'bread', NOW);
   assert.equal(first.inventory.wheat, game.inventory.wheat! - bread.inputs.wheat!); assert.equal(first.coins, game.coins); assert.deepEqual(game, snapshot);

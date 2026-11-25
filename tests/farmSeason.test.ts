@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { initialGame, queueProduction, storageUsed, unlockMachine } from '../src/lib/game.ts';
+import { collectProduction, initialGame, queueProduction, storageUsed, unlockMachine } from '../src/lib/game.ts';
 import { storageUpgradeCost, upgradeStorage } from '../src/lib/farmEconomy.ts';
 import { getFarmSeason } from '../src/lib/farmSeason.ts';
 import type { Game, ItemId } from '../src/lib/farmTypes.ts';
@@ -80,7 +80,7 @@ test('an affordable new field is offered when storage materials and coins are sh
   assert.match(harvest?.detail ?? '', /钉子/);
 });
 
-test('workshop guidance queues a second job, then stays done after a new machine exists', () => {
+test('workshop guidance remembers a real second job after collecting the queue', () => {
   const game = started();
   game.unlockedPlots = 7;
   const open = getFarmSeason(game, NOW);
@@ -93,13 +93,26 @@ test('workshop guidance queues a second job, then stays done after a new machine
   const chained = queueProduction(once, 'feed_mill', 'chicken_feed', NOW);
   assert.equal(chained.machines.find(machine => machine.id === 'feed_mill')?.queue.length, 2);
   assert.equal(getFarmSeason(chained, NOW)?.step, 'delivery');
-  const cleared = structuredClone(chained);
-  cleared.machines = cleared.machines.map(machine => ({ ...machine, queue: [] }));
-  assert.equal(getFarmSeason(cleared, NOW)?.step, 'workshop');
+  const jobs = chained.machines.find(machine => machine.id === 'feed_mill')!.queue;
+  const doneAt = jobs[1].readyAt;
+  let cleared = chained;
+  for (const job of jobs) cleared = collectProduction(cleared, 'feed_mill', job.id, doneAt);
+  assert.equal(cleared.machines[0].queue.length, 0);
+  assert.equal(getFarmSeason(cleared, doneAt)?.step, 'delivery');
+  assert.equal(getFarmSeason({ ...cleared, ordersDelivered: 4 }, doneAt), null);
+  assert.equal(getFarmSeason({ ...chained, ordersDelivered: 4 }, NOW), null);
+});
+
+test('a new workshop or extra slot still completes workshop guidance without a queue history', () => {
+  const game = started();
+  game.unlockedPlots = 7;
   const built = unlockMachine({ ...game, xp: 80, coins: 500 }, 'dairy');
   assert.equal(getFarmSeason(built, NOW)?.step, 'delivery');
   built.machines = built.machines.map(machine => ({ ...machine, queue: [] }));
   assert.equal(getFarmSeason(built, NOW)?.step, 'delivery');
+  const expanded = structuredClone(game);
+  expanded.machines[0].slots = 3;
+  assert.equal(getFarmSeason(expanded, NOW)?.step, 'delivery');
 });
 
 test('missing workshop ingredients point at the real item without queueing or spending', () => {
